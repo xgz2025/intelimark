@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2E"/><stop offset="1" stop-color="#121214"/></linearGradient>
+<linearGradient id="coral" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#FF9B62"/><stop offset="1" stop-color="#E8386A"/></linearGradient><filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.5"/></filter>
+<mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+  <rect width="1024" height="1024" fill="#fff"/>
+  <path d="M458,338 L578,458 L458,578" fill="none" stroke="#000" stroke-width="86" stroke-linecap="round" stroke-linejoin="round"/>
+</mask>
+</defs>
+<rect width="1024" height="1024" fill="url(#dark)"/>
+<g filter="url(#shadow)"><g mask="url(#cut)"><path d="M330,264 A60,60 0 0 1 390,204 L634,204 A60,60 0 0 1 694,264 L694,806 L512.0,664 L330,806 Z" fill="url(#coral)" stroke="url(#coral)" stroke-width="28" stroke-linejoin="round"/></g></g>
+</svg>
