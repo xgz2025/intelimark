@@ -1,0 +1,57 @@
+import AppKit
+import SwiftUI
+import Model
+import Capture
+import CaptureUI
+
+/// macOS share extension (PRD C3): right-click → Share → Nextmark in Safari,
+/// Finder, Photos, Preview and Notes. Same flow as iOS.
+final class ShareViewController: NSViewController {
+    private let store = EnvelopeStore()
+    private let captureID = ULID()
+    private let draft = CaptureDraft()
+
+    override var nibName: NSNib.Name? { nil }
+
+    override func loadView() {
+        let sheet = CaptureSheet(
+            draft: draft,
+            onSave: { [weak self] in self?.save() },
+            onCancel: { [weak self] in self?.cancel() }
+        )
+        let hosting = NSHostingView(rootView: sheet)
+        hosting.frame = NSRect(x: 0, y: 0, width: 420, height: 380)
+        view = hosting
+        preferredContentSize = hosting.frame.size
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        Task { await loadContent() }
+    }
+
+    private func loadContent() async {
+        let inputItems = extensionContext?.inputItems ?? []
+        let payloadDirectory = (try? store.makePayloadDirectory(for: captureID)) ?? FileManager.default.temporaryDirectory
+        draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
+        draft.isLoading = false
+    }
+
+    private func save() {
+        guard let content = draft.content else { return }
+        do {
+            try CaptureWriter.commit(
+                content, id: captureID, surface: .shareSheet,
+                intent: draft.intent, note: draft.trimmedNote, store: store
+            )
+            extensionContext?.completeRequest(returningItems: nil)
+        } catch {
+            extensionContext?.cancelRequest(withError: error)
+        }
+    }
+
+    private func cancel() {
+        try? store.discard(captureID)
+        extensionContext?.cancelRequest(withError: CocoaError(.userCancelled))
+    }
+}

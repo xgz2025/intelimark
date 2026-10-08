@@ -1,0 +1,231 @@
+# Nextmark — XcodeGen project spec. The .xcodeproj is generated, not committed:
+#   brew install xcodegen && xcodegen generate     (or: make open)
+# Docs/architecture.md §2 describes the targets; shared code lives in Packages/NextmarkKit.
+name: Nextmark
+
+options:
+  bundleIdPrefix: com.nextmark
+  developmentLanguage: en
+  createIntermediateGroups: true
+  groupSortPosition: top
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: DMY7T44MNF
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  NextmarkKit:
+    path: Packages/NextmarkKit
+
+targets:
+  # ---------------------------------------------------------------- iOS / iPadOS
+  Nextmark-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - App/Shared
+      - App/iOS
+    settings:
+      base:
+        PRODUCT_NAME: Nextmark
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app
+        INFOPLIST_FILE: App/iOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/iOS/Nextmark.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+      - package: NextmarkKit
+        product: Library
+      - package: NextmarkKit
+        product: Intelligence
+      - package: NextmarkKit
+        product: Pipeline
+      - package: NextmarkKit
+        product: Features
+      - target: ShareExtension-iOS
+      - target: SafariExtension-iOS
+      - target: Widgets-iOS
+    scheme:
+      gatherCoverageData: false
+
+  ShareExtension-iOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Extensions/Share/iOS
+      - path: Extensions/Share/Shared/PageCapture.js
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkShare
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.share
+        INFOPLIST_FILE: Extensions/Share/iOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Share/iOS/Share.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+      - package: NextmarkKit
+        product: CaptureUI
+
+  SafariExtension-iOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Extensions/Safari/Shared
+      - Extensions/Safari/iOS
+      - path: Extensions/Safari/Resources
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkSafari
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.safari
+        INFOPLIST_FILE: Extensions/Safari/iOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Safari/iOS/Safari.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+
+  Widgets-iOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Extensions/Widgets/Shared
+      - Extensions/Widgets/iOS
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.widgets
+        INFOPLIST_FILE: Extensions/Widgets/iOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/iOS/Widgets.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+
+  # ---------------------------------------------------------------- macOS
+  # Same bundle IDs as iOS: one App Store record, universal purchase.
+  Nextmark-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - App/Shared
+      - App/macOS
+    settings:
+      base:
+        PRODUCT_NAME: Nextmark
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app
+        INFOPLIST_FILE: App/macOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/macOS/Nextmark.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+      - package: NextmarkKit
+        product: Library
+      - package: NextmarkKit
+        product: Intelligence
+      - package: NextmarkKit
+        product: Pipeline
+      - package: NextmarkKit
+        product: Features
+      - target: ShareExtension-macOS
+      - target: SafariExtension-macOS
+      - target: Widgets-macOS
+    scheme:
+      gatherCoverageData: false
+
+  ShareExtension-macOS:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Extensions/Share/macOS
+      - path: Extensions/Share/Shared/PageCapture.js
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkShare
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.share
+        INFOPLIST_FILE: Extensions/Share/macOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Share/macOS/Share.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+      - package: NextmarkKit
+        product: CaptureUI
+
+  SafariExtension-macOS:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Extensions/Safari/Shared
+      - Extensions/Safari/macOS
+      - path: Extensions/Safari/Resources
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkSafari
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.safari
+        INFOPLIST_FILE: Extensions/Safari/macOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Safari/macOS/Safari.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - package: NextmarkKit
+        product: Capture
+
+  Widgets-macOS:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Extensions/Widgets/Shared
+      - Extensions/Widgets/macOS
+    settings:
+      base:
+        PRODUCT_NAME: NextmarkWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.widgets
+        INFOPLIST_FILE: Extensions/Widgets/macOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/macOS/Widgets.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - package: NextmarkKit
+        product: Model
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework

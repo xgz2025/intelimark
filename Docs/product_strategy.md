@@ -1,6 +1,6 @@
-# Intelimark — Product Strategy
+# Nextmark — Product Strategy
 
-*Working name. See §6 for why the name should change before launch.*
+*Formerly "Intelimark"; §6 explains the rename.*
 
 This document decides **what makes the app worth choosing** in a crowded
 "save anything + AI" category, and turns that into positioning, signature
@@ -115,6 +115,8 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 
 ## 6. App name
 
+**Decision: Nextmark.** The checklist below is still open.
+
 ### Why "Intelimark" should change
 
 1. **Trademark risk.** Intel Corporation routinely opposes marks that start
@@ -145,7 +147,6 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 - [ ] `.app` / `.com` domain and social handles
 - [ ] Say it out loud: Siri must transcribe it correctly ("Hey Siri, save to Nextmark")
 
-Until the name is decided, the code modules use neutral names with no product
-name (`Capture`, `Library`, `Intelligence`…; see `architecture.md` §9), so a
-rename only touches the app target, the bundle display name and the
-marketing copy.
+The code modules use neutral names with no product name (`Capture`,
+`Library`, `Intelligence`…; see `architecture.md` §10), so a future rename only
+touches the app targets, bundle IDs, display names and marketing copy.

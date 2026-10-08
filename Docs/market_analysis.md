@@ -1,4 +1,4 @@
-# Intelimark — Market & Technical Feasibility (Oct 2026)
+# Nextmark — Market & Technical Feasibility (Oct 2026)
 
 ## Verdict
 

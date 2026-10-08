@@ -1,6 +1,6 @@
-# Intelimark — AI Sessions & Work Recap
+# Nextmark — AI Sessions & Work Recap
 
-*Working name — see `product_strategy.md` §6.* Requirement IDs continue
+Requirement IDs continue
 `prd.md` (S = sessions, R = recap). Architecture references point to
 `architecture.md`.
 
