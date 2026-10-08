@@ -1,0 +1,55 @@
+import SwiftUI
+import UIKit
+import Model
+import Capture
+import CaptureUI
+
+/// iOS share extension (PRD C1): collect → choose intent → commit an envelope → done.
+/// No AI and no database access here (Docs/architecture.md §2).
+final class ShareViewController: UIViewController {
+    private let store = EnvelopeStore()
+    private let captureID = ULID()
+    private let draft = CaptureDraft()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let sheet = CaptureSheet(
+            draft: draft,
+            onSave: { [weak self] in self?.save() },
+            onCancel: { [weak self] in self?.cancel() }
+        )
+        let host = UIHostingController(rootView: sheet)
+        addChild(host)
+        host.view.frame = view.bounds
+        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(host.view)
+        host.didMove(toParent: self)
+
+        Task { await loadContent() }
+    }
+
+    private func loadContent() async {
+        let inputItems = extensionContext?.inputItems ?? []
+        let payloadDirectory = (try? store.makePayloadDirectory(for: captureID)) ?? FileManager.default.temporaryDirectory
+        draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
+        draft.isLoading = false
+    }
+
+    private func save() {
+        guard let content = draft.content else { return }
+        do {
+            try CaptureWriter.commit(
+                content, id: captureID, surface: .shareSheet,
+                intent: draft.intent, note: draft.trimmedNote, store: store
+            )
+            extensionContext?.completeRequest(returningItems: nil)
+        } catch {
+            extensionContext?.cancelRequest(withError: error)
+        }
+    }
+
+    private func cancel() {
+        try? store.discard(captureID)
+        extensionContext?.cancelRequest(withError: CocoaError(.userCancelled))
+    }
+}

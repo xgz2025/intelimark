@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6D6AF8"/><stop offset="1" stop-color="#3B2BB8"/></linearGradient>
+<radialGradient id="sheen" cx="0.3" cy="0.05" r="0.9">
+  <stop offset="0" stop-color="#fff" stop-opacity="0.28"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FFF1EC"/></linearGradient>
+<filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+  <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#140B55" flood-opacity="0.35"/>
+</filter>
+</defs>
+<rect width="1024" height="1024" fill="url(#bg)"/>
+<rect width="1024" height="1024" fill="url(#sheen)"/>
+
+<g filter="url(#shadow)"><path d="M322,260 A64,64 0 0 1 386,196 L638,196 A64,64 0 0 1 702,260 L702,812 L512.0,662 L322,812 Z" fill="url(#paper)" stroke="url(#paper)" stroke-width="28" stroke-linejoin="round"/></g>
+<path d="M418,468 L490,540 L622,396" fill="none" stroke="#FA6B61" stroke-width="70" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Nextmark",
+  "description": "Save pages and highlights to Nextmark.",
+  "version": "0.1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "js": ["content.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "permissions": ["contextMenus", "nativeMessaging", "activeTab"]
+}
