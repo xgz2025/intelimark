@@ -79,7 +79,11 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 5. **Highlights that live on the page.** With the Safari extension, saved
    highlights reappear on the web page when the user returns, and tapping an
    item from the app scrolls straight to the highlight (text fragments).
-6. **Done.** Items and groups can be *completed*. A monthly recap shows what
+6. **Friday Recap (1.1).** *"Your weekly report is ready."* AI sessions from
+   ChatGPT, Claude, Gemini and Claude Code, plus the saves and actions of the
+   same week, grouped into workstreams and drafted as a report in which every
+   line cites its source. See `ai_sessions_spec.md`.
+7. **Done.** Items and groups can be *completed*. A monthly recap shows what
    you acted on, not just what you hoarded. Unacted, unopened saves fade
    to an archive after a configurable period instead of piling up.
 
@@ -88,6 +92,11 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 - **Launch audience:** planners (trips, home projects, gifts, shopping
   decisions) and knowledge workers/students. Planning use cases demo best
   (Moments + Compare) and have obvious "done" states.
+- **Second persona (1.1 "Work"):** people who do one task across several AI
+  tools and owe a weekly or monthly report. Saving AI chats is already a
+  commodity (free Chrome extensions, ChatsRecall); **turning them, across
+  tools, into a cited report** is not. A Friday report is a recurring,
+  deadline-driven habit, and this audience pays.
 - **Displaced users:** Pocket (closed 2025) and Omnivore (closed 2024)
   refugees. Offer import from Pocket CSV, Raindrop, Netscape bookmark HTML and
   Safari Reading List export.

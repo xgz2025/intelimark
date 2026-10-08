@@ -13,6 +13,10 @@ Goals:
 - every AI output is **re-generatable** (versioned pipeline), and user edits
   are never overwritten
 
+AI-session capture, digests, workstreams and Recap are specified in
+`ai_sessions_spec.md`. The additions below (§4.2 and §5.1) are reserved in
+1.0 so that work is purely additive.
+
 Platform baseline: iOS / iPadOS / macOS 26, Swift 6 (strict concurrency),
 SwiftUI, Swift Testing. OS 27 features are behind `#available`.
 
@@ -197,7 +201,9 @@ erDiagram
 
 **Attachment**: `itemID`, `role` (`original · thumbnail · archive`), `uti`, `byteSize`, `localPath`, `syncPolicy` (`always · ifEnabled · never`)
 
-**Group**: `id`, `kind` (`manual · smart · plan`), `state` (`suggested · accepted · dismissed`), `userTitle`/`aiTitle`, `emoji`, `color`, `goal`, `targetDate`, `briefJSON`, `briefVersion`, `briefInputsHash`, `status`
+**Reserved for AI sessions** (`ai_sessions_spec.md` §7): `Item.kind` `.aiSession`, `Item.status` `.log`, `Item.syncScope` (`cloud · local`); `SessionMeta`, `ActivitySpan` (recorded for *every* item from 1.0), `Rollup`, `Recap`; `Group.kind` `.workstream`.
+
+**Group**: `id`, `kind` (`manual · smart · plan · workstream`), `state` (`suggested · accepted · dismissed`), `userTitle`/`aiTitle`, `emoji`, `color`, `goal`, `targetDate`, `briefJSON`, `briefVersion`, `briefInputsHash`, `status`
 
 **Membership**: `groupID`, `itemID`, `origin` (`user · ai`), `score`, `locked`. A membership the user creates or confirms is locked, and the AI never removes it.
 
@@ -236,7 +242,8 @@ erDiagram
 
 ```swift
 struct Job { let itemID: ItemID; let stage: Stage; var attempts: Int; var notBefore: Date }
-enum Stage: Int, CaseIterable { case extract, understand, embed, index, group, moments }
+enum Stage: Int, CaseIterable { case extract, prefilter, understand, digest, embed, index, group, moments, rollup }
+// prefilter/digest run only for .aiSession; rollup runs per workstream × ISO week (ai_sessions_spec.md §4–5)
 ```
 
 - Persisted in SQLite; a single `actor PipelineRunner` drains it with

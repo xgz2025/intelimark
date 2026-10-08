@@ -11,7 +11,9 @@
   (on-device image understanding, Private Cloud Compute model) light up
   automatically with `#available`.
 - **Primary users:** planners (trips, home, gifts, shopping decisions),
-  knowledge workers, students.
+  knowledge workers, students. From 1.1, also people who work across
+  several AI tools and need weekly or monthly reports (see
+  `ai_sessions_spec.md`).
 - **Principles**
   1. **Capture in under 2 seconds.** The share sheet must never wait for AI.
   2. **Every save has a why.** Intent is first-class data, not a tag.
@@ -34,6 +36,10 @@
 | **Brief** | The AI-generated page for a group: overview, key points, comparison table, checklist, suggested actions. |
 | **Action** | A next step attached to an item or group. It can sync to Reminders. |
 | **Moment** | A scheduled resurfacing of an item or group, triggered by time, place, calendar or review. |
+| **AI Session** | One conversation with an AI tool (ChatGPT, Claude, Gemini, Claude Code…), kept as one long-lived item. |
+| **Log** | Status for auto-captured material: searchable and reportable, but kept out of the Inbox and Moments. |
+| **Workstream** | A group for a task or project that spans AI sessions, saves and actions. |
+| **Recap** | A generated, editable weekly or monthly report in which every line cites its sources. |
 
 ## 3. Feature list
 
@@ -112,7 +118,25 @@ Priority: **P0** = MVP (1.0) · **P1** = 1.1–1.2 · **P2** = later / validate 
 | M6 | **Fading:** items with no intent, no actions and no opens after a set period (default 90 days) move to *Faded*. They're never deleted automatically and stay searchable. | P1 |
 | M7 | **Monthly recap:** "You acted on 23 saves, finished 2 plans." | P1 |
 
-### 3.7 Platform, sync and account
+### 3.7 AI sessions and Work Recap
+
+Full spec: `ai_sessions_spec.md`.
+
+| ID | Feature | Pri |
+|---|---|---|
+| S1 | **Manual capture of AI links and selected answers** through the share sheet and Services, linked to the session when the URL is known. | P0 |
+| S2 | **Safari site adapters**, opt-in per site: auto-capture conversations on ChatGPT, Claude, Gemini, Perplexity and claude.ai/code as **Log** items, updated incrementally. Includes a health check. | P1 (1.1) |
+| S3 | **Import data exports** (ChatGPT, Claude, Gemini Takeout) to backfill history with timestamps. | P1 (1.1) |
+| S4 | **Coding-agent transcripts on Mac** (Claude Code, Codex CLI) from user-granted folders. | P1 (1.2) |
+| S5 | **Session Digest:** goal, outcome, status, decisions, artifacts, open questions, next steps (which become suggested Actions). Secrets are redacted before storage. | P1 (1.1) |
+| S6 | **Workstreams:** cross-tool grouping by entities, meaning and time; suggested, never forced. | P1 (1.1) |
+| S7 | **Timeline:** days → workstreams → sessions and items, with active time. | P1 (1.1) |
+| R1 | **Recap:** weekly report and standup templates; every bullet cites its sources; editable; export to Markdown, Mail, Notes, Pages or PDF. Friday Moment. | P1 (1.1) |
+| R2 | **Monthly review, brag document, client timesheet** templates; calendar evidence; optional PCC polish. | P1 (1.2) |
+| R3 | **"Keep on this Mac"** per source (excluded from iCloud). | P1 (1.1) |
+| S8 | Chrome extension (localhost bridge); MCP `log_work` server so agents log themselves. | P2 |
+
+### 3.8 Platform, sync and account
 
 | ID | Feature | Pri |
 |---|---|---|
@@ -131,13 +155,18 @@ Priority: **P0** = MVP (1.0) · **P1** = 1.1–1.2 · **P2** = later / validate 
 - Social or public profiles, feeds or discovery.
 - Team or workspace knowledge base features.
 - RSS, newsletters by email, or forwarding-email capture (needs a server).
+- Screen or audio recording of any kind ("record everything" tools such as
+  Rewind or Screenpipe). AI-session capture is limited to explicit
+  conversations from opted-in sources.
 - Third-party cloud LLMs (possible later through the Foundation Models
   `LanguageModel` protocol, but not needed for v1).
 
 ## 5. MVP cut (1.0) and success metrics
 
 **1.0 ships:** C1–C5, C8, C9, C12, U1–U6, F1, F2 (filters), F5, G1–G3, G6,
-A1, A2, A4 (view), A5, M1, M2, M5, P1, P2, P4, P5, P7.
+A1, A2, A4 (view), A5, M1, M2, M5, S1, P1, P2, P4, P5, P7. The data model
+reserves AI sessions, the Log status and activity spans, so the 1.1 "Work"
+update (S2, S3, S5–S7, R1, R3) is purely additive.
 
 **Measures of success (first 90 days):**
 - Activation: ≥ 60 % of new users save ≥ 5 items in week 1 (Screenshot
