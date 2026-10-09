@@ -23,7 +23,18 @@ struct DateFinderTests {
         let matches = DateFinder.matches(in: "Doors open Nov 21, 2026 at 7:30 PM. Refunds until November 1, 2026.")
         #expect(matches.count == 2)
         #expect(matches.first?.hasTime == true)
+        #expect(matches.first?.isUntil == false)
         #expect(matches.last?.hasTime == false)
+    }
+
+    @Test func openEndedRangesResolveToTheirEnd() throws {
+        // NSDataDetector returns "until …" as a range starting now; the named date is its end.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let match = try #require(DateFinder.matches(in: "Refunds until November 1, 2026.").first)
+        let parts = calendar.dateComponents([.year, .month, .day], from: match.date)
+        #expect(match.isUntil)
+        #expect([parts.year, parts.month, parts.day] == [2026, 11, 1])
     }
 
     @Test(arguments: ["7:30", "7pm", "19時", "下午3点", "3 p.m."])

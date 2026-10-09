@@ -24,8 +24,8 @@ public struct HeuristicUnderstander: ItemUnderstander {
         )
     }
 
-    /// Upcoming dates found by `NSDataDetector`. Without a model there is no way to
-    /// tell a deadline from a mention, so every date is `.mentioned`.
+    /// Upcoming dates found by `NSDataDetector`. "Ends …" / "until …" phrases are
+    /// deadlines; without a model, every other date is `.mentioned`.
     static func dates(for input: UnderstandingInput) -> [ItemDate] {
         let reference = input.capturedAt ?? Date()
         let startOfDay = Calendar.current.startOfDay(for: reference)
@@ -34,7 +34,8 @@ public struct HeuristicUnderstander: ItemUnderstander {
             guard match.mentionsDay, match.date >= startOfDay, match.date.timeIntervalSince(reference) <= dateHorizon,
                   !dates.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: match.date) })
             else { continue }
-            dates.append(ItemDate(date: match.date, hasTime: match.hasTime, role: .mentioned, evidence: match.text, source: .detector))
+            let role: ItemDate.Role = match.isUntil ? .deadline : .mentioned
+            dates.append(ItemDate(date: match.date, hasTime: match.hasTime, role: role, evidence: match.text, source: .detector))
             if dates.count == maxDates { break }
         }
         return dates

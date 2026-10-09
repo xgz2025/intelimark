@@ -60,7 +60,7 @@ struct HeuristicUnderstanderTests {
         let parts = calendar.dateComponents([.year, .month, .day], from: date.date)
         #expect([parts.year, parts.month, parts.day] == [2026, 10, 31], "detector matches: \(detected)")
         #expect(date.hasTime)
-        #expect(date.role == .mentioned)
+        #expect(date.role == .deadline)    // "ends …" is a deadline
         #expect(date.source == .detector)
     }
 

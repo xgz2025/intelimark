@@ -4,7 +4,10 @@ import Foundation
 /// date source, and the check model-proposed dates must pass (Docs/architecture.md §6.2).
 public enum DateFinder {
     public struct Match: Sendable, Equatable {
+        /// The date the words name. For "ends Oct 31" / "until Nov 1" this is the end.
         public var date: Date
+        /// True for open-ended ranges ("sale ends …", "refunds until …"): a deadline.
+        public var isUntil: Bool
         public var hasTime: Bool
         /// False when the words only state a time ("11:59 PM"): the detector then
         /// assumes today, which is not a fact from the source.
@@ -13,16 +16,26 @@ public enum DateFinder {
     }
 
     static let maxScannedCharacters = 20_000
+    /// How close to "now" a range start must be to count as open-ended.
+    static let openEndedTolerance: TimeInterval = 120
 
     public static func matches(in text: String) -> [Match] {
         guard !text.isEmpty,
               let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
         else { return [] }
         let scanned = String(text.prefix(maxScannedCharacters))
+        let now = Date()
         return detector.matches(in: scanned, range: NSRange(scanned.startIndex..., in: scanned)).compactMap { result in
-            guard let date = result.date, let range = Range(result.range, in: scanned) else { return nil }
+            guard let start = result.date, let range = Range(result.range, in: scanned) else { return nil }
             let matched = String(scanned[range])
-            return Match(date: date, hasTime: mentionsTimeOfDay(matched), mentionsDay: mentionsDay(matched), text: matched)
+            // "ends October 31" / "until Nov 1" come back as a range from *now* with a
+            // duration; the date the words name is the end of that range.
+            let isUntil = result.duration > 0 && abs(start.timeIntervalSince(now)) < openEndedTolerance
+            let date = isUntil ? start.addingTimeInterval(result.duration) : start
+            return Match(
+                date: date, isUntil: isUntil, hasTime: mentionsTimeOfDay(matched),
+                mentionsDay: mentionsDay(matched), text: matched
+            )
         }
     }
 
