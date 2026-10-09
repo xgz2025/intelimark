@@ -28,11 +28,11 @@ public enum HTMLParser {
     static let maxJSONLDBlocks = 10
     static let maxJSONLDCharacters = 100_000
 
-    nonisolated(unsafe) static let metaTag = HTMLText.regex(#"<meta\b[^>]*>"#)
-    nonisolated(unsafe) static let linkTag = HTMLText.regex(#"<link\b[^>]*>"#)
-    nonisolated(unsafe) static let htmlTag = HTMLText.regex(#"<html\b[^>]*>"#)
-    nonisolated(unsafe) static let titleElement = HTMLText.regex(#"<title\b[^>]*>(.*?)</title>"#)
-    nonisolated(unsafe) static let scriptElement = HTMLText.regex(#"<script\b([^>]*)>(.*?)</script>"#)
+    static let metaTag = HTMLText.regex(#"<meta\b[^>]*>"#)
+    static let linkTag = HTMLText.regex(#"<link\b[^>]*>"#)
+    static let htmlTag = HTMLText.regex(#"<html\b[^>]*>"#)
+    static let titleElement = HTMLText.regex(#"<title\b[^>]*>(.*?)</title>"#)
+    static let scriptElement = HTMLText.regex(#"<script\b([^>]*)>(.*?)</script>"#)
 
     /// Relative URLs (images, canonical) are resolved against `baseURL`.
     public static func metadata(from html: String, baseURL: URL?) -> HTMLMetadata {

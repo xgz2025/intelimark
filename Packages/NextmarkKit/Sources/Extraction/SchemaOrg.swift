@@ -227,7 +227,7 @@ enum SchemaDate {
 }
 
 enum SchemaDuration {
-    nonisolated(unsafe) static let pattern = HTMLText.regex(#"^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$"#)
+    static let pattern = HTMLText.regex(#"^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$"#)
 
     /// ISO 8601 durations such as `PT1H15M` → minutes.
     static func minutes(_ text: String?) -> Int? {

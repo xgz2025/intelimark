@@ -34,6 +34,10 @@ jobs:
           set -o pipefail
           swift test --package-path Packages/NextmarkKit 2>&1 | tee test.log
 
+      - name: Check for warnings
+        shell: bash
+        run: scripts/check-warnings.sh test.log
+
       - name: Summarize failures
         if: failure()
         shell: bash
@@ -76,6 +80,10 @@ jobs:
             2>&1 | tee build.log | grep -E "^(\*\*|.*error:)"
           status=${PIPESTATUS[0]}
           exit $status
+
+      - name: Check for warnings
+        shell: bash
+        run: scripts/check-warnings.sh build.log
 
       - name: Summarize failures
         if: failure()

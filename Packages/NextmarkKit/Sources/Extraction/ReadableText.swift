@@ -5,18 +5,18 @@ import Foundation
 public enum ReadableText {
     public static let defaultMaxCharacters = 20_000
 
-    nonisolated(unsafe) static let comments = HTMLText.regex(#"<!--.*?-->"#)
-    nonisolated(unsafe) static let chrome = HTMLText.regex(
+    static let comments = HTMLText.regex(#"<!--.*?-->"#)
+    static let chrome = HTMLText.regex(
         #"<(script|style|noscript|svg|template|iframe|nav|header|footer|aside|form|button|select|figure)\b[^>]*>.*?</\1\s*>"#
     )
-    nonisolated(unsafe) static let article = HTMLText.regex(#"<article\b[^>]*>(.*?)</article\s*>"#)
-    nonisolated(unsafe) static let main = HTMLText.regex(#"<main\b[^>]*>(.*?)</main\s*>"#)
-    nonisolated(unsafe) static let body = HTMLText.regex(#"<body\b[^>]*>(.*?)(?:</body\s*>|$)"#)
-    nonisolated(unsafe) static let listItem = HTMLText.regex(#"<li\b[^>]*>"#)
-    nonisolated(unsafe) static let blockBreak = HTMLText.regex(
+    static let article = HTMLText.regex(#"<article\b[^>]*>(.*?)</article\s*>"#)
+    static let main = HTMLText.regex(#"<main\b[^>]*>(.*?)</main\s*>"#)
+    static let body = HTMLText.regex(#"<body\b[^>]*>(.*?)(?:</body\s*>|$)"#)
+    static let listItem = HTMLText.regex(#"<li\b[^>]*>"#)
+    static let blockBreak = HTMLText.regex(
         #"<(?:br|hr)\b[^>]*>|</(?:p|div|li|h[1-6]|tr|section|blockquote|pre|dd|dt|table|ul|ol)\s*>|<(?:p|h[1-6]|tr|blockquote|pre)\b[^>]*>"#
     )
-    nonisolated(unsafe) static let anyTag = HTMLText.regex(#"<[^>]+>"#)
+    static let anyTag = HTMLText.regex(#"<[^>]+>"#)
 
     public static func extract(fromHTML html: String, maxCharacters: Int = defaultMaxCharacters) -> String? {
         var text = HTMLText.replacing(comments, in: html, with: " ")

@@ -14,6 +14,7 @@ decisions live in `Docs/` — read `Docs/architecture.md` before structural chan
 - AI writes only the derived layer of an item; user fields (`userTitle`, `note`, `intent`, …) are never overwritten.
 - Swift 6 language mode, strict concurrency. Prefer value types and actors; callbacks from Apple APIs that arrive off the main thread go through `@Sendable` completions.
 - Tests must not touch `AppGroup` locations; inject temporary directories.
+- Keep the build warning-free: CI fails on any compiler warning in our code (`scripts/check-warnings.sh`; third-party packages are ignored).
 - Never put model identifiers in commits, code or docs.
 
 ## Commands (macOS with Xcode 26)
