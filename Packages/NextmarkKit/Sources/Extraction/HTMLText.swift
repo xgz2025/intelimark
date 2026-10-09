@@ -28,7 +28,7 @@ enum HTMLText {
 
     // MARK: Attributes
 
-    nonisolated(unsafe) static let attributePattern = regex(
+    static let attributePattern = regex(
         #"([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))"#
     )
 
@@ -55,7 +55,7 @@ enum HTMLText {
         "ntilde": "ñ", "iacute": "í", "oacute": "ó", "uacute": "ú",
     ]
 
-    nonisolated(unsafe) static let entityPattern = regex(#"&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[a-zA-Z][a-zA-Z0-9]{1,31});"#)
+    static let entityPattern = regex(#"&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[a-zA-Z][a-zA-Z0-9]{1,31});"#)
 
     static func decodeEntities(_ text: String) -> String {
         guard text.contains("&") else { return text }
