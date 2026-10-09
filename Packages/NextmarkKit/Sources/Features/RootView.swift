@@ -1,5 +1,6 @@
 import SwiftUI
 import Library
+import Search
 
 enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
     case inbox, nextActions, groups, search, settings
@@ -30,10 +31,12 @@ enum SidebarItem: String, CaseIterable, Identifiable, Hashable {
 /// Top-level navigation: a sidebar on iPad and Mac that collapses to a stack on iPhone.
 public struct RootView: View {
     private let repository: ItemRepository
+    private let search: HybridSearch
     @State private var selection: SidebarItem? = .inbox
 
-    public init(repository: ItemRepository) {
+    public init(repository: ItemRepository, search: HybridSearch) {
         self.repository = repository
+        self.search = search
     }
 
     public var body: some View {
@@ -55,7 +58,7 @@ public struct RootView: View {
         case .inbox:
             InboxView(repository: repository)
         case .search:
-            SearchView(repository: repository)
+            SearchView(search: search)
         case .settings:
             SettingsView()
         case .nextActions:

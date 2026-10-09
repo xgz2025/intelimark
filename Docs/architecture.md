@@ -263,7 +263,7 @@ enum Stage: Int, CaseIterable { case extract, prefilter, understand, digest, emb
 |---|---|---|
 | **Extract** | URL → title, site name, hero image, canonical URL, readable text, schema.org kind + typed fields; PDF → text per page; image → OCR text, barcodes, classification labels; plain-text file → text. Safari captures use the page as the user saw it (no fetch). | `Extraction` module: `URLSession` (ephemeral, size-capped), tolerant HTML/readability parser, `SchemaOrg`, `PDFKit`, Vision `RecognizeTextRequest`, `DetectBarcodesRequest`, `ClassifyImageRequest` |
 | **Understand** | extracted text and/or image → `ItemUnderstanding` | Foundation Models guided generation (§6) |
-| **Embed** | title + summary + note + highlights + OCR (truncated) → vector | `NLContextualEmbedding` (mean-pooled), behind `EmbeddingProvider` |
+| **Embed** | title + note + summary + highlight + image description + keywords + OCR + page text (most telling first, cut to the model's length) → unit vector | `NLContextualEmbedding` (mean-pooled), behind `EmbeddingProvider` |
 | **Index** | → FTS5 row, vector row, `CSSearchableItem` + `IndexedEntity` | GRDB, Core Spotlight, App Intents |
 | **Group** | vector → suggested membership / suggested new group | §7 |
 | **Moments** | dates, places, plan dates → `Moment` rows → OS schedulers | §8 |
@@ -276,6 +276,17 @@ Extract stage rules:
 - Facts never overwrite captured data: a page title only fills a missing
   `sourceTitle`. A schema.org kind is stored as `structuredKind` and wins over the
   model's guess in Understand.
+
+Embed stage rules:
+- `NLContextualEmbedding` has one model per script (Latin, Cyrillic, CJK…), picked
+  from the text's dominant language. Each vector is stored with its model ID
+  (`identifier#revision`) and is only compared with vectors from the same model, so
+  semantic search works within a script; full-text search covers the rest.
+- Model assets download on demand. Until they arrive, Embed jobs back off and
+  retry; text in an unsupported script is skipped (no retry). At launch, items
+  without a vector, or with one from a model an OS update replaced, are queued again.
+- Vectors are local only (`embedding` table, never synced) and are recomputed
+  whenever Understand runs again.
 
 ### 5.3 Fallback matrix
 
@@ -303,8 +314,8 @@ protocol GroupBriefWriter: Sendable {
     func brief(for group: GroupSnapshot, items: [ItemDigest]) async throws -> GroupBrief
 }
 protocol EmbeddingProvider: Sendable {
-    var modelID: String { get }
-    func embed(_ text: String, language: NLLanguage?) async throws -> [Float]
+    func embed(_ text: String) async throws -> TextEmbedding   // unit vector + model ID (one model per script)
+    func isCurrent(_ modelID: String) async -> Bool             // false once an OS update replaced the model
 }
 protocol QueryInterpreter: Sendable {          // F2 natural-language filters
     func interpret(_ query: String, now: Date) async throws -> SearchQuery
@@ -441,10 +452,22 @@ Then:
 1. **Lexical:** FTS5 `MATCH` with BM25 over title, summary, note, highlights,
    OCR, description, keywords and domain. Uses the `unicode61`
    tokenizer, plus character trigrams for CJK languages.
-2. **Semantic:** embed the query and run a cosine scan over vectors that pass
-   the structured filters.
-3. **Fusion:** Reciprocal Rank Fusion of the two lists, then a small
-   recency boost and an intent/status boost. Done and faded items rank lower.
+2. **Semantic:** embed the query and run a cosine scan over vectors from the
+   same model that pass the structured filters. A vector counts as a match only
+   above a floor (0.5) *and* within a band (0.12) of the best match: mean-pooled
+   vectors of unrelated texts are still fairly similar, so without the band every
+   item would match. Both values are tuned on the eval set. If the query can't be
+   embedded (assets missing, unsupported script), search uses keywords alone.
+3. **Fusion:** Reciprocal Rank Fusion (k = 60) of the two lists, then a small
+   recency boost (half-life 30 days) and intent and pinned boosts, sized to
+   reorder close calls only. Done and faded items rank lower (× 0.7).
+
+Filters (`SearchQuery`): content kind and capture kind (one facet, combined with
+OR: "photos or products"), intent (the user's, else the suggested one), status
+(default: everything but trashed), saved date range and site. With filters but no
+text, search lists the matching items newest first. Code: `Library`
+(`ItemRepository+Search`: FTS, vectors, filters as SQL) and `Search`
+(`HybridSearch`, `SearchRanking`).
 
 Target: p95 < 100 ms at 10k items on an A15. Results stream as they arrive:
 lexical first, then the fused list.
@@ -475,9 +498,9 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ DesignSystem/        # intent chips, symbols, tints
    │  ├─ Library/             # GRDB schema v1, records, ItemRepository (FTS5), JobQueue, Ingestor
    │  ├─ Extraction/          # Extract stage: page fetch, HTML metadata, readable text, schema.org, PDF text, Vision
-   │  ├─ Intelligence/        # ItemUnderstander, Foundation Models impl, heuristic fallback, router
+   │  ├─ Intelligence/        # ItemUnderstander, Foundation Models impl, heuristic fallback, router, EmbeddingProvider
    │  ├─ Pipeline/            # PipelineRunner actor
-   │  ├─ Search/              # rank fusion, vector math
+   │  ├─ Search/              # HybridSearch (FTS + vectors + RRF), SearchRanking, vector math
    │  ├─ Grouping/            # centroid assignment
    │  ├─ Moments/             # MomentPlanner (budget, quiet hours)
    │  └─ Features/            # SwiftUI screens: RootView, Inbox, Search, Settings

@@ -30,22 +30,3 @@ struct InboxView: View {
         }
     }
 }
-
-struct SearchView: View {
-    let repository: ItemRepository
-    @State private var query = ""
-    @State private var results: [ItemRecord] = []
-
-    var body: some View {
-        List(results) { item in
-            ItemRow(item: item)
-        }
-        .searchable(text: $query, prompt: "Titles, notes, highlights…")
-        .task(id: query) {
-            try? await Task.sleep(for: .milliseconds(200))   // debounce typing
-            guard !Task.isCancelled else { return }
-            results = (try? await repository.search(query)) ?? []
-        }
-        .navigationTitle("Search")
-    }
-}

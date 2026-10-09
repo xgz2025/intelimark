@@ -39,12 +39,17 @@ struct PipelineHarness {
         try await Ingestor(store: store, database: database, itemsDirectory: itemsDirectory).ingestPending(now: now)
     }
 
-    func runner(fetcher: any PageFetcher, understander: any ItemUnderstander = HeuristicUnderstander()) -> PipelineRunner {
+    func runner(
+        fetcher: any PageFetcher,
+        understander: any ItemUnderstander = HeuristicUnderstander(),
+        embedder: (any EmbeddingProvider)? = nil
+    ) -> PipelineRunner {
         PipelineRunner(
             database: database,
             itemsDirectory: itemsDirectory,
             extractor: ItemExtractor(fetcher: fetcher, imageAnalyzer: nil),
-            understander: understander
+            understander: understander,
+            embedder: embedder
         )
     }
 }
@@ -205,5 +210,87 @@ struct PipelineTests {
         #expect(try await harness.queue.count() == 1)
         #expect(try await harness.queue.next(now: now) == nil)                          // backed off…
         #expect(try await harness.queue.next(now: now.addingTimeInterval(61)) != nil)   // …for one minute
+    }
+
+    // MARK: Embed
+
+    /// Returns a fixed vector, or throws; `currentModelID` decides which vectors are stale.
+    struct StubEmbedder: EmbeddingProvider {
+        var error: EmbeddingError?
+        var currentModelID = "stub#1"
+
+        func embed(_ text: String) async throws -> TextEmbedding {
+            if let error { throw error }
+            return TextEmbedding(modelID: currentModelID, vector: [0.6, 0.8])
+        }
+
+        func isCurrent(_ modelID: String) async -> Bool { modelID == currentModelID }
+    }
+
+    @Test func understoodItemsAreEmbedded() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "Ideas for the trip")
+        try await harness.capture(envelope, now: now)
+        #expect(await harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder()).drain(now: now) == 3)
+
+        let embedding = try #require(try await harness.repository.embedding(forItem: envelope.id.rawValue))
+        #expect(embedding.modelID == "stub#1")
+        #expect(embedding.floats == [0.6, 0.8])
+        #expect(try await harness.queue.count() == 0)
+    }
+
+    @Test func missingModelAssetsAreRetriedButUnsupportedTextIsNot() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "Ideas for the trip")
+        try await harness.capture(envelope, now: now)
+
+        await harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder(error: .assetsUnavailable)).drain(now: now)
+        #expect(try await harness.queue.next(now: now.addingTimeInterval(61))?.stage == .embed)
+
+        await harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder(error: .unsupportedLanguage))
+            .drain(now: now.addingTimeInterval(61))
+        #expect(try await harness.queue.count() == 0)
+        #expect(try await harness.repository.embedding(forItem: envelope.id.rawValue) == nil)
+    }
+
+    @Test func missingAndOutdatedVectorsAreRequeued() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "Ideas for the trip")
+        try await harness.capture(envelope, now: now)
+        await harness.runner(fetcher: StubFetcher.html("")).drain(now: now)   // no embedder yet
+
+        let runner = harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder())
+        #expect(await harness.runner(fetcher: StubFetcher.html("")).requeueStaleEmbeddings(now: now) == 0)
+        #expect(await runner.requeueStaleEmbeddings(now: now) == 1)
+        #expect(await runner.requeueStaleEmbeddings(now: now) == 0)    // already queued
+        await runner.drain(now: now)
+        #expect(await runner.requeueStaleEmbeddings(now: now) == 0)
+
+        // An OS update replaced the model: vectors from the old one are recomputed.
+        let updated = harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder(currentModelID: "stub#2"))
+        #expect(await updated.requeueStaleEmbeddings(now: now) == 1)
+        await updated.drain(now: now)
+        #expect(try await harness.repository.embedding(forItem: envelope.id.rawValue)?.modelID == "stub#2")
+    }
+
+    @Test func embeddingTextPutsTheUsersWordsFirst() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(
+            id: ULID(), device: "d", surface: .shareSheet, url: URL(string: "https://example.com/aeron"),
+            title: "Aeron Chair", selection: TextQuote(exact: "Twelve-year warranty"), userNote: "for the new desk"
+        )
+        try await harness.capture(envelope, now: now)
+        var item = try #require(try await harness.repository.item(id: envelope.id.rawValue))
+        item.summary = "An office chair."
+        item.keywords = ["chair", "office"]
+        item.contentText = String(repeating: "page text ", count: 500)
+
+        let lines = PipelineRunner.embeddingText(for: item).components(separatedBy: "\n")
+        #expect(Array(lines.prefix(5)) == ["Aeron Chair", "for the new desk", "An office chair.", "Twelve-year warranty", "chair, office"])
+        #expect(lines.last?.count == 1_000)
     }
 }

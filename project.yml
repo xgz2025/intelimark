@@ -57,6 +57,8 @@ targets:
       - package: NextmarkKit
         product: Pipeline
       - package: NextmarkKit
+        product: Search
+      - package: NextmarkKit
         product: Features
       - target: ShareExtension-iOS
       - target: SafariExtension-iOS
@@ -157,6 +159,8 @@ targets:
         product: Intelligence
       - package: NextmarkKit
         product: Pipeline
+      - package: NextmarkKit
+        product: Search
       - package: NextmarkKit
         product: Features
       - target: ShareExtension-macOS

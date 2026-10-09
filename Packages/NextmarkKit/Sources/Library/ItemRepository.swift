@@ -40,27 +40,6 @@ public struct ItemRepository: Sendable {
         }
     }
 
-    /// Full-text search with prefix matching, ranked by BM25. The semantic half of
-    /// hybrid search (Docs/architecture.md §9) joins in with the Embed stage.
-    public func search(_ query: String, limit: Int = 50) async throws -> [ItemRecord] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-        return try await database.writer.read { db in
-            guard let pattern = FTS5Pattern(matchingAllPrefixesIn: trimmed) else { return [] }
-            return try ItemRecord.fetchAll(
-                db,
-                sql: """
-                    SELECT item.* FROM item
-                    JOIN item_fts ON item_fts.rowid = item.rowid
-                    WHERE item_fts MATCH ? AND item.status <> 'trashed'
-                    ORDER BY bm25(item_fts)
-                    LIMIT ?
-                    """,
-                arguments: [pattern, limit]
-            )
-        }
-    }
-
     public func attachments(forItem id: String) async throws -> [AttachmentRecord] {
         try await database.writer.read { db in
             try AttachmentRecord.filter(Column("itemID") == id).order(Column("id")).fetchAll(db)

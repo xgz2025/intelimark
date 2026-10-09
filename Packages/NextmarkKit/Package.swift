@@ -39,18 +39,24 @@ let package = Package(
         .target(name: "Extraction", dependencies: ["Model"]),
         .target(name: "Intelligence", dependencies: ["Model"]),
         .target(name: "Pipeline", dependencies: ["Model", "Library", "Extraction", "Intelligence"]),
-        .target(name: "Search", dependencies: ["Model"]),
+        .target(name: "Search", dependencies: ["Model", "Library", "Intelligence"]),
         .target(name: "Grouping", dependencies: ["Model", "Search"]),
         .target(name: "Moments", dependencies: ["Model"]),
-        .target(name: "Features", dependencies: ["Model", "Library", "Intelligence", "DesignSystem"]),
+        .target(name: "Features", dependencies: ["Model", "Library", "Intelligence", "Search", "DesignSystem"]),
 
         .testTarget(name: "ModelTests", dependencies: ["Model"]),
         .testTarget(name: "CaptureTests", dependencies: ["Model", "Capture"]),
-        .testTarget(name: "LibraryTests", dependencies: ["Model", "Capture", "Library"]),
+        .testTarget(
+            name: "LibraryTests",
+            dependencies: ["Model", "Capture", "Library", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
         .testTarget(name: "ExtractionTests", dependencies: ["Model", "Extraction"]),
         .testTarget(name: "PipelineTests", dependencies: ["Model", "Capture", "Library", "Extraction", "Intelligence", "Pipeline"]),
         .testTarget(name: "IntelligenceTests", dependencies: ["Model", "Intelligence"]),
-        .testTarget(name: "SearchTests", dependencies: ["Search"]),
+        .testTarget(
+            name: "SearchTests",
+            dependencies: ["Model", "Library", "Intelligence", "Search", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
         .testTarget(name: "GroupingTests", dependencies: ["Grouping"]),
         .testTarget(name: "MomentsTests", dependencies: ["Moments"]),
     ]

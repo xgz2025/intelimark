@@ -4,18 +4,31 @@ import Foundation
 /// lists without having to calibrate their scores against each other.
 public enum RankFusion {
     public static func reciprocalRank<ID: Hashable>(_ rankings: [[ID]], k: Double = 60) -> [ID] {
+        let fused = scores(rankings, k: k)
+        return fused.order.sorted { lhs, rhs in
+            let (l, r) = (fused.scores[lhs] ?? 0, fused.scores[rhs] ?? 0)
+            return l != r ? l > r : (fused.firstSeen[lhs] ?? 0) < (fused.firstSeen[rhs] ?? 0)
+        }
+    }
+
+    /// Each ID's fused score, Σ 1 / (k + rank), plus the order IDs were first seen in
+    /// (to break ties deterministically).
+    public static func scores<ID: Hashable>(
+        _ rankings: [[ID]], k: Double = 60
+    ) -> (scores: [ID: Double], order: [ID], firstSeen: [ID: Int]) {
         var scores: [ID: Double] = [:]
         var firstSeen: [ID: Int] = [:]
+        var order: [ID] = []
         for ranking in rankings {
             for (rank, id) in ranking.enumerated() {
-                if firstSeen[id] == nil { firstSeen[id] = firstSeen.count }
+                if firstSeen[id] == nil {
+                    firstSeen[id] = order.count
+                    order.append(id)
+                }
                 scores[id, default: 0] += 1 / (k + Double(rank + 1))
             }
         }
-        return firstSeen.keys.sorted { lhs, rhs in
-            let (l, r) = (scores[lhs] ?? 0, scores[rhs] ?? 0)
-            return l != r ? l > r : (firstSeen[lhs] ?? 0) < (firstSeen[rhs] ?? 0)
-        }
+        return (scores, order, firstSeen)
     }
 }
 
@@ -30,6 +43,12 @@ public enum VectorMath {
     public static func cosineSimilarity(_ a: [Float], _ b: [Float]) -> Float {
         let denominator = dot(a, a).squareRoot() * dot(b, b).squareRoot()
         return denominator == 0 ? 0 : dot(a, b) / denominator
+    }
+
+    /// The vector scaled to unit length (zero vectors stay zero).
+    public static func normalized(_ vector: [Float]) -> [Float] {
+        let norm = dot(vector, vector).squareRoot()
+        return norm == 0 ? vector : vector.map { $0 / norm }
     }
 
     /// Element-wise mean, e.g. to pool token embeddings into one sentence vector.
