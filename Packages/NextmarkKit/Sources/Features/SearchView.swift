@@ -115,7 +115,20 @@ private struct FilterMenu: View {
                 systemImage: filters.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill"
             )
         }
-        .menuActionDismissBehavior(.disabled)   // pick several filters in one go
+        .keepsMenuOpenOnSelection()
+    }
+}
+
+private extension View {
+    /// On iOS the menu stays open so several filters can be picked in one go.
+    /// macOS menus always close on selection.
+    @ViewBuilder
+    func keepsMenuOpenOnSelection() -> some View {
+        #if os(iOS)
+        menuActionDismissBehavior(.disabled)
+        #else
+        self
+        #endif
     }
 }
 
