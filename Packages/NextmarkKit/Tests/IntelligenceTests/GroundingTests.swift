@@ -30,6 +30,14 @@ struct DateFinderTests {
     func recognizesTimesOfDay(text: String) {
         #expect(DateFinder.mentionsTimeOfDay(text))
     }
+
+    @Test(arguments: [
+        ("11:59 PM", false), ("at 7pm", false), ("19時", false),
+        ("Oct 31 at 7pm", true), ("tomorrow at 9:00", true), ("明天下午3点", true), ("Friday", true),
+    ])
+    func distinguishesDaysFromBareTimes(text: String, mentionsDay: Bool) {
+        #expect(DateFinder.mentionsDay(text) == mentionsDay)
+    }
 }
 
 struct GroundingTests {

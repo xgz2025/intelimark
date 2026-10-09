@@ -31,7 +31,7 @@ public struct HeuristicUnderstander: ItemUnderstander {
         let startOfDay = Calendar.current.startOfDay(for: reference)
         var dates: [ItemDate] = []
         for match in DateFinder.matches(in: input.groundingText) {
-            guard match.date >= startOfDay, match.date.timeIntervalSince(reference) <= dateHorizon,
+            guard match.mentionsDay, match.date >= startOfDay, match.date.timeIntervalSince(reference) <= dateHorizon,
                   !dates.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: match.date) })
             else { continue }
             dates.append(ItemDate(date: match.date, hasTime: match.hasTime, role: .mentioned, evidence: match.text, source: .detector))

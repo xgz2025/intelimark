@@ -54,10 +54,11 @@ struct HeuristicUnderstanderTests {
             capturedAt: saved
         )
         let dates = HeuristicUnderstander.dates(for: input)
-        let date = try #require(dates.first)
-        #expect(dates.count == 1)
+        let detected = DateFinder.matches(in: input.groundingText).map { "\($0.text) → \($0.date)" }
+        let date = try #require(dates.first, "detector matches: \(detected)")
+        #expect(dates.count == 1, "detector matches: \(detected)")
         let parts = calendar.dateComponents([.year, .month, .day], from: date.date)
-        #expect([parts.year, parts.month, parts.day] == [2026, 10, 31])
+        #expect([parts.year, parts.month, parts.day] == [2026, 10, 31], "detector matches: \(detected)")
         #expect(date.hasTime)
         #expect(date.role == .mentioned)
         #expect(date.source == .detector)
