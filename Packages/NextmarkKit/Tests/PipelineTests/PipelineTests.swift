@@ -73,7 +73,7 @@ struct PipelineTests {
         #expect(item.aiTitle == "Knife skills for beginners")
         #expect(item.semanticKind == .video)
         #expect(item.extractVersion == PipelineRunner.extractVersion)
-        #expect(item.derivedVersion == PipelineRunner.understandVersion)
+        #expect(item.derivedVersion == 0)   // heuristic results are provisional
         #expect(try await harness.queue.count() == 0)
     }
 
@@ -98,6 +98,58 @@ struct PipelineTests {
 
         let results = try await harness.repository.search("warranty")
         #expect(results.map(\.id) == [envelope.id.rawValue])
+    }
+
+    static let eventPage = """
+        <html><head><script type="application/ld+json">
+        {"@type":"MusicEvent","name":"Autumn concert","startDate":"2026-11-21T19:30:00+09:00",
+         "location":{"@type":"Place","name":"Budokan","address":"Tokyo"}}
+        </script></head>
+        <body><article><p>Autumn concert at Budokan. Tickets on sale until November 1, 2026.</p></article></body></html>
+        """
+
+    /// Stands in for the on-device model: a non-provisional understander.
+    struct ModelStandIn: ItemUnderstander {
+        func understand(_ input: UnderstandingInput) async throws -> Understanding {
+            Understanding(
+                title: "From the model", summary: "", semanticKind: .other, likelyIntent: .reference,
+                keywords: [], producer: "stand-in", isProvisional: false
+            )
+        }
+    }
+
+    @Test func structuredEventFactsComeFirst() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet, url: URL(string: "https://tickets.example.com/autumn"))
+        try await harness.capture(envelope, now: now)
+        await harness.runner(fetcher: StubFetcher.html(Self.eventPage)).drain(now: now)
+
+        let item = try #require(try await harness.repository.item(id: envelope.id.rawValue))
+        #expect(item.semanticKind == .event)
+        let first = try #require(item.dates.first)
+        #expect(first.role == .eventStart)
+        #expect(first.source == .structured)
+        #expect(first.date == ISO8601DateFormatter().date(from: "2026-11-21T10:30:00Z"))
+        #expect(item.places == [ItemPlace(name: "Budokan", address: "Tokyo", source: .structured)])
+    }
+
+    @Test func provisionalResultsAreRequeuedOnceTheModelIsAvailable() async throws {
+        let harness = try PipelineHarness()
+        let now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "Ideas for the trip")
+        try await harness.capture(envelope, now: now)
+        await harness.runner(fetcher: StubFetcher.html("")).drain(now: now)
+
+        let modelRunner = harness.runner(fetcher: StubFetcher.html(""), understander: ModelStandIn())
+        #expect(await modelRunner.requeueStaleUnderstanding(now: now) == 1)
+        #expect(await modelRunner.requeueStaleUnderstanding(now: now) == 0)   // already queued
+        await modelRunner.drain(now: now)
+
+        let item = try #require(try await harness.repository.item(id: envelope.id.rawValue))
+        #expect(item.aiTitle == "From the model")
+        #expect(item.derivedVersion == PipelineRunner.understandVersion)
+        #expect(await modelRunner.requeueStaleUnderstanding(now: now) == 0)
     }
 
     @Test func capturedTitleIsNeverReplaced() async throws {

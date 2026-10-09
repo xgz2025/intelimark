@@ -45,15 +45,23 @@ public enum PipelineStage: Int, Codable, Sendable, CaseIterable {
     case extract, prefilter, understand, digest, embed, index, group, moments, rollup
 }
 
-/// The result of the Understand stage, whichever model produced it.
+/// The result of the Understand stage, whichever understander produced it.
 public struct Understanding: Sendable, Equatable {
     public var title: String
     public var summary: String
     public var semanticKind: SemanticKind
     public var likelyIntent: Intent?
     public var keywords: [String]
+    /// What a photo or screenshot shows, so it is findable by text (PRD U3). Nil for other items.
+    public var imageDescription: String?
+    /// Grounded dates and places (PRD U2); structured facts are merged in later.
+    public var dates: [ItemDate]
+    public var places: [ItemPlace]
     /// Which understander produced this, e.g. "foundation-models" or "heuristic".
     public var producer: String
+    /// True for the no-model fallback: the item is understood again once the
+    /// on-device model is available.
+    public var isProvisional: Bool
 
     public init(
         title: String,
@@ -61,13 +69,21 @@ public struct Understanding: Sendable, Equatable {
         semanticKind: SemanticKind,
         likelyIntent: Intent?,
         keywords: [String],
-        producer: String
+        imageDescription: String? = nil,
+        dates: [ItemDate] = [],
+        places: [ItemPlace] = [],
+        producer: String,
+        isProvisional: Bool = false
     ) {
         self.title = title
         self.summary = summary
         self.semanticKind = semanticKind
         self.likelyIntent = likelyIntent
         self.keywords = keywords
+        self.imageDescription = imageDescription
+        self.dates = dates
+        self.places = places
         self.producer = producer
+        self.isProvisional = isProvisional
     }
 }

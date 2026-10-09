@@ -320,17 +320,15 @@ user-supplied cloud model later without changing these interfaces.
 ### 6.2 Guided generation types
 
 ```swift
-@Generable struct ItemUnderstanding {
-    @Guide(description: "Short, specific title, max 8 words") var title: String
-    @Guide(description: "1–2 sentences: what it is and why it might matter") var summary: String
-    var kind: ItemKind                      // @Generable enum
-    @Guide(description: "Why a person most likely saved this") var likelyIntent: Intent
+@Generable struct GeneratedUnderstanding {          // Intelligence/FoundationModelsUnderstander.swift
+    var title: String                               // ≤ 8 words
+    var summary: String                             // 1–2 sentences
+    var kind: GeneratedKind                         // article, product, place, event, recipe, …
+    var likelyIntent: GeneratedIntent               // why the person most likely saved it
     @Guide(.maximumCount(8)) var keywords: [String]
-    @Guide(.maximumCount(5)) var dates: [ExtractedDate]     // what + ISO date + role (start/deadline/expiry)
-    @Guide(.maximumCount(5)) var places: [ExtractedPlace]   // name + address text
-    var product: ProductFields?
-    var event: EventFields?
-    var recipe: RecipeFields?
+    var imageDescription: String                    // photos and screenshots only
+    @Guide(.maximumCount(5)) var dates: [GeneratedDate]    // evidence (quoted) + ISO date + role
+    @Guide(.maximumCount(5)) var places: [GeneratedPlace]  // name as written + address
 }
 
 @Generable struct GroupBrief {
@@ -344,12 +342,20 @@ user-supplied cloud model later without changing these interfaces.
 
 Rules:
 - **Facts from structure first.** schema.org data (prices, dates, addresses)
-  fills typed fields deterministically; the model only fills gaps, and
-  model-produced dates are validated against the source text before they can
-  create a Moment.
+  fills typed fields deterministically; the model only fills gaps. Its kind wins
+  over the model's, and its dates and places come first (`FactMerge`).
+- **Grounding.** A model date is kept only if its quoted evidence appears in the
+  source and states that day (checked with `NSDataDetector`); a model place only
+  if its name appears in the source (`Grounding`). Dates create notifications,
+  so a wrong one is worse than a missing one.
 - **Small, narrow prompts.** One session per task and no long chats, to stay
-  well inside the **8,192-token on-device context**. The token-count API
-  (26.4+) is used to truncate inputs deterministically.
+  well inside the **8,192-token on-device context**. Inputs are cut to token
+  budgets (`TokenBudget`: CJK characters count as whole tokens), with the saved
+  date and item type in the prompt so year-less dates resolve. A context
+  overflow retries once at 40 % of the budget.
+- **Provisional results.** The heuristic fallback's results are stored as
+  `derivedVersion = 0`; when the on-device model is available, items below the
+  current Understand version are queued again (`requeueStaleUnderstanding`).
 - **Map-reduce for Briefs.** Item digests are about 60 tokens each (title,
   summary, typed fields). A group under roughly 80 items fits on-device in one
   pass. Larger groups are chunked, or sent to **Private Cloud Compute**
@@ -357,8 +363,8 @@ Rules:
   downloads, with no keys and no stored prompts.
 - **Brief regeneration** happens only when `briefInputsHash` (sorted member
   IDs + their `derivedVersion`) changes, debounced by 10 minutes.
-- **Guardrail errors** (`guardrailViolation`, `exceededContextWindowSize`)
-  fall back to the heuristic path and never block the item.
+- **Guardrail errors** (`guardrailViolation`, an overflow after the retry,
+  unsupported language) fall back to the heuristic path and never block the item.
 
 ### 6.3 Ask (F4)
 

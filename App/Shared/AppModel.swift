@@ -44,6 +44,10 @@ final class AppModel {
     }
 
     func start() async {
+        if IntelligenceStatus.current == .available {
+            // Items understood without the model (or with an older prompt) get another pass.
+            await pipeline.requeueStaleUnderstanding()
+        }
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
                 guard let self else { return }

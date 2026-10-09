@@ -1,0 +1,126 @@
+import Foundation
+import Testing
+import Model
+@testable import Intelligence
+
+struct TokenBudgetTests {
+    @Test func countsCJKCharactersAsWholeTokens() {
+        #expect(TokenBudget.estimate("abcdef") == 2)
+        #expect(TokenBudget.estimate("京都") == 2)
+        #expect(TokenBudget.estimate("한국어") == 3)
+    }
+
+    @Test func truncatesToTheBudget() {
+        #expect(TokenBudget.truncate("京都の紅葉", to: 3) == "京都の")
+        #expect(TokenBudget.truncate("abcdefghi", to: 2) == "abcdef")
+        #expect(TokenBudget.truncate("short", to: 100) == "short")
+        #expect(TokenBudget.truncate("anything", to: 0) == "")
+    }
+}
+
+struct DateFinderTests {
+    @Test func detectsDatesAndWhetherATimeWasGiven() throws {
+        let matches = DateFinder.matches(in: "Doors open Nov 21, 2026 at 7:30 PM. Refunds until November 1, 2026.")
+        #expect(matches.count == 2)
+        #expect(matches.first?.hasTime == true)
+        #expect(matches.last?.hasTime == false)
+    }
+
+    @Test(arguments: ["7:30", "7pm", "19時", "下午3点", "3 p.m."])
+    func recognizesTimesOfDay(text: String) {
+        #expect(DateFinder.mentionsTimeOfDay(text))
+    }
+}
+
+struct GroundingTests {
+    let source = "Autumn concert at Budokan, Sat, Nov 21, 2026 at 7:30 PM. Doors open at 6 PM. 2-3 Kitanomaru Koen, Tokyo."
+    var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
+    }
+
+    @Test func keepsDatesQuotedFromTheSource() throws {
+        let dates = Grounding.dates(
+            from: [DateCandidate(evidence: "Sat, Nov 21, 2026 at 7:30 PM", isoDate: "2026-11-21T19:30", role: .eventStart)],
+            in: source
+        )
+        let date = try #require(dates.first)
+        #expect(date.role == .eventStart)
+        #expect(date.hasTime)
+        #expect(date.source == .model)
+        let parts = calendar.dateComponents([.month, .day, .hour, .minute], from: date.date)
+        #expect([parts.month, parts.day, parts.hour, parts.minute] == [11, 21, 19, 30])
+    }
+
+    @Test func dropsInventedEvidence() {
+        let dates = Grounding.dates(
+            from: [DateCandidate(evidence: "Dec 25", isoDate: "2026-12-25", role: .deadline)],
+            in: source
+        )
+        #expect(dates.isEmpty)
+    }
+
+    @Test func dropsDatesThatDisagreeWithTheirEvidence() {
+        let dates = Grounding.dates(
+            from: [DateCandidate(evidence: "Nov 21, 2026", isoDate: "2026-11-22", role: .eventStart)],
+            in: source
+        )
+        #expect(dates.isEmpty)
+    }
+
+    @Test func dropsUnparseableDates() {
+        let dates = Grounding.dates(
+            from: [DateCandidate(evidence: "Nov 21, 2026", isoDate: "next Saturday", role: .eventStart)],
+            in: source
+        )
+        #expect(dates.isEmpty)
+    }
+
+    @Test func keepsPlacesNamedInTheSource() {
+        let places = Grounding.places(
+            from: [
+                PlaceCandidate(name: "Budokan", address: "2-3 Kitanomaru Koen, Tokyo"),
+                PlaceCandidate(name: "Tokyo Dome", address: ""),
+                PlaceCandidate(name: "budokan", address: ""),
+            ],
+            in: source
+        )
+        #expect(places == [ItemPlace(name: "Budokan", address: "2-3 Kitanomaru Koen, Tokyo", source: .model)])
+    }
+
+    @Test func dropsAddressesNotInTheSource() {
+        let places = Grounding.places(from: [PlaceCandidate(name: "Budokan", address: "1 Main St")], in: source)
+        #expect(places.first?.address == nil)
+    }
+}
+
+struct AdaptiveUnderstanderTests {
+    struct Fixed: ItemUnderstander {
+        let producer: String
+        func understand(_ input: UnderstandingInput) async throws -> Understanding {
+            Understanding(title: producer, summary: "", semanticKind: .other, likelyIntent: nil, keywords: [], producer: producer)
+        }
+    }
+
+    struct Failing: ItemUnderstander {
+        func understand(_ input: UnderstandingInput) async throws -> Understanding {
+            throw URLError(.unknown)
+        }
+    }
+
+    @Test func usesThePrimaryWhenAvailable() async throws {
+        let understander = AdaptiveUnderstander(primary: Fixed(producer: "model"), fallback: Fixed(producer: "heuristic")) { true }
+        #expect(try await understander.understand(UnderstandingInput()).producer == "model")
+    }
+
+    @Test func usesTheFallbackWhenUnavailable() async throws {
+        let understander = AdaptiveUnderstander(primary: Fixed(producer: "model"), fallback: Fixed(producer: "heuristic")) { false }
+        #expect(try await understander.understand(UnderstandingInput()).producer == "heuristic")
+    }
+
+    @Test func fallsBackWhenThePrimaryFails() async throws {
+        let understander = AdaptiveUnderstander(primary: Failing(), fallback: Fixed(producer: "heuristic")) { true }
+        #expect(try await understander.understand(UnderstandingInput()).producer == "heuristic")
+    }
+}

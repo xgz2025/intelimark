@@ -46,6 +46,8 @@ extension LibraryDatabase {
                 t.column("semanticKind", .text)
                 t.column("suggestedIntent", .text)
                 t.column("keywords", .text).notNull().defaults(to: "[]")
+                t.column("dates", .text).notNull().defaults(to: "[]")      // JSON [ItemDate]
+                t.column("places", .text).notNull().defaults(to: "[]")     // JSON [ItemPlace]
                 t.column("derivedVersion", .integer).notNull().defaults(to: 0)
                 // User layer (never overwritten by AI)
                 t.column("userTitle", .text)
@@ -70,6 +72,7 @@ extension LibraryDatabase {
                 t.column("contentText")
                 t.column("siteName")
                 t.column("imageLabels")
+                t.column("places")
             }
 
             try db.create(table: "attachment") { t in

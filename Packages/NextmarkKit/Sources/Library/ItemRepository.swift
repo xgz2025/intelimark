@@ -92,22 +92,43 @@ public struct ItemRepository: Sendable {
     }
 
     /// Writes the Understand stage's output into the derived layer only, so a user
-    /// edit made while the model was running is never overwritten. A kind declared
-    /// by the page's own schema.org data beats the model's guess.
+    /// edit made while the model was running is never overwritten. Facts declared
+    /// by the page's own schema.org data win: its kind beats the model's guess, and
+    /// its dates and places come first. Read-modify-write in one transaction.
     public func applyUnderstanding(_ understanding: Understanding, toItem id: String, version: Int, now: Date = Date()) async throws {
-        let keywords = String(decoding: try JSONEncoder().encode(understanding.keywords), as: UTF8.self)
         try await database.writer.write { db in
-            try db.execute(
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+            item.aiTitle = understanding.title
+            item.summary = understanding.summary
+            item.semanticKind = item.structuredKind ?? understanding.semanticKind
+            item.suggestedIntent = understanding.likelyIntent
+            item.keywords = understanding.keywords
+            if let description = understanding.imageDescription {
+                item.imageDescription = description
+            }
+            item.dates = FactMerge.dates(structured: item.typedFields?.structuredDates ?? [], inferred: understanding.dates)
+            item.places = FactMerge.places(structured: item.typedFields?.structuredPlaces ?? [], inferred: understanding.places)
+            item.derivedVersion = version
+            item.updatedAt = now
+            try item.update(db)
+        }
+    }
+
+    /// Items whose understanding is older than `version` (or provisional, version 0)
+    /// and that have no enrichment job pending — the backlog to re-run when the
+    /// on-device model becomes available or the prompt changes.
+    public func itemIDsNeedingUnderstanding(below version: Int, limit: Int = 200) async throws -> [String] {
+        try await database.writer.read { db in
+            try String.fetchAll(
+                db,
                 sql: """
-                    UPDATE item
-                    SET aiTitle = ?, summary = ?, semanticKind = COALESCE(structuredKind, ?), suggestedIntent = ?,
-                        keywords = ?, derivedVersion = ?, updatedAt = ?
-                    WHERE id = ?
+                    SELECT id FROM item
+                    WHERE derivedVersion < ? AND status <> 'trashed'
+                      AND NOT EXISTS (SELECT 1 FROM job WHERE job.itemID = item.id)
+                    ORDER BY createdAt DESC
+                    LIMIT ?
                     """,
-                arguments: [
-                    understanding.title, understanding.summary, understanding.semanticKind.rawValue,
-                    understanding.likelyIntent?.rawValue, keywords, version, now, id,
-                ]
+                arguments: [version, limit]
             )
         }
     }

@@ -42,6 +42,8 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     public var semanticKind: SemanticKind?
     public var suggestedIntent: Intent?
     public var keywords: [String]
+    public var dates: [ItemDate]
+    public var places: [ItemPlace]
     public var derivedVersion: Int
 
     // User layer
@@ -109,6 +111,8 @@ extension ItemRecord {
         semanticKind = nil
         suggestedIntent = nil
         keywords = []
+        dates = []
+        places = []
         derivedVersion = 0
 
         userTitle = nil

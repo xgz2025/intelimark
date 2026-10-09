@@ -4,26 +4,54 @@ import FoundationModels
 import Model
 
 /// On-device understanding with Apple's Foundation Models framework and guided
-/// generation (Docs/architecture.md §6.2). One short session per item.
+/// generation (Docs/architecture.md §6.2). One short session per item; dates and
+/// places are kept only when the source text supports them.
 public struct FoundationModelsUnderstander: ItemUnderstander {
     static let instructions = """
-        You label things a person saved for later: web pages, screenshots, notes and documents.
-        Be specific and factual. Use only the information given. Write in the language of the content.
+        You describe things a person saved for later: web pages, screenshots, photos, notes and documents.
+        Be specific and factual. Use only the information given. Never invent dates, places, prices or names.
+        Write in the language of the content.
         """
+    /// Budget scale for the single retry after a context overflow.
+    static let retryBudgetScale = 0.4
 
     public init() {}
 
     public func understand(_ input: UnderstandingInput) async throws -> Understanding {
+        do {
+            return try await generate(input, budgetScale: 1)
+        } catch let error as LanguageModelSession.GenerationError {
+            guard case .exceededContextWindowSize = error else { throw error }
+            return try await generate(input, budgetScale: Self.retryBudgetScale)
+        }
+    }
+
+    private func generate(_ input: UnderstandingInput, budgetScale: Double) async throws -> Understanding {
         let session = LanguageModelSession(instructions: Self.instructions)
-        let response = try await session.respond(to: input.promptText, generating: GeneratedUnderstanding.self)
+        let response = try await session.respond(
+            to: input.promptText(budgetScale: budgetScale),
+            generating: GeneratedUnderstanding.self
+        )
         let generated = response.content
+        let source = input.groundingText
+        let description = generated.imageDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return Understanding(
             title: generated.title,
             summary: generated.summary,
             semanticKind: generated.kind.semanticKind,
             likelyIntent: generated.likelyIntent.intent,
             keywords: generated.keywords,
-            producer: "foundation-models"
+            imageDescription: input.isImage && !description.isEmpty ? description : nil,
+            dates: Grounding.dates(
+                from: generated.dates.map { DateCandidate(evidence: $0.evidence, isoDate: $0.isoDate, role: $0.role.role) },
+                in: source
+            ),
+            places: Grounding.places(
+                from: generated.places.map { PlaceCandidate(name: $0.name, address: $0.address) },
+                in: source
+            ),
+            producer: "foundation-models",
+            isProvisional: false
         )
     }
 }
@@ -44,6 +72,51 @@ struct GeneratedUnderstanding {
 
     @Guide(description: "Search keywords a person might type to find this again", .maximumCount(8))
     var keywords: [String]
+
+    @Guide(description: "Only for a photo or screenshot: one sentence describing what it shows, including any important text. Empty for other items.")
+    var imageDescription: String
+
+    @Guide(description: "Dates stated in the content that matter to the person: event times, deadlines, expiry dates, bookings. Leave empty if none are stated.", .maximumCount(5))
+    var dates: [GeneratedDate]
+
+    @Guide(description: "Specific named places in the content: venues, restaurants, shops, hotels, addresses. Leave empty if none.", .maximumCount(5))
+    var places: [GeneratedPlace]
+}
+
+@Generable
+struct GeneratedDate {
+    @Guide(description: "The exact words copied from the content that state this date")
+    var evidence: String
+
+    @Guide(description: "The date as yyyy-MM-dd, or yyyy-MM-ddTHH:mm when a time is stated. Use the saved-on date to resolve the year.")
+    var isoDate: String
+
+    var role: GeneratedDateRole
+}
+
+@Generable
+enum GeneratedDateRole {
+    case eventStart, eventEnd, deadline, expiry, reservation, mentioned
+
+    var role: ItemDate.Role {
+        switch self {
+        case .eventStart: .eventStart
+        case .eventEnd: .eventEnd
+        case .deadline: .deadline
+        case .expiry: .expiry
+        case .reservation: .reservation
+        case .mentioned: .mentioned
+        }
+    }
+}
+
+@Generable
+struct GeneratedPlace {
+    @Guide(description: "The place's name exactly as written in the content")
+    var name: String
+
+    @Guide(description: "The street address if the content states one, otherwise empty")
+    var address: String
 }
 
 @Generable
