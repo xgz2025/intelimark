@@ -26,8 +26,52 @@ struct HeuristicUnderstanderTests {
         #expect(Array(HeuristicUnderstander.keywords(for: input).prefix(2)) == ["ramen", "kyoto"])
     }
 
-    @Test func promptIsTruncated() {
-        let input = UnderstandingInput(text: String(repeating: "a", count: 10_000))
-        #expect(input.promptText.count < UnderstandingInput.maxContentCharacters + 50)
+    @Test func promptFitsTheTokenBudget() {
+        let latin = UnderstandingInput(text: String(repeating: "word ", count: 4_000))
+        #expect(TokenBudget.estimate(latin.promptText) <= UnderstandingInput.contentTokenBudget + 10)
+
+        // CJK text is about one token per character: 10,000 characters must be cut far shorter.
+        let japanese = UnderstandingInput(text: String(repeating: "京都の紅葉", count: 2_000))
+        #expect(TokenBudget.estimate(japanese.promptText) <= UnderstandingInput.contentTokenBudget + 10)
+        #expect(japanese.promptText.count < 2_500)
+    }
+
+    @Test func promptCarriesTheSavedDateAndKind() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let saved = calendar.date(from: DateComponents(year: 2026, month: 10, day: 9, hour: 12))!
+        let prompt = UnderstandingInput(title: "Ticket", kind: .image, capturedAt: saved).promptText
+        #expect(prompt.contains("Saved on: 2026-10-09 (Friday)"))
+        #expect(prompt.contains("Item type: photo or screenshot"))
+    }
+
+    @Test func findsUpcomingDatesButNotPastOnes() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let saved = calendar.date(from: DateComponents(year: 2026, month: 10, day: 9, hour: 9))!
+        let input = UnderstandingInput(
+            text: "Published January 2, 2020. The sale ends October 31, 2026 at 11:59 PM.",
+            capturedAt: saved
+        )
+        let dates = HeuristicUnderstander.dates(for: input)
+        let detected = DateFinder.matches(in: input.groundingText).map { "\($0.text) → \($0.date)" }
+        let date = try #require(dates.first, "detector matches: \(detected)")
+        #expect(dates.count == 1, "detector matches: \(detected)")
+        let parts = calendar.dateComponents([.year, .month, .day], from: date.date)
+        #expect([parts.year, parts.month, parts.day] == [2026, 10, 31], "detector matches: \(detected)")
+        #expect(date.hasTime)
+        #expect(date.role == .deadline)    // "ends …" is a deadline
+        #expect(date.source == .detector)
+    }
+
+    @Test func describesImagesFromLabelsAndText() {
+        let input = UnderstandingInput(ocrText: "\nLunch special 980 yen\nMiso ramen", imageLabels: ["food", "bowl"], kind: .image)
+        #expect(HeuristicUnderstander.imageDescription(for: input) == "food, bowl — “Lunch special 980 yen”")
+        #expect(HeuristicUnderstander.imageDescription(for: UnderstandingInput(ocrText: "x", kind: .link)) == nil)
+    }
+
+    @Test func heuristicResultsAreProvisional() async throws {
+        let understanding = try await HeuristicUnderstander().understand(UnderstandingInput(title: "Note"))
+        #expect(understanding.isProvisional)
     }
 }

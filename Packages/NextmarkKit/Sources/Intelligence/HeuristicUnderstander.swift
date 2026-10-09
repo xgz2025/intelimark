@@ -6,6 +6,10 @@ import Model
 public struct HeuristicUnderstander: ItemUnderstander {
     public init() {}
 
+    /// Dates further out than this are more likely noise (copyright years, archives).
+    static let dateHorizon: TimeInterval = 2 * 365 * 24 * 60 * 60
+    static let maxDates = 3
+
     public func understand(_ input: UnderstandingInput) async throws -> Understanding {
         Understanding(
             title: Self.title(for: input),
@@ -13,8 +17,42 @@ public struct HeuristicUnderstander: ItemUnderstander {
             semanticKind: Self.kind(for: input),
             likelyIntent: nil,
             keywords: Self.keywords(for: input),
-            producer: "heuristic"
+            imageDescription: Self.imageDescription(for: input),
+            dates: Self.dates(for: input),
+            producer: "heuristic",
+            isProvisional: true
         )
+    }
+
+    /// Upcoming dates found by `NSDataDetector`. "Ends …" / "until …" phrases are
+    /// deadlines; without a model, every other date is `.mentioned`.
+    static func dates(for input: UnderstandingInput) -> [ItemDate] {
+        let reference = input.capturedAt ?? Date()
+        let startOfDay = Calendar.current.startOfDay(for: reference)
+        var dates: [ItemDate] = []
+        for match in DateFinder.matches(in: input.groundingText) {
+            guard match.mentionsDay, match.date >= startOfDay, match.date.timeIntervalSince(reference) <= dateHorizon,
+                  !dates.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: match.date) })
+            else { continue }
+            let role: ItemDate.Role = match.isUntil ? .deadline : .mentioned
+            dates.append(ItemDate(date: match.date, hasTime: match.hasTime, role: role, evidence: match.text, source: .detector))
+            if dates.count == maxDates { break }
+        }
+        return dates
+    }
+
+    /// "food, plate — “Lunch special 980 yen”": labels plus the first line of text,
+    /// so photos are findable by what they show until the model can describe them.
+    static func imageDescription(for input: UnderstandingInput) -> String? {
+        guard input.isImage else { return nil }
+        var parts: [String] = []
+        if !input.imageLabels.isEmpty { parts.append(input.imageLabels.prefix(4).joined(separator: ", ")) }
+        let firstLine = input.ocrText?
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        if let firstLine { parts.append("“\(firstLine.prefix(60))”") }
+        return parts.isEmpty ? nil : parts.joined(separator: " — ")
     }
 
     static func title(for input: UnderstandingInput) -> String {

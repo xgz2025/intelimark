@@ -10,7 +10,8 @@ public actor PipelineRunner {
     /// Bump when extraction changes; older items are re-run lazily.
     public static let extractVersion = 1
     /// Bump when the Understand prompt or schema changes; older items are re-run lazily.
-    public static let understandVersion = 1
+    /// Provisional (no-model) results are stored as version 0 so they are re-run too.
+    public static let understandVersion = 2
 
     private let queue: JobQueue
     private let repository: ItemRepository
@@ -52,6 +53,40 @@ public actor PipelineRunner {
         return processed
     }
 
+    /// Queues Understand again for items with provisional or outdated results.
+    /// Call when the on-device model is available (e.g. at launch). Returns how many were queued.
+    @discardableResult
+    public func requeueStaleUnderstanding(limit: Int = 200, now: Date = Date()) async -> Int {
+        guard let ids = try? await repository.itemIDsNeedingUnderstanding(below: Self.understandVersion, limit: limit) else {
+            return 0
+        }
+        var queued = 0
+        for id in ids {
+            do {
+                try await queue.enqueue(.understand, itemID: id, notBefore: now)
+                queued += 1
+            } catch {
+                continue
+            }
+        }
+        return queued
+    }
+
+    static func understandingInput(for item: ItemRecord) -> UnderstandingInput {
+        let pageText = item.contentText ?? item.pageContext?.excerpt
+        return UnderstandingInput(
+            title: item.userTitle ?? item.sourceTitle,
+            text: pageText ?? item.text,
+            highlight: pageText == nil ? nil : item.text,
+            url: item.canonicalURL.flatMap { URL(string: $0) },
+            note: item.note,
+            ocrText: item.ocrText,
+            imageLabels: item.imageLabels,
+            kind: item.kind,
+            capturedAt: item.createdAt
+        )
+    }
+
     private func run(_ job: JobRecord, now: Date) async throws {
         switch job.stage {
         case .extract:
@@ -76,16 +111,9 @@ public actor PipelineRunner {
 
         case .understand:
             guard let item = try await repository.item(id: job.itemID) else { return }
-            let input = UnderstandingInput(
-                title: item.userTitle ?? item.sourceTitle,
-                text: item.text ?? item.contentText ?? item.pageContext?.excerpt,
-                url: item.canonicalURL.flatMap { URL(string: $0) },
-                note: item.note,
-                ocrText: item.ocrText,
-                imageLabels: item.imageLabels
-            )
-            let understanding = try await understander.understand(input)
-            try await repository.applyUnderstanding(understanding, toItem: job.itemID, version: Self.understandVersion, now: now)
+            let understanding = try await understander.understand(Self.understandingInput(for: item))
+            let version = understanding.isProvisional ? 0 : Self.understandVersion
+            try await repository.applyUnderstanding(understanding, toItem: job.itemID, version: version, now: now)
             try await queue.enqueue(.embed, itemID: job.itemID, notBefore: now)
 
         case .prefilter, .digest, .embed, .index, .group, .moments, .rollup:
