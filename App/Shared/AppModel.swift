@@ -24,7 +24,11 @@ final class AppModel {
         self.store = store
         repository = ItemRepository(database: database)
         ingestor = Ingestor(store: store, database: database, itemsDirectory: AppGroup.itemsURL)
-        pipeline = PipelineRunner(database: database, understander: IntelligenceRouter.makeUnderstander())
+        pipeline = PipelineRunner(
+            database: database,
+            itemsDirectory: AppGroup.itemsURL,
+            understander: IntelligenceRouter.makeUnderstander()
+        )
     }
 
     static func live() -> AppModel {

@@ -61,15 +61,46 @@ public struct ItemRepository: Sendable {
         }
     }
 
+    public func attachments(forItem id: String) async throws -> [AttachmentRecord] {
+        try await database.writer.read { db in
+            try AttachmentRecord.filter(Column("itemID") == id).order(Column("id")).fetchAll(db)
+        }
+    }
+
+    /// Writes the Extract stage's facts. Source facts are only filled when missing
+    /// (a page title never replaces the one captured); the user layer is untouched.
+    /// Read-modify-write in one transaction, so a concurrent edit can't be lost.
+    public func applyExtraction(_ extraction: Extraction, toItem id: String, version: Int, now: Date = Date()) async throws {
+        try await database.writer.write { db in
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+            item.sourceTitle = item.sourceTitle ?? extraction.title
+            item.siteName = extraction.siteName
+            item.heroImageURL = extraction.heroImageURL?.absoluteString
+            item.contentText = extraction.contentText
+            item.ocrText = extraction.ocrText
+            item.imageLabels = extraction.imageLabels
+            item.barcodes = extraction.barcodes
+            item.structuredKind = extraction.structured?.kind
+            item.typedFields = extraction.structured?.fields
+            if let kind = extraction.structured?.kind {
+                item.semanticKind = kind
+            }
+            item.extractVersion = version
+            item.updatedAt = now
+            try item.update(db)
+        }
+    }
+
     /// Writes the Understand stage's output into the derived layer only, so a user
-    /// edit made while the model was running is never overwritten.
+    /// edit made while the model was running is never overwritten. A kind declared
+    /// by the page's own schema.org data beats the model's guess.
     public func applyUnderstanding(_ understanding: Understanding, toItem id: String, version: Int, now: Date = Date()) async throws {
         let keywords = String(decoding: try JSONEncoder().encode(understanding.keywords), as: UTF8.self)
         try await database.writer.write { db in
             try db.execute(
                 sql: """
                     UPDATE item
-                    SET aiTitle = ?, summary = ?, semanticKind = ?, suggestedIntent = ?,
+                    SET aiTitle = ?, summary = ?, semanticKind = COALESCE(structuredKind, ?), suggestedIntent = ?,
                         keywords = ?, derivedVersion = ?, updatedAt = ?
                     WHERE id = ?
                     """,

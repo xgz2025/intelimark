@@ -13,13 +13,19 @@ public struct UnderstandingInput: Sendable, Equatable {
     public var url: URL?
     public var note: String?
     public var ocrText: String?
+    /// Coarse Vision labels for images ("food", "document", …).
+    public var imageLabels: [String]
 
-    public init(title: String? = nil, text: String? = nil, url: URL? = nil, note: String? = nil, ocrText: String? = nil) {
+    public init(
+        title: String? = nil, text: String? = nil, url: URL? = nil, note: String? = nil,
+        ocrText: String? = nil, imageLabels: [String] = []
+    ) {
         self.title = title
         self.text = text
         self.url = url
         self.note = note
         self.ocrText = ocrText
+        self.imageLabels = imageLabels
     }
 
     public var promptText: String {
@@ -29,6 +35,7 @@ public struct UnderstandingInput: Sendable, Equatable {
         if let note, !note.isEmpty { parts.append("The person's note: \(note)") }
         if let text, !text.isEmpty { parts.append("Content:\n\(text.prefix(Self.maxContentCharacters))") }
         if let ocrText, !ocrText.isEmpty { parts.append("Text in the image:\n\(ocrText.prefix(Self.maxOCRCharacters))") }
+        if !imageLabels.isEmpty { parts.append("The image shows: \(imageLabels.joined(separator: ", "))") }
         return parts.joined(separator: "\n")
     }
 }

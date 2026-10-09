@@ -33,16 +33,19 @@ public struct JobQueue: Sendable {
     }
 
     /// Exponential backoff (1, 2, 4… minutes, capped at 6 h); gives up after `maxAttempts`.
-    public func retry(_ job: JobRecord, now: Date = Date(), maxAttempts: Int = 5) async throws {
+    /// Returns `false` when it gave up and removed the job.
+    @discardableResult
+    public func retry(_ job: JobRecord, now: Date = Date(), maxAttempts: Int = 5) async throws -> Bool {
         try await database.writer.write { db in
             var job = job
             job.attempts += 1
             guard job.attempts < maxAttempts else {
                 _ = try job.delete(db)
-                return
+                return false
             }
             job.notBefore = now.addingTimeInterval(min(pow(2, Double(job.attempts - 1)) * 60, 6 * 60 * 60))
             try job.update(db)
+            return true
         }
     }
 
