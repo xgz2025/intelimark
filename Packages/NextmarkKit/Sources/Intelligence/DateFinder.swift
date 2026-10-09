@@ -28,15 +28,26 @@ public enum DateFinder {
         return detector.matches(in: scanned, range: NSRange(scanned.startIndex..., in: scanned)).compactMap { result in
             guard let start = result.date, let range = Range(result.range, in: scanned) else { return nil }
             let matched = String(scanned[range])
-            // "ends October 31" / "until Nov 1" come back as a range from *now* with a
+            // "ends October 31" / "until Nov 1" come back as a range from today with a
             // duration; the date the words name is the end of that range.
-            let isUntil = result.duration > 0 && abs(start.timeIntervalSince(now)) < openEndedTolerance
+            let isUntil = result.duration > 0 && isOpenEndedStart(start, now: now)
             let date = isUntil ? start.addingTimeInterval(result.duration) : start
             return Match(
                 date: date, isUntil: isUntil, hasTime: mentionsTimeOfDay(matched),
                 mentionsDay: mentionsDay(matched), text: matched
             )
         }
+    }
+
+    /// The start NSDataDetector gives an open-ended range: the current time when the
+    /// end has a time ("ends Oct 31 at 11:59 PM"), noon today when it doesn't
+    /// ("until November 1"). A stated range that starts today at noon reads the same;
+    /// it then resolves to its end, which is still a date from the source.
+    static func isOpenEndedStart(_ start: Date, now: Date, calendar: Calendar = .current) -> Bool {
+        if abs(start.timeIntervalSince(now)) < openEndedTolerance { return true }
+        guard calendar.isDate(start, inSameDayAs: now) else { return false }
+        let parts = calendar.dateComponents([.hour, .minute, .second], from: start)
+        return parts.hour == 12 && parts.minute == 0 && parts.second == 0
     }
 
     static let timeOfDayPattern = #"\d{1,2}[:.]\d{2}(\s*(am|pm|a\.m\.|p\.m\.))?|\d{1,2}\s*(am|pm|a\.m\.|p\.m\.|時|点|시)"#

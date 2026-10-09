@@ -37,6 +37,19 @@ struct DateFinderTests {
         #expect([parts.year, parts.month, parts.day] == [2026, 11, 1])
     }
 
+    @Test func openEndedStartsAreNowOrNoonToday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "Asia/Tokyo"))
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 9, hour: 22, minute: 5)))
+        let noon = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 9, hour: 12)))
+        let morning = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 9, hour: 9)))
+        let tomorrowNoon = noon.addingTimeInterval(86_400)
+        #expect(DateFinder.isOpenEndedStart(now.addingTimeInterval(-5), now: now, calendar: calendar))
+        #expect(DateFinder.isOpenEndedStart(noon, now: now, calendar: calendar))
+        #expect(!DateFinder.isOpenEndedStart(morning, now: now, calendar: calendar))
+        #expect(!DateFinder.isOpenEndedStart(tomorrowNoon, now: now, calendar: calendar))
+    }
+
     @Test(arguments: ["7:30", "7pm", "19時", "下午3点", "3 p.m."])
     func recognizesTimesOfDay(text: String) {
         #expect(DateFinder.mentionsTimeOfDay(text))
