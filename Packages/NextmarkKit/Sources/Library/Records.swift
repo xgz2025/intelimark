@@ -31,6 +31,14 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     public var summary: String?
     public var imageDescription: String?
     public var ocrText: String?
+    public var contentText: String?
+    public var siteName: String?
+    public var heroImageURL: String?
+    public var imageLabels: [String]
+    public var barcodes: [String]
+    public var structuredKind: SemanticKind?
+    public var typedFields: TypedFields?
+    public var extractVersion: Int
     public var semanticKind: SemanticKind?
     public var suggestedIntent: Intent?
     public var keywords: [String]
@@ -54,6 +62,7 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     }
 
     public var subtitle: String? {
+        if let siteName { return siteName }
         if let host = canonicalURL.flatMap({ URL(string: $0) })?.host() { return host }
         return summary
     }
@@ -89,6 +98,14 @@ extension ItemRecord {
         summary = nil
         imageDescription = nil
         ocrText = nil
+        contentText = nil
+        siteName = nil
+        heroImageURL = nil
+        imageLabels = []
+        barcodes = []
+        structuredKind = nil
+        typedFields = nil
+        extractVersion = 0
         semanticKind = nil
         suggestedIntent = nil
         keywords = []

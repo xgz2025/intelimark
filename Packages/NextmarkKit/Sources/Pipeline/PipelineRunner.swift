@@ -2,20 +2,33 @@ import Foundation
 import Model
 import Library
 import Intelligence
+import Extraction
 
 /// Drains the job queue one job at a time (Docs/architecture.md §5). Stages that
 /// aren't built yet complete immediately so the queue never stalls.
 public actor PipelineRunner {
+    /// Bump when extraction changes; older items are re-run lazily.
+    public static let extractVersion = 1
     /// Bump when the Understand prompt or schema changes; older items are re-run lazily.
     public static let understandVersion = 1
 
     private let queue: JobQueue
     private let repository: ItemRepository
+    private let extractor: ItemExtractor
     private let understander: any ItemUnderstander
+    private let itemsDirectory: URL
 
-    public init(database: LibraryDatabase, understander: any ItemUnderstander) {
+    /// - Parameter itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
+    public init(
+        database: LibraryDatabase,
+        itemsDirectory: URL,
+        extractor: ItemExtractor = ItemExtractor(),
+        understander: any ItemUnderstander
+    ) {
         queue = JobQueue(database: database)
         repository = ItemRepository(database: database)
+        self.itemsDirectory = itemsDirectory
+        self.extractor = extractor
         self.understander = understander
     }
 
@@ -28,7 +41,11 @@ public actor PipelineRunner {
                 try await run(job, now: now)
                 try await queue.complete(job)
             } catch {
-                try? await queue.retry(job, now: now)
+                let willRetry = (try? await queue.retry(job, now: now)) ?? false
+                if !willRetry, job.stage == .extract {
+                    // Extraction gave up (e.g. offline for days): understand what we have.
+                    try? await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
+                }
             }
             processed += 1
         }
@@ -38,17 +55,34 @@ public actor PipelineRunner {
     private func run(_ job: JobRecord, now: Date) async throws {
         switch job.stage {
         case .extract:
-            // TODO: link metadata, readable text, JSON-LD, PDF text, Vision OCR (PRD U1).
+            guard let item = try await repository.item(id: job.itemID) else { return }
+            let files = try await repository.attachments(forItem: job.itemID)
+                .filter { $0.role == .original }
+                .map { attachment in
+                    LocalFile(
+                        url: itemsDirectory.appending(path: job.itemID).appending(path: attachment.fileName),
+                        contentType: attachment.contentType
+                    )
+                }
+            let input = ExtractionInput(
+                kind: item.kind,
+                url: item.canonicalURL.flatMap { URL(string: $0) },
+                pageContext: item.pageContext,
+                files: files
+            )
+            let extraction = try await extractor.extract(input)
+            try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
 
         case .understand:
             guard let item = try await repository.item(id: job.itemID) else { return }
             let input = UnderstandingInput(
                 title: item.userTitle ?? item.sourceTitle,
-                text: item.text ?? item.pageContext?.excerpt,
+                text: item.text ?? item.contentText ?? item.pageContext?.excerpt,
                 url: item.canonicalURL.flatMap { URL(string: $0) },
                 note: item.note,
-                ocrText: item.ocrText
+                ocrText: item.ocrText,
+                imageLabels: item.imageLabels
             )
             let understanding = try await understander.understand(input)
             try await repository.applyUnderstanding(understanding, toItem: job.itemID, version: Self.understandVersion, now: now)

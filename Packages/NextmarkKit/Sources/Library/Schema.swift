@@ -4,6 +4,9 @@ extension LibraryDatabase {
     /// Schema v1 follows Docs/architecture.md §4.2. Tables for later milestones
     /// (groups, actions, moments, AI sessions) are created now so those features
     /// ship as additive changes rather than migrations of user data.
+    ///
+    /// v1 is still edited in place: nothing has shipped, and debug builds erase the
+    /// database when the schema changes. Once 1.0 ships, changes become new migrations.
     static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         #if DEBUG
@@ -32,6 +35,14 @@ extension LibraryDatabase {
                 t.column("summary", .text)
                 t.column("imageDescription", .text)
                 t.column("ocrText", .text)
+                t.column("contentText", .text)       // readable page text, PDF text
+                t.column("siteName", .text)
+                t.column("heroImageURL", .text)
+                t.column("imageLabels", .text).notNull().defaults(to: "[]")
+                t.column("barcodes", .text).notNull().defaults(to: "[]")
+                t.column("structuredKind", .text)    // from schema.org; wins over the model's guess
+                t.column("typedFields", .text)       // JSON TypedFields
+                t.column("extractVersion", .integer).notNull().defaults(to: 0)
                 t.column("semanticKind", .text)
                 t.column("suggestedIntent", .text)
                 t.column("keywords", .text).notNull().defaults(to: "[]")
@@ -56,6 +67,9 @@ extension LibraryDatabase {
                 t.column("text")
                 t.column("ocrText")
                 t.column("imageDescription")
+                t.column("contentText")
+                t.column("siteName")
+                t.column("imageLabels")
             }
 
             try db.create(table: "attachment") { t in

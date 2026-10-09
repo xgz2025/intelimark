@@ -261,12 +261,21 @@ enum Stage: Int, CaseIterable { case extract, prefilter, understand, digest, emb
 
 | Stage | Inputs → outputs | Tech |
 |---|---|---|
-| **Extract** | URL → title, favicon, hero image, canonical URL, readable text, JSON-LD; PDF → text per page; image → OCR text, barcodes, classification labels | `LPMetadataProvider`, `URLSession` + HTML readability parser, `PDFKit`, Vision `RecognizeTextRequest`, `DetectBarcodesRequest`, `ClassifyImageRequest` |
+| **Extract** | URL → title, site name, hero image, canonical URL, readable text, schema.org kind + typed fields; PDF → text per page; image → OCR text, barcodes, classification labels; plain-text file → text. Safari captures use the page as the user saw it (no fetch). | `Extraction` module: `URLSession` (ephemeral, size-capped), tolerant HTML/readability parser, `SchemaOrg`, `PDFKit`, Vision `RecognizeTextRequest`, `DetectBarcodesRequest`, `ClassifyImageRequest` |
 | **Understand** | extracted text and/or image → `ItemUnderstanding` | Foundation Models guided generation (§6) |
 | **Embed** | title + summary + note + highlights + OCR (truncated) → vector | `NLContextualEmbedding` (mean-pooled), behind `EmbeddingProvider` |
 | **Index** | → FTS5 row, vector row, `CSSearchableItem` + `IndexedEntity` | GRDB, Core Spotlight, App Intents |
 | **Group** | vector → suggested membership / suggested new group | §7 |
 | **Moments** | dates, places, plan dates → `Moment` rows → OS schedulers | §8 |
+
+Extract stage rules:
+- Network: only the saved URL is fetched, with an ephemeral session (no cookies),
+  15 s request timeout and a 3 MB cap (25 MB for PDFs and images). Offline, timeouts
+  and 429/5xx are retried with backoff; other failures extract what they can. If
+  retries run out, Understand still runs on the captured facts.
+- Facts never overwrite captured data: a page title only fills a missing
+  `sourceTitle`. A schema.org kind is stored as `structuredKind` and wins over the
+  model's guess in Understand.
 
 ### 5.3 Fallback matrix
 
@@ -459,6 +468,7 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ CaptureUI/           # CaptureSheet + CaptureDraft (extension-safe, SwiftUI)
    │  ├─ DesignSystem/        # intent chips, symbols, tints
    │  ├─ Library/             # GRDB schema v1, records, ItemRepository (FTS5), JobQueue, Ingestor
+   │  ├─ Extraction/          # Extract stage: page fetch, HTML metadata, readable text, schema.org, PDF text, Vision
    │  ├─ Intelligence/        # ItemUnderstander, Foundation Models impl, heuristic fallback, router
    │  ├─ Pipeline/            # PipelineRunner actor
    │  ├─ Search/              # rank fusion, vector math
