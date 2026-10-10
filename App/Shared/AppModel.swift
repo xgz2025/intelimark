@@ -5,12 +5,14 @@ import Capture
 import Library
 import Intelligence
 import Pipeline
+import Search
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
 @MainActor
 @Observable
 final class AppModel {
     let repository: ItemRepository
+    let search: HybridSearch
     let store: EnvelopeStore
     private(set) var lastError: String?
 
@@ -23,11 +25,14 @@ final class AppModel {
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
         self.store = store
         repository = ItemRepository(database: database)
+        let embedder = ContextualEmbeddingProvider()
+        search = HybridSearch(repository: repository, embedder: embedder)
         ingestor = Ingestor(store: store, database: database, itemsDirectory: AppGroup.itemsURL)
         pipeline = PipelineRunner(
             database: database,
             itemsDirectory: AppGroup.itemsURL,
-            understander: IntelligenceRouter.makeUnderstander()
+            understander: IntelligenceRouter.makeUnderstander(),
+            embedder: embedder
         )
     }
 
@@ -48,6 +53,9 @@ final class AppModel {
             // Items understood without the model (or with an older prompt) get another pass.
             await pipeline.requeueStaleUnderstanding()
         }
+        // Items saved before the embedding model was on the device, or embedded by
+        // a model an OS update replaced, get vectors for semantic search.
+        await pipeline.requeueStaleEmbeddings()
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
                 guard let self else { return }

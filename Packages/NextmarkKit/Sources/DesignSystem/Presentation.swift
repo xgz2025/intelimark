@@ -53,3 +53,39 @@ extension ItemKind {
         }
     }
 }
+
+extension SemanticKind {
+    public var title: LocalizedStringKey {
+        switch self {
+        case .article: "Article"
+        case .product: "Product"
+        case .place: "Place"
+        case .event: "Event"
+        case .recipe: "Recipe"
+        case .video: "Video"
+        case .person: "Person"
+        case .receipt: "Receipt"
+        case .ticket: "Ticket"
+        case .quote: "Quote"
+        case .document: "Document"
+        case .other: "Other"
+        }
+    }
+
+    public var symbolName: String {
+        switch self {
+        case .article: "doc.text"
+        case .product: "bag"
+        case .place: "mappin.and.ellipse"
+        case .event: "calendar"
+        case .recipe: "fork.knife"
+        case .video: "play.rectangle"
+        case .person: "person"
+        case .receipt: "receipt"
+        case .ticket: "ticket"
+        case .quote: "quote.opening"
+        case .document: "doc"
+        case .other: "square.dashed"
+        }
+    }
+}
