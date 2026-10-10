@@ -55,7 +55,7 @@ public struct SuggestedAction: Codable, Sendable, Hashable {
 
 /// A group's overview (PRD G3), written by the on-device model or, without it,
 /// by a heuristic (`isProvisional`) and rewritten once the model is available.
-public struct GroupBrief: Codable, Sendable, Equatable {
+public struct GroupBrief: Codable, Sendable, Hashable {
     public var title: String
     public var overview: String
     public var keyPoints: [String]
