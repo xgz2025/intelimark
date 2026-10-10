@@ -175,6 +175,7 @@ final class QuickCaptureSession {
                 content.url = url
             }
         }
+        content.useFileNameAsTitle()
         if content.files.count == 1, let url = urls.first(where: \.isFileURL), let image = NSImage(contentsOf: url) {
             draft.thumbnail = Image(nsImage: image)
         }

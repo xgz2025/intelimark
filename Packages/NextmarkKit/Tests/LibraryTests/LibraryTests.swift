@@ -102,4 +102,29 @@ struct LibraryTests {
         #expect(item.note == "mine")
         #expect(item.displayTitle == "AI title")
     }
+
+    @Test func filesSharedOnTheirOwnAreTitledByName() async throws {
+        let id = ULID()
+        let payload = try store.makePayloadDirectory(for: id)
+        try Data("%PDF-1.4".utf8).write(to: payload.appending(path: "0-Lease agreement.pdf"))
+        let envelope = CaptureEnvelope(
+            id: id, device: "d", surface: .shareSheet,
+            payloadFiles: [PayloadFile(fileName: "0-Lease agreement.pdf", contentType: "com.adobe.pdf", byteSize: 8)]
+        )
+        try store.commit(envelope)
+        try await ingestor.ingestPending()
+
+        let item = try #require(try await ItemRepository(database: database).item(id: id.rawValue))
+        #expect(item.sourceTitle == "Lease agreement")
+        #expect(item.displayTitle == "Lease agreement")
+    }
+
+    @Test func untitledItemsAreNamedByKind() {
+        var item = ItemRecord(envelope: CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet))
+        item.kind = .pdf
+        #expect(item.displayTitle == "PDF Document")
+        item.kind = .image
+        item.imageDescription = "A receipt from a ramen shop"
+        #expect(item.displayTitle == "A receipt from a ramen shop")
+    }
 }

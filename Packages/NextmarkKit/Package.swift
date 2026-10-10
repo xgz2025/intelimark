@@ -41,8 +41,8 @@ let package = Package(
         .target(name: "Pipeline", dependencies: ["Model", "Library", "Extraction", "Intelligence", "Search", "Grouping"]),
         .target(name: "Search", dependencies: ["Model", "Library", "Intelligence"]),
         .target(name: "Grouping", dependencies: ["Model", "Search"]),
-        .target(name: "Moments", dependencies: ["Model"]),
-        .target(name: "Features", dependencies: ["Model", "Library", "Intelligence", "Search", "DesignSystem"]),
+        .target(name: "Moments", dependencies: ["Model", "Library"]),
+        .target(name: "Features", dependencies: ["Model", "Library", "Intelligence", "Search", "Moments", "DesignSystem"]),
 
         .testTarget(name: "ModelTests", dependencies: ["Model"]),
         .testTarget(name: "CaptureTests", dependencies: ["Model", "Capture"]),
@@ -58,6 +58,9 @@ let package = Package(
             dependencies: ["Model", "Library", "Intelligence", "Search", .product(name: "GRDB", package: "GRDB.swift")]
         ),
         .testTarget(name: "GroupingTests", dependencies: ["Grouping", "Search"]),
-        .testTarget(name: "MomentsTests", dependencies: ["Moments"]),
+        .testTarget(
+            name: "MomentsTests",
+            dependencies: ["Moments", "Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
     ]
 )

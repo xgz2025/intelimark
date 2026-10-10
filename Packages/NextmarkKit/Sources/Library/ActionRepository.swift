@@ -116,25 +116,32 @@ public struct ActionRepository: Sendable {
 
     /// Live open actions across the library, earliest due first, with their item or group.
     public func nextActions() -> AsyncThrowingStream<[ActionContext], any Error> {
-        database.observe { db in
-            let actions = try ActionRecord
-                .filter(Column("status") == ActionStatus.open.rawValue)
-                .fetchAll(db)
-                .sorted(by: ActionRecord.displayOrder)
-            let items = try ItemRecord.fetchAll(db, keys: Array(Set(actions.compactMap(\.itemID))))
-            let groups = try GroupRecord.fetchAll(db, keys: Array(Set(actions.compactMap(\.groupID))))
-            let itemsByID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            let groupsByID = Dictionary(groups.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            return actions.compactMap { action in
-                let item = action.itemID.flatMap { itemsByID[$0] }
-                let group = action.groupID.flatMap { groupsByID[$0] }
-                // Actions of trashed items and done groups drop out of the list.
-                if item?.status == .trashed || group?.status == .done { return nil }
-                return ActionContext(
-                    action: action, itemTitle: item?.displayTitle,
-                    groupTitle: group?.displayTitle, groupEmoji: group?.emoji
-                )
-            }
+        database.observe { db in try Self.fetchOpenActions(db) }
+    }
+
+    /// Open actions with their item or group, earliest due first (for Moments).
+    public func openActions() async throws -> [ActionContext] {
+        try await database.writer.read { db in try Self.fetchOpenActions(db) }
+    }
+
+    static func fetchOpenActions(_ db: Database) throws -> [ActionContext] {
+        let actions = try ActionRecord
+            .filter(Column("status") == ActionStatus.open.rawValue)
+            .fetchAll(db)
+            .sorted(by: ActionRecord.displayOrder)
+        let items = try ItemRecord.fetchAll(db, keys: Array(Set(actions.compactMap(\.itemID))))
+        let groups = try GroupRecord.fetchAll(db, keys: Array(Set(actions.compactMap(\.groupID))))
+        let itemsByID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let groupsByID = Dictionary(groups.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return actions.compactMap { action in
+            let item = action.itemID.flatMap { itemsByID[$0] }
+            let group = action.groupID.flatMap { groupsByID[$0] }
+            // Actions of trashed items and done groups drop out of the list.
+            if item?.status == .trashed || group?.status == .done { return nil }
+            return ActionContext(
+                action: action, itemTitle: item?.displayTitle,
+                groupTitle: group?.displayTitle, groupEmoji: group?.emoji
+            )
         }
     }
 

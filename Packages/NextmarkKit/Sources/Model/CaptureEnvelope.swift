@@ -28,6 +28,23 @@ public struct PayloadFile: Codable, Sendable, Hashable {
         self.contentType = contentType
         self.byteSize = byteSize
     }
+
+    /// The file's own name as a title ("Q3 report" for `0-Q3 report.pdf`), or nil
+    /// when the name says nothing (camera roll names, "image").
+    public var displayName: String? {
+        var name = fileName
+        // Payload files are stored as "<index>-<original name>".
+        if let dash = name.firstIndex(of: "-"), dash != name.startIndex, name[..<dash].allSatisfy(\.isNumber) {
+            name = String(name[name.index(after: dash)...])
+        }
+        name = (name as NSString).deletingPathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !name.hasPrefix("."), !Self.meaninglessNames.contains(name.lowercased()),
+              name.range(of: #"^(IMG|DSC|DSCN|DSCF|PXL|MVIMG|VID)[_ -]?\d+"#, options: [.regularExpression, .caseInsensitive]) == nil
+        else { return nil }
+        return name
+    }
+
+    static let meaninglessNames: Set<String> = ["image", "file", "document", "untitled", "photo", "attachment"]
 }
 
 /// One capture, written by any capture surface into the App Group Inbox and

@@ -99,7 +99,8 @@ public struct ItemRepository: Sendable {
     public func applyUnderstanding(_ understanding: Understanding, toItem id: String, version: Int, now: Date = Date()) async throws {
         try await database.writer.write { db in
             guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
-            item.aiTitle = understanding.title
+            // An empty title means the understander had none to give.
+            item.aiTitle = understanding.title.isEmpty ? nil : understanding.title
             item.summary = understanding.summary
             item.semanticKind = item.structuredKind ?? understanding.semanticKind
             item.suggestedIntent = understanding.likelyIntent

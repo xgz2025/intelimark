@@ -50,6 +50,7 @@ public enum ShareItemLoader {
             }
         }
         content.promoteLinkText()
+        content.useFileNameAsTitle()
         return content
     }
 

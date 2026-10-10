@@ -13,7 +13,7 @@ struct NextmarkApp: App {
 
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
-            RootView(services: model.services)
+            RootView(services: model.services, navigator: model.navigator)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
@@ -26,7 +26,7 @@ struct NextmarkApp: App {
             QuickCaptureMenu()
         }
         Settings {
-            MacSettingsView()
+            MacSettingsView(onChange: model.services.refresh)
         }
         #endif
     }

@@ -149,6 +149,16 @@ extension LibraryDatabase {
                 t.column("deliveredAt", .datetime)
             }
 
+            // Local only: how the user answered each notification, so Moment types they
+            // keep dismissing are muted (PRD M5, Docs/architecture.md §8).
+            try db.create(table: "notificationLedger") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("reason", .text).notNull().indexed() // eventStart · deadline · actionDue · weeklyReview…
+                t.column("targetID", .text).notNull()
+                t.column("outcome", .text).notNull()          // opened · done · snoozed · dismissed
+                t.column("recordedAt", .datetime).notNull()
+            }
+
             // Recorded for every item from 1.0; Recap reads it (Docs/ai_sessions_spec.md §2).
             try db.create(table: "activitySpan") { t in
                 t.autoIncrementedPrimaryKey("id")

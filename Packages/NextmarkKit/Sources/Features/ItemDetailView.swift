@@ -23,6 +23,8 @@ struct ItemDetailView: View {
             }
         }
         .task(id: itemID) {
+            // Opening an item keeps it out of the stale pile in the Weekly Review.
+            try? await services.items.markOpened(itemID)
             for await value in services.items.observeItem(id: itemID).ignoringErrors() {
                 item = value
             }
