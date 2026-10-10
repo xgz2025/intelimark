@@ -37,8 +37,10 @@ public struct NotificationLedger: Sendable {
     }
 
     public func record(reason: String, targetID: String, outcome: NotificationOutcome, now: Date = Date()) async throws {
-        var entry = LedgerEntry(reason: reason, targetID: targetID, outcome: outcome, recordedAt: now)
-        try await database.writer.write { db in try entry.insert(db) }
+        try await database.writer.write { db in
+            var entry = LedgerEntry(reason: reason, targetID: targetID, outcome: outcome, recordedAt: now)
+            try entry.insert(db)
+        }
     }
 
     /// Entries since `date`, newest first.
