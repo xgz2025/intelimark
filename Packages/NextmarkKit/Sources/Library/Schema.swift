@@ -56,6 +56,7 @@ extension LibraryDatabase {
                 t.column("pinned", .boolean).notNull().defaults(to: false)
                 t.column("lastOpenedAt", .datetime)
                 t.column("syncScope", .text).notNull().defaults(to: "cloud")
+                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(virtualTable: "item_fts", using: FTS5()) { t in
@@ -76,7 +77,7 @@ extension LibraryDatabase {
             }
 
             try db.create(table: "attachment") { t in
-                t.autoIncrementedPrimaryKey("id")
+                t.primaryKey("id", .text)                    // <itemID>-<index>: the same on every device
                 t.column("itemID", .text).notNull().indexed().references("item", onDelete: .cascade)
                 t.column("role", .text).notNull()
                 t.column("fileName", .text).notNull()
@@ -113,6 +114,7 @@ extension LibraryDatabase {
                 t.column("outcome", .text)                   // what came of it, noted when done (PRD A5)
                 t.column("createdAt", .datetime).notNull()
                 t.column("updatedAt", .datetime).notNull()
+                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(table: "membership") { t in
@@ -124,6 +126,7 @@ extension LibraryDatabase {
                 // The user took the item out: kept so the AI never suggests it again.
                 t.column("excluded", .boolean).notNull().defaults(to: false)
                 t.column("addedAt", .datetime).notNull()
+                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
                 t.primaryKey(["groupID", "itemID"])
             }
 
@@ -138,6 +141,7 @@ extension LibraryDatabase {
                 t.column("reminderID", .text)
                 t.column("createdAt", .datetime).notNull()
                 t.column("completedAt", .datetime)
+                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(table: "moment") { t in
@@ -196,6 +200,9 @@ extension LibraryDatabase {
                 t.column("attempts", .integer).notNull().defaults(to: 0)
                 t.column("notBefore", .datetime).notNull().indexed()
             }
+
+            // iCloud sync bookkeeping and change tracking (Docs/architecture.md §4.3).
+            try SyncCatalog.createSchema(db)
         }
         return migrator
     }

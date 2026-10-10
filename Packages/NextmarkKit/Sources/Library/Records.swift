@@ -162,10 +162,11 @@ public enum AttachmentSyncPolicy: String, Codable, Sendable {
     case always, ifEnabled, never
 }
 
-public struct AttachmentRecord: Codable, Sendable, Identifiable, FetchableRecord, MutablePersistableRecord {
+public struct AttachmentRecord: Codable, Sendable, Identifiable, FetchableRecord, PersistableRecord {
     public static let databaseTableName = "attachment"
 
-    public var id: Int64?
+    /// `<itemID>-<index>`: the same on every device, so it can name the iCloud record.
+    public var id: String
     public var itemID: String
     public var role: AttachmentRole
     public var fileName: String
@@ -175,22 +176,20 @@ public struct AttachmentRecord: Codable, Sendable, Identifiable, FetchableRecord
 
     public init(
         itemID: String,
+        index: Int,
         role: AttachmentRole,
         fileName: String,
         contentType: String,
         byteSize: Int64?,
         syncPolicy: AttachmentSyncPolicy
     ) {
+        id = "\(itemID)-\(index < 10 ? "0" : "")\(index)"
         self.itemID = itemID
         self.role = role
         self.fileName = fileName
         self.contentType = contentType
         self.byteSize = byteSize
         self.syncPolicy = syncPolicy
-    }
-
-    public mutating func didInsert(_ inserted: InsertionSuccess) {
-        id = inserted.rowID
     }
 }
 

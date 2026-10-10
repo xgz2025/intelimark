@@ -19,6 +19,7 @@ let package = Package(
         .library(name: "Search", targets: ["Search"]),
         .library(name: "Grouping", targets: ["Grouping"]),
         .library(name: "Moments", targets: ["Moments"]),
+        .library(name: "Sync", targets: ["Sync"]),
         .library(name: "Features", targets: ["Features"]),
     ],
     dependencies: [
@@ -42,6 +43,7 @@ let package = Package(
         .target(name: "Search", dependencies: ["Model", "Library", "Intelligence"]),
         .target(name: "Grouping", dependencies: ["Model", "Search"]),
         .target(name: "Moments", dependencies: ["Model", "Library"]),
+        .target(name: "Sync", dependencies: ["Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]),
         .target(name: "Features", dependencies: ["Model", "Library", "Intelligence", "Search", "Moments", "DesignSystem"]),
 
         .testTarget(name: "ModelTests", dependencies: ["Model"]),
@@ -61,6 +63,10 @@ let package = Package(
         .testTarget(
             name: "MomentsTests",
             dependencies: ["Moments", "Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
+        .testTarget(
+            name: "SyncTests",
+            dependencies: ["Sync", "Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]
         ),
     ]
 )

@@ -1,10 +1,12 @@
 import SwiftUI
 import Intelligence
+import Library
 import Moments
 
 public struct SettingsView: View {
-    /// Called when a setting that affects scheduling changes.
+    /// Called when a setting that affects scheduling or sync changes.
     private let onChange: @Sendable () async -> Void
+    private let onSyncNow: @Sendable () async -> Void
 
     @AppStorage(MomentSettings.Key.enabled) private var momentsEnabled = true
     @AppStorage(MomentSettings.Key.maxPerDay) private var maxPerDay = 3
@@ -13,9 +15,15 @@ public struct SettingsView: View {
     @AppStorage(MomentSettings.Key.reviewEnabled) private var reviewEnabled = true
     @AppStorage(MomentSettings.Key.reviewWeekday) private var reviewWeekday = 1
     @AppStorage(MomentSettings.Key.reviewHour) private var reviewHour = 18
+    @AppStorage(SyncSettings.Key.enabled) private var syncEnabled = true
+    @AppStorage(SyncSettings.Key.originals) private var syncOriginals = true
+    @AppStorage(SyncSettings.Key.lastSyncedAt) private var lastSyncedAt: Double = 0
+    @AppStorage(SyncSettings.Key.status) private var syncStatus = ""
+    @State private var isSyncing = false
 
-    public init(onChange: @escaping @Sendable () async -> Void = {}) {
+    public init(onChange: @escaping @Sendable () async -> Void = {}, onSyncNow: @escaping @Sendable () async -> Void = {}) {
         self.onChange = onChange
+        self.onSyncNow = onSyncNow
     }
 
     public var body: some View {
@@ -43,6 +51,33 @@ public struct SettingsView: View {
                     Picker("Time", selection: $reviewHour) { hourOptions }
                 }
             }
+            Section {
+                Toggle("Sync with iCloud", isOn: $syncEnabled)
+                if syncEnabled {
+                    Toggle("Sync Original Files", isOn: $syncOriginals)
+                    if !syncStatus.isEmpty {
+                        Label(syncStatus, systemImage: "exclamationmark.icloud")
+                            .foregroundStyle(.secondary)
+                    } else if lastSyncedAt > 0 {
+                        LabeledContent("Last Synced") {
+                            Text(Date(timeIntervalSinceReferenceDate: lastSyncedAt), format: .relative(presentation: .named))
+                        }
+                    }
+                    Button("Sync Now", systemImage: "arrow.triangle.2.circlepath.icloud") {
+                        let onSyncNow = onSyncNow
+                        isSyncing = true
+                        Task {
+                            await onSyncNow()
+                            isSyncing = false
+                        }
+                    }
+                    .disabled(isSyncing)
+                }
+            } header: {
+                Text("iCloud")
+            } footer: {
+                Text("Your library syncs through your private iCloud database, end-to-end encrypted. Nextmark has no server. Without original files, titles, notes, text and AI results still sync, using little iCloud space.")
+            }
             Section("Apple Intelligence") {
                 LabeledContent("On-device model", value: IntelligenceStatus.current.description)
             }
@@ -69,7 +104,8 @@ public struct SettingsView: View {
 
     /// Changes whenever a scheduling setting does.
     private var settingsFingerprint: [Int] {
-        [momentsEnabled ? 1 : 0, maxPerDay, quietStart, quietEnd, reviewEnabled ? 1 : 0, reviewWeekday, reviewHour]
+        [momentsEnabled ? 1 : 0, maxPerDay, quietStart, quietEnd, reviewEnabled ? 1 : 0, reviewWeekday, reviewHour,
+         syncEnabled ? 1 : 0, syncOriginals ? 1 : 0]
     }
 
     static func label(forHour hour: Int) -> String {

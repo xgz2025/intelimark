@@ -103,6 +103,29 @@ public actor PipelineRunner {
         return await enqueue(.embed, ids: ids, now: now)
     }
 
+    /// Items another device created or changed (PRD U6). Vectors don't sync, so they are
+    /// embedded here. When this device has the on-device model and the sender's
+    /// understanding is older or provisional, it is understood again; the result syncs
+    /// back and wins by its higher version. Returns how many were queued.
+    @discardableResult
+    public func enqueueSyncedItems(_ ids: [String], canUnderstand: Bool, now: Date = Date()) async -> Int {
+        var queued = 0
+        for id in ids {
+            guard let item = try? await repository.item(id: id), item.status != .trashed,
+                  (try? await queue.hasJob(forItem: id)) == false
+            else { continue }
+            // Extraction belongs to the device that has the files; wait for its result.
+            let understands = canUnderstand && item.extractVersion > 0 && item.derivedVersion < Self.understandVersion
+            do {
+                try await queue.enqueue(understands ? .understand : .embed, itemID: id, notBefore: now)
+                queued += 1
+            } catch {
+                continue
+            }
+        }
+        return queued
+    }
+
     func enqueue(_ stage: PipelineStage, ids: [String], now: Date) async -> Int {
         var queued = 0
         for id in ids {

@@ -26,7 +26,7 @@ struct NextmarkApp: App {
             QuickCaptureMenu()
         }
         Settings {
-            MacSettingsView(onChange: model.services.refresh)
+            MacSettingsView(onChange: model.services.refresh, onSyncNow: model.services.syncNow)
         }
         #endif
     }

@@ -123,7 +123,7 @@ public struct RootView: View {
         case .suggestions:
             SuggestionsView(services: services)
         case .settings:
-            SettingsView(onChange: services.refresh)
+            SettingsView(onChange: services.refresh, onSyncNow: services.syncNow)
         case .group(let id):
             GroupDetailView(groupID: id, services: services)
                 .id(id)
