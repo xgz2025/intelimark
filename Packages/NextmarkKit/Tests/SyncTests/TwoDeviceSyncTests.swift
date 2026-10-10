@@ -134,7 +134,7 @@ struct TwoDeviceSyncTests {
             try MembershipRecord.filter(Column("groupID") == groupID).fetchAll(db)
         }
         #expect(Set(members.map(\.itemID)) == [ramen, sushi])
-        #expect(members.allSatisfy(\.locked))
+        #expect(members.filter { !$0.locked }.isEmpty)
         #expect(try await mac.actions.openActions().map(\.action.id) == [actionID])
 
         // Done on the Mac, seen on the phone.
