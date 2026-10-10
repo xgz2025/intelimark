@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 import Model
 
 /// A committed capture waiting in the Inbox.
@@ -40,6 +41,24 @@ public struct EnvelopeStore: Sendable {
         let url = directory(for: id).appending(path: Self.payloadDirectoryName, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    /// Copies a file into the capture's payload directory as `<index>-<name>`.
+    /// The content type comes from the file itself, falling back to its extension.
+    public func addPayloadFile(copying source: URL, for id: ULID, index: Int) throws -> PayloadFile {
+        let fileName = "\(index)-\(source.lastPathComponent)"
+        let destination = try makePayloadDirectory(for: id).appending(path: fileName)
+        try FileManager.default.copyItem(at: source, to: destination)
+        let values = try? destination.resourceValues(forKeys: [.contentTypeKey, .fileSizeKey])
+        let type = values?.contentType ?? UTType(filenameExtension: source.pathExtension) ?? .data
+        return PayloadFile(fileName: fileName, contentType: type.identifier, byteSize: values?.fileSize.map { Int64($0) })
+    }
+
+    /// Writes data (e.g. a screenshot) into the capture's payload directory.
+    public func addPayload(_ data: Data, fileName: String, contentType: UTType, for id: ULID) throws -> PayloadFile {
+        let destination = try makePayloadDirectory(for: id).appending(path: fileName)
+        try data.write(to: destination, options: .atomic)
+        return PayloadFile(fileName: fileName, contentType: contentType.identifier, byteSize: Int64(data.count))
     }
 
     public func commit(_ envelope: CaptureEnvelope) throws {

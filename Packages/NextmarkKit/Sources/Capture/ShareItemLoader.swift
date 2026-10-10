@@ -49,11 +49,7 @@ public enum ShareItemLoader {
                 }
             }
         }
-        // Plain text that is just a link (common from apps that share "text") becomes the URL.
-        if content.url == nil, let text = content.text, let url = URL(string: text), url.scheme?.hasPrefix("http") == true {
-            content.url = url
-            content.text = nil
-        }
+        content.promoteLinkText()
         return content
     }
 

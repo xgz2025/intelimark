@@ -11,6 +11,8 @@ public final class CaptureDraft {
     public var intent: Intent?
     public var note = ""
     public var isLoading = true
+    /// Shown above the details, e.g. a screenshot about to be saved.
+    public var thumbnail: Image?
 
     public init() {}
 
@@ -20,18 +22,26 @@ public final class CaptureDraft {
     }
 }
 
-/// The capture UI shared by the iOS and macOS share extensions (PRD C1, C3).
-/// Buttons live in the view rather than a toolbar so the layout is identical in
-/// an iOS share sheet and a macOS share popover.
-public struct CaptureSheet: View {
+/// The capture UI shared by the iOS and macOS share extensions (PRD C1, C3) and
+/// the Mac quick capture panel (C5). Buttons live in the view rather than a toolbar
+/// so the layout is identical in an iOS share sheet and a macOS popover or panel.
+/// `accessory` appears above the preview (the quick capture panel's source picker).
+public struct CaptureSheet<Accessory: View>: View {
     @Bindable private var draft: CaptureDraft
     private let onSave: () -> Void
     private let onCancel: () -> Void
+    private let accessory: Accessory
 
-    public init(draft: CaptureDraft, onSave: @escaping () -> Void, onCancel: @escaping () -> Void) {
+    public init(
+        draft: CaptureDraft,
+        onSave: @escaping () -> Void,
+        onCancel: @escaping () -> Void,
+        @ViewBuilder accessory: () -> Accessory
+    ) {
         self.draft = draft
         self.onSave = onSave
         self.onCancel = onCancel
+        self.accessory = accessory()
     }
 
     public var body: some View {
@@ -39,6 +49,9 @@ public struct CaptureSheet: View {
             header
             Divider()
             Form {
+                if Accessory.self != EmptyView.self {
+                    Section { accessory }
+                }
                 Section { preview }
                 Section("Why are you saving this?") {
                     IntentPicker(selection: $draft.intent)
@@ -72,6 +85,14 @@ public struct CaptureSheet: View {
             ProgressView().frame(maxWidth: .infinity)
         } else if let content = draft.content, !content.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
+                if let thumbnail = draft.thumbnail {
+                    thumbnail
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 160)
+                        .clipShape(.rect(cornerRadius: 6))
+                        .accessibilityHidden(true)
+                }
                 Text(content.title ?? content.url?.host() ?? String(localized: "Untitled"))
                     .font(.headline)
                     .lineLimit(2)
@@ -88,5 +109,11 @@ public struct CaptureSheet: View {
         } else {
             Text("Nothing here can be saved yet.").foregroundStyle(.secondary)
         }
+    }
+}
+
+extension CaptureSheet where Accessory == EmptyView {
+    public init(draft: CaptureDraft, onSave: @escaping () -> Void, onCancel: @escaping () -> Void) {
+        self.init(draft: draft, onSave: onSave, onCancel: onCancel, accessory: { EmptyView() })
     }
 }

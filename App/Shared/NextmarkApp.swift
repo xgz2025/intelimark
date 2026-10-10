@@ -9,8 +9,10 @@ struct NextmarkApp: App {
     @State private var model = AppModel.live()
     @Environment(\.scenePhase) private var scenePhase
 
+    static let mainWindowID = "main"
+
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: Self.mainWindowID) {
             RootView(repository: model.repository, search: model.search)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
@@ -21,10 +23,10 @@ struct NextmarkApp: App {
         }
         #if os(macOS)
         MenuBarExtra("Nextmark", systemImage: "bookmark.fill") {
-            QuickCaptureMenu(model: model)
+            QuickCaptureMenu()
         }
         Settings {
-            NavigationStack { SettingsView() }
+            MacSettingsView()
         }
         #endif
     }

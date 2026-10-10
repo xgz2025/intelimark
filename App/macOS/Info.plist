@@ -45,6 +45,10 @@
 				<string>public.utf8-plain-text</string>
 				<string>public.url</string>
 			</array>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.content</string>
+			</array>
 		</dict>
 	</array>
 </dict>

@@ -163,6 +163,10 @@ targets:
         product: Search
       - package: NextmarkKit
         product: Features
+      - package: NextmarkKit
+        product: CaptureUI
+      - package: NextmarkKit
+        product: DesignSystem
       - target: ShareExtension-macOS
       - target: SafariExtension-macOS
       - target: Widgets-macOS

@@ -1,22 +1,38 @@
 import AppKit
 import SwiftUI
-import Model
-import Capture
 
-/// The menu-bar extra (PRD C5). The global hotkey and screenshot capture come next.
+/// The menu-bar extra (PRD C5): quick capture, one-click clipboard save, and a
+/// way back into the app.
 struct QuickCaptureMenu: View {
-    let model: AppModel
+    @AppStorage(QuickCaptureController.hotKeyEnabledKey) private var hotKeyEnabled = true
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Save Clipboard") { saveClipboard() }
+        quickCaptureButton
+        Button("Save Clipboard") { QuickCaptureController.shared.saveClipboard() }
+        Button("Capture Screenshot…") { QuickCaptureController.shared.show(source: .screenshot) }
+        Divider()
+        Button("Open Nextmark") {
+            openWindow(id: NextmarkApp.mainWindowID)
+            NSApp.activate()
+        }
+        SettingsLink {
+            Text("Settings…")
+        }
+        .keyboardShortcut(",")
         Divider()
         Button("Quit Nextmark") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 
-    private func saveClipboard() {
-        let content = PasteboardCapture.content(from: .general)
-        guard !content.isEmpty else { return }
-        try? CaptureWriter.commit(content, surface: .quickCapture, store: model.store)
+    /// Shows ⌥⌘S next to the item while the global hotkey is on.
+    @ViewBuilder
+    private var quickCaptureButton: some View {
+        let button = Button("Quick Capture…") { QuickCaptureController.shared.show() }
+        if hotKeyEnabled {
+            button.keyboardShortcut("s", modifiers: [.command, .option])
+        } else {
+            button
+        }
     }
 }
