@@ -25,3 +25,26 @@ public final class LibraryDatabase: Sendable {
         try LibraryDatabase(writer: DatabaseQueue())
     }
 }
+
+extension LibraryDatabase {
+    /// A live query: emits the value now and again whenever its tables change, so
+    /// UI code observes through `AsyncThrowingStream`s and never imports GRDB.
+    func observe<Value: Sendable>(
+        _ fetch: @escaping @Sendable (Database) throws -> Value
+    ) -> AsyncThrowingStream<Value, any Error> {
+        let writer = writer
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await value in ValueObservation.tracking(fetch).values(in: writer) {
+                        continuation.yield(value)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}

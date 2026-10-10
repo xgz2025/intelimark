@@ -13,7 +13,7 @@ struct NextmarkApp: App {
 
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
-            RootView(repository: model.repository, search: model.search)
+            RootView(services: model.services)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {

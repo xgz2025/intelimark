@@ -3,6 +3,7 @@ import Model
 import Library
 import Intelligence
 import Extraction
+import Grouping
 
 /// Drains the job queue one job at a time (Docs/architecture.md §5). Stages that
 /// aren't built yet complete immediately so the queue never stalls.
@@ -12,30 +13,49 @@ public actor PipelineRunner {
     /// Bump when the Understand prompt or schema changes; older items are re-run lazily.
     /// Provisional (no-model) results are stored as version 0 so they are re-run too.
     public static let understandVersion = 2
+    /// Bump when the Brief prompt or schema changes. Heuristic briefs are stored as 0.
+    public static let briefVersion = 1
 
-    private let queue: JobQueue
-    private let repository: ItemRepository
+    let queue: JobQueue
+    let repository: ItemRepository
+    let groups: GroupRepository
     private let extractor: ItemExtractor
     private let understander: any ItemUnderstander
-    private let embedder: (any EmbeddingProvider)?
+    let embedder: (any EmbeddingProvider)?
+    let briefWriter: any GroupBriefWriter
     private let itemsDirectory: URL
+
+    // Group engine state (PipelineRunner+Groups.swift).
+    let assigner: GroupAssigner
+    let discovery: GroupDiscovery
+    var groupSpaces: [String: (space: GroupSpace, computedAt: Date)] = [:]
+    var lastDiscovery: Date?
 
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
-    ///   - embedder: computes item vectors for semantic search; without one the Embed stage is skipped.
+    ///   - embedder: computes item vectors for semantic search and grouping; without one
+    ///     the Embed and Group stages are skipped.
+    ///   - briefWriter: writes group Briefs.
+    ///   - grouping: thresholds for suggesting groups and members.
     public init(
         database: LibraryDatabase,
         itemsDirectory: URL,
         extractor: ItemExtractor = ItemExtractor(),
         understander: any ItemUnderstander,
-        embedder: (any EmbeddingProvider)? = nil
+        embedder: (any EmbeddingProvider)? = nil,
+        briefWriter: any GroupBriefWriter = HeuristicBriefWriter(),
+        grouping: GroupingOptions = GroupingOptions()
     ) {
+        assigner = GroupAssigner(threshold: grouping.assignThreshold)
+        discovery = GroupDiscovery(mergeThreshold: grouping.mergeThreshold, minimumSize: grouping.minimumClusterSize)
         queue = JobQueue(database: database)
         repository = ItemRepository(database: database)
+        groups = GroupRepository(database: database)
         self.itemsDirectory = itemsDirectory
         self.extractor = extractor
         self.understander = understander
         self.embedder = embedder
+        self.briefWriter = briefWriter
     }
 
     /// Runs up to `limit` due jobs. Returns how many ran.
@@ -83,7 +103,7 @@ public actor PipelineRunner {
         return await enqueue(.embed, ids: ids, now: now)
     }
 
-    private func enqueue(_ stage: PipelineStage, ids: [String], now: Date) async -> Int {
+    func enqueue(_ stage: PipelineStage, ids: [String], now: Date) async -> Int {
         var queued = 0
         for id in ids {
             do {
@@ -171,8 +191,12 @@ public actor PipelineRunner {
                 return      // retrying won't help; full-text search still finds the item
             }
             try await repository.saveEmbedding(embedding.vector, modelID: embedding.modelID, forItem: job.itemID)
+            try await queue.enqueue(.group, itemID: job.itemID, notBefore: now)
 
-        case .prefilter, .digest, .index, .group, .moments, .rollup:
+        case .group:
+            try await suggestGroup(forItem: job.itemID, now: now)
+
+        case .prefilter, .digest, .index, .moments, .rollup:
             // TODO: later milestones (Docs/architecture.md §14, Docs/ai_sessions_spec.md §4).
             break
         }

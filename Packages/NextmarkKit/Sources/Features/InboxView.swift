@@ -2,13 +2,13 @@ import SwiftUI
 import Library
 
 struct InboxView: View {
-    let repository: ItemRepository
+    let services: LibraryServices
     @State private var items: [ItemRecord] = []
     @State private var errorMessage: String?
 
     var body: some View {
         List(items) { item in
-            ItemRow(item: item)
+            ItemLinkRow(item: item, services: services)
         }
         .overlay {
             if items.isEmpty {
@@ -21,7 +21,7 @@ struct InboxView: View {
         .navigationTitle("Inbox")
         .task {
             do {
-                for try await snapshot in repository.items() {
+                for try await snapshot in services.items.items() {
                     items = snapshot
                 }
             } catch {
