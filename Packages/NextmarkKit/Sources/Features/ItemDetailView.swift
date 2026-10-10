@@ -9,7 +9,7 @@ struct ItemDetailView: View {
     let itemID: String
     let services: LibraryServices
     @State private var item: ItemRecord?
-    @State private var context = ItemContext(groups: [], actions: [], knownActionTitles: [])
+    @State private var context = ItemContext()
     @State private var newAction = ""
     @State private var showsAddToGroup = false
     @State private var showsDonePrompt = false

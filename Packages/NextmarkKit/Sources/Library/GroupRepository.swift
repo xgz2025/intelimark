@@ -40,6 +40,12 @@ public struct ItemContext: Sendable, Equatable {
     public var actions: [ActionRecord]
     /// Lowercased titles of every action on the item, dismissed ones included.
     public var knownActionTitles: Set<String>
+
+    public init(groups: [GroupRecord] = [], actions: [ActionRecord] = [], knownActionTitles: Set<String> = []) {
+        self.groups = groups
+        self.actions = actions
+        self.knownActionTitles = knownActionTitles
+    }
 }
 
 /// Groups and memberships (Docs/architecture.md §4.2, §7). User edits lock what

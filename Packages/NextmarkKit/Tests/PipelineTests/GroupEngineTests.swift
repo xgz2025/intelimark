@@ -4,6 +4,7 @@ import Model
 import Capture
 import Library
 import Intelligence
+import Extraction
 @testable import Pipeline
 
 /// Words map to topics; every text shares a constant component, like real sentence vectors.
