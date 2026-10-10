@@ -55,6 +55,12 @@ public struct SharedContent: Sendable, Equatable {
         self.text = nil
     }
 
+    /// A shared file has no title of its own; its name is the best one ("Q3 report").
+    public mutating func useFileNameAsTitle() {
+        guard title?.isEmpty ?? true, url == nil, let name = files.first?.displayName else { return }
+        title = name
+    }
+
     /// Text selected on a page whose URL is known is a highlight: it gets a text
     /// fragment anchor so opening the item scrolls to it (PRD C4, F5).
     public mutating func quoteTextFromPage() {

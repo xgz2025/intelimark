@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Model
 import Capture
 import DesignSystem
@@ -93,7 +94,7 @@ public struct CaptureSheet<Accessory: View>: View {
                         .clipShape(.rect(cornerRadius: 6))
                         .accessibilityHidden(true)
                 }
-                Text(content.title ?? content.url?.host() ?? String(localized: "Untitled"))
+                Text(content.title ?? content.url?.host() ?? Self.placeholderTitle(for: content))
                     .font(.headline)
                     .lineLimit(2)
                 if let quote = content.selection?.exact ?? content.text {
@@ -109,6 +110,17 @@ public struct CaptureSheet<Accessory: View>: View {
         } else {
             Text("Nothing here can be saved yet.").foregroundStyle(.secondary)
         }
+    }
+}
+
+extension CaptureSheet {
+    /// What to show for content without a title: what kind of file it is.
+    static func placeholderTitle(for content: SharedContent) -> String {
+        guard let file = content.files.first else { return String(localized: "Untitled") }
+        let type = UTType(file.contentType)
+        if type?.conforms(to: .image) == true { return String(localized: "Photo") }
+        if type?.conforms(to: .pdf) == true { return String(localized: "PDF Document") }
+        return String(localized: "File")
     }
 }
 

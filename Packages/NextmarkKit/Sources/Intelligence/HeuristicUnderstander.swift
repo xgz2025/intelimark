@@ -65,7 +65,8 @@ public struct HeuristicUnderstander: ItemUnderstander {
             .map { $0.trimmingCharacters(in: .whitespaces) }
         if let firstLine, !firstLine.isEmpty { return String(firstLine.prefix(80)) }
         if let host = input.url?.host() { return host }
-        return String(localized: "Untitled")
+        // No title to give: leave it empty so the item keeps its captured title.
+        return ""
     }
 
     static func summary(for input: UnderstandingInput) -> String {

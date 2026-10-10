@@ -60,7 +60,8 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
         }
         if let canonicalURL { return canonicalURL }
         if let text, !text.isEmpty { return String(text.prefix(120)) }
-        return String(localized: "Untitled")
+        if let imageDescription, !imageDescription.isEmpty { return String(imageDescription.prefix(120)) }
+        return kind.placeholderTitle
     }
 
     public var subtitle: String? {
@@ -85,7 +86,9 @@ extension ItemRecord {
         canonicalURL = (envelope.pageContext?.canonicalURL ?? envelope.url)?.absoluteString
         contentHash = nil
 
+        // A file shared on its own (no page, no link) is titled by its file name.
         sourceTitle = envelope.title
+            ?? (envelope.url == nil ? envelope.payloadFiles.lazy.compactMap(\.displayName).first : nil)
         text = envelope.selection?.exact ?? envelope.text
         pageContext = envelope.pageContext
         if let quote = envelope.selection, let url = envelope.url {
@@ -125,6 +128,17 @@ extension ItemRecord {
 }
 
 extension ItemKind {
+    /// What to call an item that has no title at all.
+    public var placeholderTitle: String {
+        switch self {
+        case .image: String(localized: "Photo")
+        case .pdf: String(localized: "PDF Document")
+        case .file: String(localized: "File")
+        case .email: String(localized: "Email")
+        case .link, .text, .note, .aiSession: String(localized: "Untitled")
+        }
+    }
+
     static func inferred(from envelope: CaptureEnvelope) -> ItemKind {
         if let file = envelope.payloadFiles.first {
             let type = UTType(file.contentType)

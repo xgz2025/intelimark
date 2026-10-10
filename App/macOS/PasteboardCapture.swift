@@ -29,6 +29,7 @@ enum PasteboardCapture {
             content.appendText(text)
         }
         content.promoteLinkText()
+        content.useFileNameAsTitle()
         return content
     }
 

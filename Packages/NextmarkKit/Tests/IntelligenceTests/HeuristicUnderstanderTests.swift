@@ -19,6 +19,8 @@ struct HeuristicUnderstanderTests {
     @Test func fallsBackToFirstLineThenHost() {
         #expect(HeuristicUnderstander.title(for: UnderstandingInput(text: "First line\nSecond")) == "First line")
         #expect(HeuristicUnderstander.title(for: UnderstandingInput(url: URL(string: "https://example.com/x"))) == "example.com")
+        // Nothing to go on (a scanned PDF): no title, so the captured one is kept.
+        #expect(HeuristicUnderstander.title(for: UnderstandingInput(kind: .pdf)).isEmpty)
     }
 
     @Test func keywordsAreFrequentNonStopwords() {

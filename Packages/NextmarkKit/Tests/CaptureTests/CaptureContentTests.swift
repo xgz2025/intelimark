@@ -69,3 +69,34 @@ struct PayloadTests {
         #expect(!FileManager.default.fileExists(atPath: store.directory(for: id).path(percentEncoded: false)))
     }
 }
+
+struct FileTitleTests {
+    @Test(arguments: [
+        ("0-Q3 report.pdf", "Q3 report"),
+        ("12-Kyoto itinerary.final.docx", "Kyoto itinerary.final"),
+        ("Lease agreement.pdf", "Lease agreement"),
+        ("0-2024-tax-return.pdf", "2024-tax-return"),
+    ])
+    func filesAreTitledByTheirName(fileName: String, title: String) {
+        #expect(PayloadFile(fileName: fileName, contentType: "com.adobe.pdf").displayName == title)
+    }
+
+    @Test(arguments: ["0-IMG_1234.HEIC", "1-PXL_20261009_101500.jpg", "0-image.png", "0-.pdf", "DSC01234.JPG"])
+    func meaninglessNamesAreSkipped(fileName: String) {
+        #expect(PayloadFile(fileName: fileName, contentType: "public.data").displayName == nil)
+    }
+
+    @Test func aSharedFileGetsItsNameAsTitle() {
+        var content = SharedContent(files: [PayloadFile(fileName: "0-Q3 report.pdf", contentType: "com.adobe.pdf")])
+        content.useFileNameAsTitle()
+        #expect(content.title == "Q3 report")
+
+        // A page's own title, or a link, wins over the file name.
+        var titled = SharedContent(title: "Report", files: content.files)
+        titled.useFileNameAsTitle()
+        #expect(titled.title == "Report")
+        var linked = SharedContent(url: URL(string: "https://example.com/r.pdf"), files: content.files)
+        linked.useFileNameAsTitle()
+        #expect(linked.title == nil)
+    }
+}
