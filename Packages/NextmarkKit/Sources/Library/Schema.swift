@@ -98,7 +98,7 @@ extension LibraryDatabase {
             try db.create(table: "itemGroup") { t in
                 t.primaryKey("id", .text)
                 t.column("kind", .text).notNull()            // manual · smart · plan · workstream
-                t.column("state", .text).notNull()           // suggested · accepted · dismissed
+                t.column("state", .text).notNull().indexed() // suggested · accepted · dismissed
                 t.column("userTitle", .text)
                 t.column("aiTitle", .text)
                 t.column("emoji", .text)
@@ -108,7 +108,9 @@ extension LibraryDatabase {
                 t.column("brief", .text)                     // JSON GroupBrief
                 t.column("briefVersion", .integer).notNull().defaults(to: 0)
                 t.column("briefInputsHash", .text)
-                t.column("status", .text).notNull()
+                t.column("briefUpdatedAt", .datetime)
+                t.column("status", .text).notNull()          // active · done
+                t.column("outcome", .text)                   // what came of it, noted when done (PRD A5)
                 t.column("createdAt", .datetime).notNull()
                 t.column("updatedAt", .datetime).notNull()
             }
@@ -119,6 +121,9 @@ extension LibraryDatabase {
                 t.column("origin", .text).notNull()          // user · ai
                 t.column("score", .double)
                 t.column("locked", .boolean).notNull().defaults(to: false)
+                // The user took the item out: kept so the AI never suggests it again.
+                t.column("excluded", .boolean).notNull().defaults(to: false)
+                t.column("addedAt", .datetime).notNull()
                 t.primaryKey(["groupID", "itemID"])
             }
 
@@ -128,10 +133,11 @@ extension LibraryDatabase {
                 t.column("groupID", .text).indexed().references("itemGroup", onDelete: .cascade)
                 t.column("title", .text).notNull()
                 t.column("dueAt", .datetime)
-                t.column("status", .text).notNull()
+                t.column("status", .text).notNull().indexed() // open · done · dismissed
                 t.column("origin", .text).notNull()          // user · aiSuggested · aiAccepted
                 t.column("reminderID", .text)
                 t.column("createdAt", .datetime).notNull()
+                t.column("completedAt", .datetime)
             }
 
             try db.create(table: "moment") { t in

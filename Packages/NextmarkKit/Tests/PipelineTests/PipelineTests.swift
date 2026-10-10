@@ -232,7 +232,8 @@ struct PipelineTests {
         let now = Date()
         let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "Ideas for the trip")
         try await harness.capture(envelope, now: now)
-        #expect(await harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder()).drain(now: now) == 3)
+        // extract → understand → embed → group
+        #expect(await harness.runner(fetcher: StubFetcher.html(""), embedder: StubEmbedder()).drain(now: now) == 4)
 
         let embedding = try #require(try await harness.repository.embedding(forItem: envelope.id.rawValue))
         #expect(embedding.modelID == "stub#1")

@@ -6,6 +6,7 @@ import Library
 import Intelligence
 import Pipeline
 import Search
+import Features
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
 @MainActor
@@ -14,6 +15,7 @@ final class AppModel {
     let repository: ItemRepository
     let search: HybridSearch
     let store: EnvelopeStore
+    @ObservationIgnored private(set) var services: LibraryServices!
     private(set) var lastError: String?
 
     private let ingestor: Ingestor
@@ -32,8 +34,12 @@ final class AppModel {
             database: database,
             itemsDirectory: AppGroup.itemsURL,
             understander: IntelligenceRouter.makeUnderstander(),
-            embedder: embedder
+            embedder: embedder,
+            briefWriter: IntelligenceRouter.makeBriefWriter()
         )
+        services = LibraryServices(database: database, search: search) { [weak self] in
+            await self?.processInbox()
+        }
     }
 
     static func live() -> AppModel {
@@ -52,6 +58,7 @@ final class AppModel {
         if IntelligenceStatus.current == .available {
             // Items understood without the model (or with an older prompt) get another pass.
             await pipeline.requeueStaleUnderstanding()
+            await pipeline.requeueStaleBriefs()
         }
         // Items saved before the embedding model was on the device, or embedded by
         // a model an OS update replaced, get vectors for semantic search.
@@ -80,6 +87,8 @@ final class AppModel {
             do {
                 try await ingestor.ingestPending()
                 await pipeline.drain()
+                // Suggested groups and Briefs follow the items they're built from.
+                await pipeline.maintainGroups()
             } catch {
                 lastError = error.localizedDescription
             }

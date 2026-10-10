@@ -7,7 +7,7 @@ import DesignSystem
 /// Hybrid search with kind, intent and date filters (PRD F1, F2). Filters live in a
 /// toolbar menu and show as removable chips above the results.
 struct SearchView: View {
-    let search: HybridSearch
+    let services: LibraryServices
     @State private var text = ""
     @State private var filters = SearchFilters()
     @State private var results: [ItemRecord] = []
@@ -26,7 +26,7 @@ struct SearchView: View {
 
     var body: some View {
         List(results) { item in
-            ItemRow(item: item)
+            ItemLinkRow(item: item, services: services)
         }
         .overlay { emptyState }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -53,7 +53,7 @@ struct SearchView: View {
         try? await Task.sleep(for: .milliseconds(200))   // debounce typing
         guard !Task.isCancelled else { return }
         let query = request.filters.query(text: request.text, now: Date())
-        let found = (try? await search.search(query)) ?? []
+        let found = (try? await services.search.search(query)) ?? []
         guard !Task.isCancelled else { return }
         results = found
         hasSearched = true

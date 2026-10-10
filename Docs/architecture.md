@@ -311,7 +311,7 @@ protocol ItemUnderstander: Sendable {
     func understand(_ input: UnderstandingInput) async throws -> ItemUnderstanding
 }
 protocol GroupBriefWriter: Sendable {
-    func brief(for group: GroupSnapshot, items: [ItemDigest]) async throws -> GroupBrief
+    func brief(for input: BriefInput) async throws -> GroupBrief   // title, goal, date + item digests
 }
 protocol EmbeddingProvider: Sendable {
     func embed(_ text: String) async throws -> TextEmbedding   // unit vector + model ID (one model per script)
@@ -389,22 +389,43 @@ tappable item chips.
 
 ## 7. Group engine
 
-- **Assignment (online):** for a new item, compute cosine similarity to each
-  accepted group's centroid. If it's ≥ τ_assign (≈0.78, tuned on the eval
-  set), add it as a suggested membership (auto-accepted if the user enabled
-  "auto-file"); otherwise leave it in the Inbox.
-- **Discovery (batch, debounced, nightly):** agglomerative clustering
-  (average linkage, cosine) over ungrouped items from the last 90 days. A
-  cluster with ≥ 3 items and cohesion ≥ τ_cluster becomes a **suggested
-  group**, which the model names. Dismissed suggestions store their member
-  set so the same cluster isn't proposed again.
-- **Stability:** accepted groups are never split or renamed automatically.
-  Centroids update incrementally. Locked memberships are excluded from
-  re-clustering.
-- **Scale:** 10k items × ~512–768 floats ≈ 20–30 MB. Brute-force similarity with
-  `vDSP` takes milliseconds, so no ANN index is needed for v1.
-- **Typed-group detection:** if ≥ 70 % of members share a kind with typed
-  fields, the group offers **Compare** (G4) and the matching view (G5).
+All similarities are computed in a **centered space** (`GroupSpace`): the
+library's mean vector is subtracted before cosine, because mean-pooled
+sentence vectors share a large common component that makes even unrelated
+texts look similar. Thresholds below are starting values, tuned on the eval set.
+
+- **Assignment (online, Group stage):** after Embed, a new item is compared
+  with each accepted, active group's centroid (mean of its members' centered
+  vectors). At ≥ τ_assign (0.6) it becomes a **suggested membership** that the
+  user keeps or removes on the group screen; otherwise it stays in the Inbox.
+- **Discovery (batch):** after each pipeline pass, at most every 30 minutes:
+  agglomerative clustering (average linkage, Lance–Williams updates) over
+  items from the last 90 days that are in no group, not even a suggested one
+  (up to 400). Merging stops below τ_cluster (0.5); a cluster of 3–40 items
+  becomes a **suggested group** named by `TopicNamer` (the keyword or title
+  word most members share), later renamed by its Brief. At most 3 per pass.
+  Dismissed suggestions keep their member set; a cluster overlapping one by
+  Jaccard ≥ 0.6 isn't proposed again.
+- **Stability:** memberships the user creates or confirms are locked; one the
+  user removes stays as `excluded`, so the AI never re-adds it. Accepted groups
+  are never split or renamed automatically (`userTitle` always wins).
+- **Briefs (PRD G3):** written for accepted groups when the hash of their
+  confirmed members (IDs, `derivedVersion`, notes) plus title and goal
+  changes, once the group hasn't changed for 10 minutes; "Write Brief Again"
+  skips the wait. The on-device model writes overview, key points, open
+  questions and undated next steps; dated next steps come only from the items'
+  own dates (`ActionSuggester`), so a deadline is never invented. Without the
+  model, a heuristic brief is stored as version 0 and rewritten when the model
+  becomes available (`requeueStaleBriefs`).
+- **Actions (PRD A1, A2, A5):** `ActionSuggester` proposes next steps from intent,
+  kind and dates (buy → "Buy … before the sale ends", event → "Go to …", recipe →
+  "Cook …"); the user adds one with a tap. Dismissed suggestions are stored and
+  not offered again. Checking off the last open action of an item or group
+  offers to mark it done, with an optional outcome note.
+- **Scale:** 10k items × ~512–768 floats ≈ 20–30 MB. Brute-force similarity
+  takes milliseconds, so no ANN index is needed for v1.
+- **Typed-group detection (later):** if ≥ 70 % of members share a kind with
+  typed fields, the group offers **Compare** (G4) and the matching view (G5).
 
 ---
 
@@ -496,14 +517,14 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ Capture/             # EnvelopeStore, ShareItemLoader, TextFragment, InboxWatcher (extension-safe)
    │  ├─ CaptureUI/           # CaptureSheet + CaptureDraft (extension-safe, SwiftUI)
    │  ├─ DesignSystem/        # intent chips, symbols, tints
-   │  ├─ Library/             # GRDB schema v1, records, ItemRepository (FTS5), JobQueue, Ingestor
+   │  ├─ Library/             # GRDB schema v1, records, Item/Group/Action repositories, JobQueue, Ingestor
    │  ├─ Extraction/          # Extract stage: page fetch, HTML metadata, readable text, schema.org, PDF text, Vision
-   │  ├─ Intelligence/        # ItemUnderstander, Foundation Models impl, heuristic fallback, router, EmbeddingProvider
+   │  ├─ Intelligence/        # understanders, brief writers, ActionSuggester, TopicNamer, router, EmbeddingProvider
    │  ├─ Pipeline/            # PipelineRunner actor
    │  ├─ Search/              # HybridSearch (FTS + vectors + RRF), SearchRanking, vector math
-   │  ├─ Grouping/            # centroid assignment
+   │  ├─ Grouping/            # GroupSpace (centering), assignment, discovery (clustering)
    │  ├─ Moments/             # MomentPlanner (budget, quiet hours)
-   │  └─ Features/            # SwiftUI screens: RootView, Inbox, Search, Settings
+   │  └─ Features/            # SwiftUI screens: sidebar, Inbox, Next Actions, groups, item, Search, Settings
    └─ Tests/                  # Swift Testing, one target per module
 ```
 

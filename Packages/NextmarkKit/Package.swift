@@ -38,7 +38,7 @@ let package = Package(
         ),
         .target(name: "Extraction", dependencies: ["Model"]),
         .target(name: "Intelligence", dependencies: ["Model"]),
-        .target(name: "Pipeline", dependencies: ["Model", "Library", "Extraction", "Intelligence"]),
+        .target(name: "Pipeline", dependencies: ["Model", "Library", "Extraction", "Intelligence", "Search", "Grouping"]),
         .target(name: "Search", dependencies: ["Model", "Library", "Intelligence"]),
         .target(name: "Grouping", dependencies: ["Model", "Search"]),
         .target(name: "Moments", dependencies: ["Model"]),
@@ -57,7 +57,7 @@ let package = Package(
             name: "SearchTests",
             dependencies: ["Model", "Library", "Intelligence", "Search", .product(name: "GRDB", package: "GRDB.swift")]
         ),
-        .testTarget(name: "GroupingTests", dependencies: ["Grouping"]),
+        .testTarget(name: "GroupingTests", dependencies: ["Grouping", "Search"]),
         .testTarget(name: "MomentsTests", dependencies: ["Moments"]),
     ]
 )

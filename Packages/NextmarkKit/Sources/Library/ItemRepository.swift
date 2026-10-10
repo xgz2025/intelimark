@@ -17,26 +17,48 @@ public struct ItemRepository: Sendable {
 
     /// Live list of items with the given statuses, newest first.
     public func items(withStatus statuses: [ItemStatus] = [.inbox, .active]) -> AsyncThrowingStream<[ItemRecord], any Error> {
-        let database = database
         let rawStatuses = statuses.map(\.rawValue)
-        return AsyncThrowingStream { continuation in
-            let task = Task {
-                let observation = ValueObservation.tracking { db in
-                    try ItemRecord
-                        .filter(rawStatuses.contains(Column("status")))
-                        .order(Column("createdAt").desc)
-                        .fetchAll(db)
-                }
-                do {
-                    for try await items in observation.values(in: database.writer) {
-                        continuation.yield(items)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in task.cancel() }
+        return database.observe { db in
+            try ItemRecord
+                .filter(rawStatuses.contains(Column("status")))
+                .order(Column("createdAt").desc)
+                .fetchAll(db)
+        }
+    }
+
+    /// The newest items still in play (inbox or active).
+    public func recentItems(limit: Int = 30) async throws -> [ItemRecord] {
+        try await database.writer.read { db in
+            try ItemRecord
+                .filter([ItemStatus.inbox.rawValue, ItemStatus.active.rawValue].contains(Column("status")))
+                .order(Column("createdAt").desc)
+                .limit(limit)
+                .fetchAll(db)
+        }
+    }
+
+    /// Live view of one item; nil once it is deleted.
+    public func observeItem(id: String) -> AsyncThrowingStream<ItemRecord?, any Error> {
+        database.observe { db in try ItemRecord.fetchOne(db, key: id) }
+    }
+
+    /// A user-layer change: done, faded, trashed… (PRD A5, M6).
+    public func setStatus(_ status: ItemStatus, forItem id: String, now: Date = Date()) async throws {
+        try await database.writer.write { db in
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+            item.status = status
+            item.updatedAt = now
+            try item.update(db)
+        }
+    }
+
+    /// The user's answer to "why did you save this?" (PRD pillar 1). Nil clears it.
+    public func setIntent(_ intent: Intent?, forItem id: String, now: Date = Date()) async throws {
+        try await database.writer.write { db in
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+            item.intent = intent
+            item.updatedAt = now
+            try item.update(db)
         }
     }
 
