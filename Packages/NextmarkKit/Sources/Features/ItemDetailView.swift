@@ -48,7 +48,7 @@ struct ItemDetailView: View {
                     if let summary = item.summary, !summary.isEmpty {
                         Text(summary)
                     }
-                    if let link = item.anchorURL ?? item.canonicalURL.flatMap { URL(string: $0) } {
+                    if let link = item.anchorURL ?? item.canonicalURL.flatMap({ URL(string: $0) }) {
                         Link(destination: link) {
                             Label("Open", systemImage: "arrow.up.right.square")
                         }
