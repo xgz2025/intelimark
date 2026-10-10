@@ -56,7 +56,6 @@ extension LibraryDatabase {
                 t.column("pinned", .boolean).notNull().defaults(to: false)
                 t.column("lastOpenedAt", .datetime)
                 t.column("syncScope", .text).notNull().defaults(to: "cloud")
-                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(virtualTable: "item_fts", using: FTS5()) { t in
@@ -114,7 +113,6 @@ extension LibraryDatabase {
                 t.column("outcome", .text)                   // what came of it, noted when done (PRD A5)
                 t.column("createdAt", .datetime).notNull()
                 t.column("updatedAt", .datetime).notNull()
-                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(table: "membership") { t in
@@ -126,7 +124,6 @@ extension LibraryDatabase {
                 // The user took the item out: kept so the AI never suggests it again.
                 t.column("excluded", .boolean).notNull().defaults(to: false)
                 t.column("addedAt", .datetime).notNull()
-                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
                 t.primaryKey(["groupID", "itemID"])
             }
 
@@ -141,7 +138,6 @@ extension LibraryDatabase {
                 t.column("reminderID", .text)
                 t.column("createdAt", .datetime).notNull()
                 t.column("completedAt", .datetime)
-                t.column("syncFieldTimes", .text).notNull().defaults(to: "{}")
             }
 
             try db.create(table: "moment") { t in

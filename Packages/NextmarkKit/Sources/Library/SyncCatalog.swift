@@ -4,8 +4,8 @@ import GRDB
 /// How each synced table maps to a CloudKit record, and how its columns merge
 /// (Docs/architecture.md §4.3). Every column falls in one layer:
 ///
-/// - **user** columns: the later edit wins, field by field. Local edits are stamped
-///   in the row's `syncFieldTimes` by triggers.
+/// - **user** columns: the later edit wins, field by field. Triggers stamp the time
+///   of each local edit in `syncStamp`; records carry the stamps as `syncFieldTimes`.
 /// - **derived** layers (AI and extractors): the higher version wins as a whole; on a
 ///   tie the later write wins.
 /// - **latest** columns (timestamps): the later value wins.
@@ -43,6 +43,7 @@ public struct SyncTable: Sendable {
     /// made must beat the same row the AI made on another device.
     public let stampOnInsert: String?
 
+    /// The record field that carries the edit stamps (not a column).
     public static let fieldTimesColumn = "syncFieldTimes"
 
     /// The record name: the key columns joined with "/". Keys never contain "/" or ":".
@@ -186,6 +187,16 @@ extension SyncCatalog {
             t.primaryKey(["recordType", "recordName"])
         }
 
+        // When each user field (or derived layer) was last edited, per record. Kept out
+        // of the synced tables: a trigger that updated `item` itself would run before
+        // the full-text index's own trigger and corrupt it.
+        try db.create(table: "syncStamp") { t in
+            t.column("recordType", .text).notNull()
+            t.column("recordName", .text).notNull()
+            t.column("times", .text).notNull()
+            t.primaryKey(["recordType", "recordName"])
+        }
+
         // The sync engine's own state.
         try db.create(table: "syncState") { t in
             t.primaryKey("key", .text)
@@ -214,9 +225,13 @@ extension SyncCatalog {
     }
 
     static func stampSQL(_ table: SyncTable, keys: [String]) -> String {
-        let times = keys.reduce(SyncTable.fieldTimesColumn) { json, key in "json_set(\(json), '$.\(key)', \(now))" }
-        let match = table.keyColumns.map { "\($0) = NEW.\($0)" }.joined(separator: " AND ")
-        return "UPDATE \(table.table) SET \(SyncTable.fieldTimesColumn) = \(times) WHERE \(match);"
+        let object = keys.map { "'\($0)', \(now)" }.joined(separator: ", ")
+        let paths = keys.map { "'$.\($0)', \(now)" }.joined(separator: ", ")
+        return """
+            INSERT INTO syncStamp (recordType, recordName, times)
+            VALUES ('\(table.recordType)', \(recordNameSQL(table, row: "NEW")), json_object(\(object)))
+            ON CONFLICT (recordType, recordName) DO UPDATE SET times = json_set(times, \(paths));
+            """
     }
 
     static func changed(_ columns: [String]) -> String {
@@ -225,7 +240,7 @@ extension SyncCatalog {
 
     static func createTriggers(for table: SyncTable, columns: [String], in db: Database) throws {
         let name = table.table
-        let synced = columns.filter { !table.localColumns.contains($0) && $0 != SyncTable.fieldTimesColumn }
+        let synced = columns.filter { !table.localColumns.contains($0) }
 
         try db.execute(sql: """
             CREATE TRIGGER sync_\(name)_insert AFTER INSERT ON \(name) WHEN \(notApplying)
@@ -246,7 +261,13 @@ extension SyncCatalog {
             END
             """)
 
-        guard columns.contains(SyncTable.fieldTimesColumn) else { return }
+        // Stamps go with their row, whoever deletes it.
+        try db.execute(sql: """
+            CREATE TRIGGER sync_\(name)_unstamp AFTER DELETE ON \(name)
+            BEGIN
+            DELETE FROM syncStamp WHERE recordType = '\(table.recordType)' AND recordName = \(recordNameSQL(table, row: "OLD"));
+            END
+            """)
         for column in table.userColumns {
             try db.execute(sql: """
                 CREATE TRIGGER sync_\(name)_stamp_\(column) AFTER UPDATE OF \(column) ON \(name)

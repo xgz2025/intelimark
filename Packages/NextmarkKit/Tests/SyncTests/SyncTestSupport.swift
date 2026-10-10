@@ -166,9 +166,13 @@ final class TestDevice: @unchecked Sendable {
         try await database.writer.write { db in try db.execute(sql: sql, arguments: arguments) }
     }
 
-    func fieldTimes(_ table: String, where condition: String, _ arguments: StatementArguments) async throws -> [String: String] {
+    func fieldTimes(_ key: RecordKey) async throws -> [String: String] {
         let json = try await database.writer.read { db in
-            try String.fetchOne(db, sql: "SELECT syncFieldTimes FROM \(table) WHERE \(condition)", arguments: arguments)
+            try String.fetchOne(
+                db,
+                sql: "SELECT times FROM syncStamp WHERE recordType = ? AND recordName = ?",
+                arguments: [key.recordType, key.recordName]
+            )
         }
         return SyncMerge.times(["syncFieldTimes": .text(json ?? "{}")])
     }

@@ -214,7 +214,8 @@ erDiagram
 **Local only (never synced; rebuilt on demand):** `item_fts` (FTS5),
 `embedding(itemID, modelID, vector BLOB)`, `group_centroid`, `job`,
 `notification_ledger`, `place_monitor_set`, and the sync bookkeeping
-(`syncChange`, `syncMetadata`, `syncOrphan`, `syncState`, `syncControl`).
+(`syncChange`, `syncStamp`, `syncMetadata`, `syncOrphan`, `syncState`,
+`syncControl`).
 
 ### 4.3 Sync rules
 
@@ -228,7 +229,8 @@ erDiagram
   server never needs to read it.
 - Record fields map 1:1 to the three layers. **Conflict policy:**
   - The user layer is last-writer-wins per field. Every local edit
-    stamps the time of that field in the row's `syncFieldTimes`.
+    stamps the time of that field in `syncStamp`. The stamps travel with
+    the record as `syncFieldTimes`.
   - For the derived layer, the **higher `derivedVersion` wins** (also
     `extractVersion` and `briefVersion`). On a tie, the later write wins.
   - Timestamps (`updatedAt`, `lastOpenedAt`) keep the later value.
@@ -239,6 +241,9 @@ erDiagram
   - SQLite triggers record every local insert, update and delete in
     `syncChange`, one row per record, with a sequence number. They also
     write the field stamps.
+  - The stamps live in their own table, never in the row: a trigger that
+    updates `item` would run before the full-text index's trigger and
+    corrupt the index.
   - Records being applied from the server set a flag, so they are not
     recorded and sent back.
   - A send clears only the change it carried, so an edit made while a

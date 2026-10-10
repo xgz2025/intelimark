@@ -27,11 +27,11 @@ struct ChangeTrackingTests {
 
     @Test func userEditsAreStampedFieldByField() async throws {
         let id = try await device.addItem("Aeron chair")
-        #expect(try await device.fieldTimes("item", where: "id = ?", [id]).isEmpty)
+        #expect(try await device.fieldTimes(RecordKey("Item", id)).isEmpty)
 
         try await device.items.setStatus(.active, forItem: id)
         try await device.items.setIntent(.buy, forItem: id)
-        let times = try await device.fieldTimes("item", where: "id = ?", [id])
+        let times = try await device.fieldTimes(RecordKey("Item", id))
         #expect(Set(times.keys) == ["status", "intent"])
     }
 
@@ -42,7 +42,7 @@ struct ChangeTrackingTests {
             likelyIntent: .buy, keywords: ["chair"], producer: "test"
         )
         try await device.items.applyUnderstanding(understanding, toItem: id, version: 2)
-        let times = try await device.fieldTimes("item", where: "id = ?", [id])
+        let times = try await device.fieldTimes(RecordKey("Item", id))
         #expect(Set(times.keys) == ["derivedVersion"])
     }
 
@@ -75,12 +75,12 @@ struct ChangeTrackingTests {
     @Test func membershipsTheUserMadeAreStampedWhenCreated() async throws {
         let itemID = try await device.addItem("Ichiran")
         let groupID = try await device.groups.createGroup(title: "Tokyo", itemIDs: [itemID])
-        let times = try await device.fieldTimes("membership", where: "groupID = ? AND itemID = ?", [groupID, itemID])
+        let times = try await device.fieldTimes(RecordKey("Membership", "\(groupID)/\(itemID)"))
         #expect(Set(times.keys) == ["origin", "locked", "excluded"])
 
         let otherID = try await device.addItem("Afuri")
         try await device.groups.suggestMembership(itemID: otherID, groupID: groupID, score: 0.8)
-        #expect(try await device.fieldTimes("membership", where: "groupID = ? AND itemID = ?", [groupID, otherID]).isEmpty)
+        #expect(try await device.fieldTimes(RecordKey("Membership", "\(groupID)/\(otherID)")).isEmpty)
     }
 
     @Test func recordsFromTheServerAreNotSentBack() async throws {

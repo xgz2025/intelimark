@@ -77,6 +77,7 @@ public struct SyncStore: Sendable {
         for (column, value) in row where !table.localColumns.contains(column) {
             fields[column] = SyncValue(value)
         }
+        fields[SyncTable.fieldTimesColumn] = .text(try stamps(for: key, in: db) ?? "{}")
         var record = SyncRecord(key: key, fields: fields, systemFields: try systemFields(for: key, in: db))
         if table.recordType == "Attachment",
            let file = fileLocation(fields, itemsDirectory: itemsDirectory),
@@ -87,6 +88,14 @@ public struct SyncStore: Sendable {
             }
         }
         return record
+    }
+
+    static func stamps(for key: RecordKey, in db: Database) throws -> String? {
+        try String.fetchOne(
+            db,
+            sql: "SELECT times FROM syncStamp WHERE recordType = ? AND recordName = ?",
+            arguments: [key.recordType, key.recordName]
+        )
     }
 
     static func systemFields(for key: RecordKey, in db: Database) throws -> Data? {
@@ -223,6 +232,7 @@ public struct SyncStore: Sendable {
             for (column, value) in local where !table.localColumns.contains(column) {
                 fields[column] = SyncValue(value)
             }
+            fields[SyncTable.fieldTimesColumn] = .text(try stamps(for: key, in: db) ?? "{}")
             localFields = fields
         }
         let merged = localFields.map { SyncMerge.merge(local: $0, remote: record.fields, table: table) } ?? record.fields
@@ -234,8 +244,17 @@ public struct SyncStore: Sendable {
                 // A record this version can't store (e.g. a required column it lacks): skip it.
                 return .rollback
             }
+            if let times = merged[SyncTable.fieldTimesColumn]?.stringValue, times != "{}" {
+                try db.execute(
+                    sql: """
+                        INSERT INTO syncStamp (recordType, recordName, times) VALUES (?, ?, ?)
+                        ON CONFLICT (recordType, recordName) DO UPDATE SET times = excluded.times
+                        """,
+                    arguments: [key.recordType, key.recordName, times]
+                )
+            }
             try storeSystemFields(record.systemFields, for: key, in: db)
-            if localFields != nil, SyncMerge.differs(merged, from: record.fields, columns: columns) {
+            if localFields != nil, SyncMerge.differs(merged, from: record.fields, columns: columns + [SyncTable.fieldTimesColumn]) {
                 try markChanged(key, in: db)
             } else {
                 try db.execute(
@@ -244,9 +263,8 @@ public struct SyncStore: Sendable {
                 )
             }
             // Our own saves come back too; only a row that actually changed here counts.
-            let contentColumns = columns.filter { $0 != SyncTable.fieldTimesColumn }
             if table.recordType == "Item",
-               localFields.map({ SyncMerge.differs(merged, from: $0, columns: contentColumns) }) ?? true {
+               localFields.map({ SyncMerge.differs(merged, from: $0, columns: columns) }) ?? true {
                 result.changedItemIDs.insert(key.recordName)
             }
             return .commit
