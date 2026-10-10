@@ -1,8 +1,9 @@
 import SwiftUI
 import Library
+import Moments
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, search, suggestions, settings
+    case inbox, nextActions, review, search, suggestions, settings
     case group(String)
 }
 
@@ -10,6 +11,7 @@ enum SidebarSelection: Hashable {
 /// iPhone. Groups are listed in the sidebar and accept items dragged onto them (PRD G1).
 public struct RootView: View {
     private let services: LibraryServices
+    private let navigator: AppNavigator
     @State private var selection: SidebarSelection? = .inbox
     @State private var path = NavigationPath()
     @State private var groups: [GroupSummary] = []
@@ -17,8 +19,9 @@ public struct RootView: View {
     @State private var openActionCount = 0
     @State private var showsNewGroup = false
 
-    public init(services: LibraryServices) {
+    public init(services: LibraryServices, navigator: AppNavigator = AppNavigator()) {
         self.services = services
+        self.navigator = navigator
     }
 
     public var body: some View {
@@ -37,6 +40,11 @@ public struct RootView: View {
         }
         .onChange(of: selection) {
             path = NavigationPath()
+        }
+        .onChange(of: navigator.destination) {
+            guard let destination = navigator.destination else { return }
+            navigator.destination = nil
+            open(destination)
         }
         .task {
             for await summaries in services.groups.summaries(states: [.accepted, .suggested]).ignoringErrors() {
@@ -64,6 +72,8 @@ public struct RootView: View {
                 Label("Next Actions", systemImage: "checklist")
                     .badge(openActionCount)
                     .tag(SidebarSelection.nextActions)
+                Label("Weekly Review", systemImage: "rectangle.stack")
+                    .tag(SidebarSelection.review)
                 Label("Search", systemImage: "magnifyingglass")
                     .tag(SidebarSelection.search)
             }
@@ -106,15 +116,33 @@ public struct RootView: View {
             InboxView(services: services)
         case .nextActions:
             NextActionsView(services: services)
+        case .review:
+            WeeklyReviewView(services: services)
         case .search:
             SearchView(services: services)
         case .suggestions:
             SuggestionsView(services: services)
         case .settings:
-            SettingsView()
+            SettingsView(onChange: services.refresh)
         case .group(let id):
             GroupDetailView(groupID: id, services: services)
                 .id(id)
+        }
+    }
+}
+
+extension RootView {
+    /// Follows a notification tap (PRD M1, M2).
+    private func open(_ destination: MomentDestination) {
+        switch destination {
+        case .item(let id):
+            path.append(ItemLink(id: id))
+        case .group(let id):
+            selection = .group(id)
+        case .nextActions:
+            selection = .nextActions
+        case .weeklyReview:
+            selection = .review
         }
     }
 }

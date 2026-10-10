@@ -1,23 +1,44 @@
 import Foundation
 
-/// Something that could resurface an item or group at a given time.
+/// Something that could resurface an item, group or action at a given time (PRD M1, M2).
 public struct MomentCandidate: Sendable, Hashable {
-    public enum Reason: String, Sendable, Hashable {
-        case eventStart, deadline, expiry, planDate, weeklyReview, recap
+    public enum Reason: String, Sendable, Hashable, CaseIterable {
+        case eventStart, deadline, expiry, reservation, planDate, actionDue, weeklyReview, recap
+    }
+
+    public enum TargetKind: String, Sendable, Hashable {
+        case item, group, action, review
     }
 
     public var targetID: String
+    public var targetKind: TargetKind
     public var fireDate: Date
     public var reason: Reason
     /// Higher wins when a day is over budget.
     public var priority: Int
+    public var title: String
+    public var body: String
 
-    public init(targetID: String, fireDate: Date, reason: Reason, priority: Int = 0) {
+    public init(
+        targetID: String,
+        targetKind: TargetKind = .item,
+        fireDate: Date,
+        reason: Reason,
+        priority: Int = 0,
+        title: String = "",
+        body: String = ""
+    ) {
         self.targetID = targetID
+        self.targetKind = targetKind
         self.fireDate = fireDate
         self.reason = reason
         self.priority = priority
+        self.title = title
+        self.body = body
     }
+
+    /// Stable per target and reason, so rescheduling replaces rather than duplicates.
+    public var identifier: String { "moment.\(reason.rawValue).\(targetID)" }
 }
 
 public struct MomentPolicy: Sendable, Equatable {

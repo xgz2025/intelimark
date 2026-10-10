@@ -7,6 +7,8 @@ import Intelligence
 import Pipeline
 import Search
 import Features
+import Moments
+import UserNotifications
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
 @MainActor
@@ -16,10 +18,14 @@ final class AppModel {
     let search: HybridSearch
     let store: EnvelopeStore
     @ObservationIgnored private(set) var services: LibraryServices!
+    /// Where notification taps lead; RootView follows it.
+    let navigator = AppNavigator()
     private(set) var lastError: String?
 
     private let ingestor: Ingestor
     private let pipeline: PipelineRunner
+    private let moments: MomentsEngine
+    @ObservationIgnored private var notificationRouter: NotificationRouter?
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
@@ -37,9 +43,30 @@ final class AppModel {
             embedder: embedder,
             briefWriter: IntelligenceRouter.makeBriefWriter()
         )
+        moments = MomentsEngine(database: database, scheduler: UserNotificationScheduler())
         services = LibraryServices(database: database, search: search) { [weak self] in
             await self?.processInbox()
         }
+        // Set before launch finishes, so a tap that launched the app is delivered.
+        UserNotificationScheduler.registerCategories()
+        let router = NotificationRouter { [weak self] response in
+            await self?.handle(response)
+        }
+        UNUserNotificationCenter.current().delegate = router
+        notificationRouter = router
+    }
+
+    /// A notification answer: record it, carry it out, and go where Open leads.
+    func handle(_ response: MomentResponse) async {
+        if let destination = try? await moments.handle(response) {
+            navigator.open(destination)
+        }
+        await rescheduleMoments()
+    }
+
+    /// Plans notifications from the library's dates and the user's settings (PRD M1, M2, M5).
+    func rescheduleMoments() async {
+        _ = try? await moments.reschedule(settings: MomentSettings(defaults: .standard))
     }
 
     static func live() -> AppModel {
@@ -89,6 +116,7 @@ final class AppModel {
                 await pipeline.drain()
                 // Suggested groups and Briefs follow the items they're built from.
                 await pipeline.maintainGroups()
+                await rescheduleMoments()
             } catch {
                 lastError = error.localizedDescription
             }

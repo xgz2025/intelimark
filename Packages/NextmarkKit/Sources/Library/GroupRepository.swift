@@ -67,43 +67,56 @@ public struct GroupRepository: Sendable {
     public func summaries(states: [GroupState] = [.accepted]) -> AsyncThrowingStream<[GroupSummary], any Error> {
         let rawStates = states.map(\.rawValue)
         return database.observe { db in
-            let groups = try GroupRecord.filter(rawStates.contains(Column("state"))).fetchAll(db)
-            var counts: [String: (confirmed: Int, suggested: Int)] = [:]
-            for row in try Row.fetchAll(db, sql: """
-                SELECT membership.groupID, SUM(membership.locked) AS confirmed, SUM(1 - membership.locked) AS suggested
-                FROM membership JOIN item ON item.id = membership.itemID
-                WHERE membership.excluded = 0 AND item.status <> 'trashed'
-                GROUP BY membership.groupID
-                """) {
-                let groupID: String = row["groupID"]
-                let confirmed: Int = row["confirmed"]
-                let suggested: Int = row["suggested"]
-                counts[groupID] = (confirmed, suggested)
-            }
-            var openActions: [String: Int] = [:]
-            for row in try Row.fetchAll(db, sql: """
-                SELECT groupID, COUNT(*) AS open FROM action
-                WHERE status = 'open' AND groupID IS NOT NULL GROUP BY groupID
-                """) {
-                let groupID: String = row["groupID"]
-                let open: Int = row["open"]
-                openActions[groupID] = open
-            }
-            return groups
-                .map { group in
-                    GroupSummary(
-                        group: group,
-                        memberCount: counts[group.id]?.confirmed ?? 0,
-                        suggestedCount: counts[group.id]?.suggested ?? 0,
-                        openActionCount: openActions[group.id] ?? 0
-                    )
-                }
-                .sorted { lhs, rhs in
-                    let (l, r) = (lhs.group, rhs.group)
-                    if l.status != r.status { return l.status == .active }
-                    return l.displayTitle.localizedStandardCompare(r.displayTitle) == .orderedAscending
-                }
+            try Self.fetchSummaries(db, groups: GroupRecord.filter(rawStates.contains(Column("state"))).fetchAll(db))
         }
+    }
+
+    /// Active plans with a date (PRD G6), for Moments.
+    public func plans() async throws -> [GroupSummary] {
+        try await database.writer.read { db in
+            try Self.fetchSummaries(db, groups: GroupRecord
+                .filter(Column("kind") == GroupKind.plan.rawValue && Column("state") == GroupState.accepted.rawValue)
+                .filter(Column("status") == GroupStatus.active.rawValue && Column("targetDate") != nil)
+                .fetchAll(db))
+        }
+    }
+
+    static func fetchSummaries(_ db: Database, groups: [GroupRecord]) throws -> [GroupSummary] {
+        var counts: [String: (confirmed: Int, suggested: Int)] = [:]
+        for row in try Row.fetchAll(db, sql: """
+            SELECT membership.groupID, SUM(membership.locked) AS confirmed, SUM(1 - membership.locked) AS suggested
+            FROM membership JOIN item ON item.id = membership.itemID
+            WHERE membership.excluded = 0 AND item.status <> 'trashed'
+            GROUP BY membership.groupID
+            """) {
+            let groupID: String = row["groupID"]
+            let confirmed: Int = row["confirmed"]
+            let suggested: Int = row["suggested"]
+            counts[groupID] = (confirmed, suggested)
+        }
+        var openActions: [String: Int] = [:]
+        for row in try Row.fetchAll(db, sql: """
+            SELECT groupID, COUNT(*) AS open FROM action
+            WHERE status = 'open' AND groupID IS NOT NULL GROUP BY groupID
+            """) {
+            let groupID: String = row["groupID"]
+            let open: Int = row["open"]
+            openActions[groupID] = open
+        }
+        return groups
+            .map { group in
+                GroupSummary(
+                    group: group,
+                    memberCount: counts[group.id]?.confirmed ?? 0,
+                    suggestedCount: counts[group.id]?.suggested ?? 0,
+                    openActionCount: openActions[group.id] ?? 0
+                )
+            }
+            .sorted { lhs, rhs in
+                let (l, r) = (lhs.group, rhs.group)
+                if l.status != r.status { return l.status == .active }
+                return l.displayTitle.localizedStandardCompare(r.displayTitle) == .orderedAscending
+            }
     }
 
     /// Live group screen; nil once the group is deleted.

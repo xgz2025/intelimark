@@ -4,9 +4,11 @@ import Features
 
 /// The Mac Settings window: the shared settings plus capture options.
 struct MacSettingsView: View {
+    var onChange: @Sendable () async -> Void = {}
+
     var body: some View {
         TabView {
-            SettingsView()
+            SettingsView(onChange: onChange)
                 .tabItem { Label("General", systemImage: "gearshape") }
             CaptureSettingsView()
                 .tabItem { Label("Capture", systemImage: "square.and.arrow.down") }

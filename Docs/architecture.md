@@ -445,10 +445,29 @@ flowchart LR
   N --> L[Ledger → learning]
 ```
 
-- **Planner** recomputes after enrichment, on app launch, and daily. It is
-  deterministic and unit-tested with a fake clock.
-- **Time:** iOS allows 64 pending local notifications per app. The planner
-  keeps only the nearest about 40 scheduled and tops up as they fire.
+- **Planner** recomputes after every pipeline pass, on launch, after a
+  notification is answered and when settings change. It is deterministic and
+  unit-tested with a fake clock (`MomentGenerator` → mute filter → `MomentPlanner`
+  → `UserNotificationScheduler`, all in the `Moments` module).
+- **Time (M1):** one Moment per item, from its next upcoming date: an event the
+  evening before at 18:00 (or 3 hours before when it was saved too late for
+  that), a deadline or sale end the morning before at 10:00, a reservation 3
+  hours before (or 9:00 that day). Plans come back 5 days before their date,
+  then the day before, with their item and open-action counts. Actions are due
+  at 9:00 on their day. Wording is absolute ("Ends Saturday, Nov 21"), so it
+  stays true whenever the notification is read. iOS allows 64 pending local
+  notifications per app; the planner keeps the nearest 40 and recomputes as
+  they fire. Moment notifications have stable identifiers (`moment.<reason>.<id>`),
+  so a reschedule replaces rather than duplicates them; snoozed ones are kept.
+- **Answers:** Open (goes to the item, group, Next Actions or the review),
+  Mark as Done (action, item or group), Remind Me Tomorrow (9:00 the next day)
+  and Not Interested; swiping a notification away counts as dismissed. Each
+  answer is written to the local `notificationLedger`.
+- **Weekly Review (M2):** at the chosen weekday and hour (default Sunday
+  18:00), when there is something to review: up to 15 items with a date in the
+  next 14 days or open actions, then this week's new saves, then items not
+  opened for 30 days. The user swipes or taps Do (adds a next step), Keep or
+  Toss (undoable).
 - **Place (opt-in):** `CLMonitor` with `CircularGeographicCondition`. At most
   20 conditions per app, so the planner monitors the 19 nearest saved places
   plus one "refresh" region around the user's current area. Leaving that
@@ -457,8 +476,10 @@ flowchart LR
 - **Calendar (opt-in):** EventKit full access. Upcoming events are matched to
   groups by embedding the event title and location against group centroids,
   plus explicit plan dates.
-- **Budget:** a default of 3 Moments per day, quiet hours, and per-type
-  dismissal learning (a type muted for 30 days after 3 dismissals in a row).
+- **Budget (M5):** a default of 3 Moments per day (1–6 in Settings), quiet
+  hours (default 22:00–8:00; Moments falling inside move to the end), and per-type
+  dismissal learning: a type is muted for 30 days after 3 dismissals in a row.
+  Notification permission is asked the first time there is something to schedule.
   Notification actions are handled in the app delegate without opening the
   app (Snooze, Done).
 
