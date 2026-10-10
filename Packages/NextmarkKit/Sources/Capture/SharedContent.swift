@@ -45,6 +45,24 @@ public struct SharedContent: Sendable, Equatable {
         )
     }
 
+    /// Text that is just a web link (common from apps that share or copy "text")
+    /// becomes the URL.
+    public mutating func promoteLinkText() {
+        guard url == nil, let text, let link = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              link.scheme == "http" || link.scheme == "https", link.host() != nil
+        else { return }
+        url = link
+        self.text = nil
+    }
+
+    /// Text selected on a page whose URL is known is a highlight: it gets a text
+    /// fragment anchor so opening the item scrolls to it (PRD C4, F5).
+    public mutating func quoteTextFromPage() {
+        guard url != nil, selection == nil, let text, !text.isEmpty else { return }
+        selection = TextQuote(exact: text)
+        self.text = nil
+    }
+
     public mutating func appendText(_ newText: String) {
         let trimmed = newText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
