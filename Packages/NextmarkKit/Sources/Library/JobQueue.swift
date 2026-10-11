@@ -49,6 +49,12 @@ public struct JobQueue: Sendable {
         }
     }
 
+    public func hasJob(forItem itemID: String) async throws -> Bool {
+        try await database.writer.read { db in
+            try JobRecord.filter(Column("itemID") == itemID).fetchCount(db) > 0
+        }
+    }
+
     public func count() async throws -> Int {
         try await database.writer.read { db in try JobRecord.fetchCount(db) }
     }

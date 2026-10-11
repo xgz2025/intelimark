@@ -76,7 +76,7 @@ extension LibraryDatabase {
             }
 
             try db.create(table: "attachment") { t in
-                t.autoIncrementedPrimaryKey("id")
+                t.primaryKey("id", .text)                    // <itemID>-<index>: the same on every device
                 t.column("itemID", .text).notNull().indexed().references("item", onDelete: .cascade)
                 t.column("role", .text).notNull()
                 t.column("fileName", .text).notNull()
@@ -196,6 +196,9 @@ extension LibraryDatabase {
                 t.column("attempts", .integer).notNull().defaults(to: 0)
                 t.column("notBefore", .datetime).notNull().indexed()
             }
+
+            // iCloud sync bookkeeping and change tracking (Docs/architecture.md §4.3).
+            try SyncCatalog.createSchema(db)
         }
         return migrator
     }

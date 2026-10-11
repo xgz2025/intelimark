@@ -213,26 +213,80 @@ erDiagram
 
 **Local only (never synced; rebuilt on demand):** `item_fts` (FTS5),
 `embedding(itemID, modelID, vector BLOB)`, `group_centroid`, `job`,
-`notification_ledger`, `place_monitor_set`.
+`notification_ledger`, `place_monitor_set`, and the sync bookkeeping
+(`syncChange`, `syncStamp`, `syncMetadata`, `syncOrphan`, `syncState`,
+`syncControl`).
 
 ### 4.3 Sync rules
 
 - One custom zone `Library` in the private database; later, one zone per
   shared group (G7).
-- Record fields map 1:1 to the three layers. **Conflict policy:** the user
-  layer is last-writer-wins per field (using a modification-time vector).
-  For the derived layer the **higher `derivedVersion` wins**, and on a tie
-  the later write wins. Source facts are immutable after creation.
+- One `CKRecord` per row: `Item`, `Group`, `Membership`, `Action` and
+  `Attachment`. The record name is `<type>:<key>` (a membership's key is
+  `groupID/itemID`; an attachment's is `itemID-index`, the same on every
+  device). All columns travel in one `encryptedValues` field, so the
+  content is end-to-end encrypted. The merge runs on the device, so the
+  server never needs to read it.
+- Record fields map 1:1 to the three layers. **Conflict policy:**
+  - The user layer is last-writer-wins per field. Every local edit
+    stamps the time of that field in `syncStamp`. The stamps travel with
+    the record as `syncFieldTimes`.
+  - For the derived layer, the **higher `derivedVersion` wins** (also
+    `extractVersion` and `briefVersion`). On a tie, the later write wins.
+  - Timestamps (`updatedAt`, `lastOpenedAt`) keep the later value.
+  - Source facts are written once.
+  - Merging is deterministic, so a merge equal to the server's copy sends
+    nothing back.
+- **Change tracking:**
+  - SQLite triggers record every local insert, update and delete in
+    `syncChange`, one row per record, with a sequence number. They also
+    write the field stamps.
+  - The stamps live in their own table, never in the row: a trigger that
+    updates `item` would run before the full-text index's trigger and
+    corrupt the index.
+  - Records being applied from the server set a flag, so they are not
+    recorded and sent back.
+  - A send clears only the change it carried, so an edit made while a
+    record was in flight still goes up.
+  - Because the triggers do all this, repositories need no sync code.
+- **Records from the server** are applied parents first. A membership,
+  action or attachment that arrives before its item or group is parked in
+  `syncOrphan` until the parent arrives.
+- **Deletions:**
+  - A local deletion that hasn't been sent yet wins over an incoming edit.
+  - An edit saved after another device's deletion recreates the record
+    (CloudKit reports the record as unknown, and it is sent as new).
+  - A remote deletion of a membership the user confirmed or removed is
+    refused, and the row is sent again: another device's AI can't undo
+    the user's decision.
+- **Account and zone changes never delete local data.**
+  - Sign-in, a switch of account, or a zone that was deleted or reset
+    (encrypted data reset) clears the server state we keep. The whole
+    library is then sent again.
+  - If the user deletes Nextmark's iCloud data in Settings (`purged`),
+    sync turns off until they turn it back on.
 - Embeddings aren't synced. They are cheap to recompute, and the embedding
-  model can differ between OS versions; `modelID` detects that.
-- Attachments: the thumbnail is always a `CKAsset`. The original follows the
-  user's "Sync originals" setting. A web archive syncs only on Pro with the
-  setting on.
-- **Enrichment lease:** before running AI on an item, a device writes
-  `enrichLease = (deviceID, expiresAt)` to the record. Other devices skip
-  leased items. The work is idempotent, so a lost race only wastes effort.
-  Devices with Apple Intelligence advertise `aiCapable` in a small
-  `Device` record so devices without it can leave the work to them.
+  model can differ between OS versions; `modelID` detects that. Items that
+  arrive from another device are embedded on arrival.
+- **Cross-device enrichment (U6):** a device with the on-device model
+  re-runs Understand on arriving items whose understanding is provisional
+  or older. Its result syncs back and wins by version. Extraction stays
+  with the device that has the files.
+- Attachments: the original file is a `CKAsset`. It travels unless the
+  user turns off "Sync Original Files". Turning the setting back on sends
+  the files that were left behind. Thumbnails, and an always-synced
+  thumbnail asset, come with step 8. A web archive syncs only on Pro with
+  the setting on.
+- Items with `syncScope = local` (and their memberships, actions and
+  attachments) never leave the device.
+- **Enrichment lease (not built yet):** today two devices with the model
+  may both understand the same item. The work is idempotent, so the cost
+  is only wasted effort. The planned lease:
+  - Before running AI on an item, a device writes
+    `enrichLease = (deviceID, expiresAt)` to the record.
+  - Other devices skip leased items.
+  - Devices with Apple Intelligence advertise `aiCapable` in a small
+    `Device` record, so devices without it can leave the work to them.
 
 ---
 
@@ -538,19 +592,20 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ Capture/             # EnvelopeStore, ShareItemLoader, TextFragment, InboxWatcher (extension-safe)
    │  ├─ CaptureUI/           # CaptureSheet + CaptureDraft (extension-safe, SwiftUI)
    │  ├─ DesignSystem/        # intent chips, symbols, tints
-   │  ├─ Library/             # GRDB schema v1, records, Item/Group/Action repositories, JobQueue, Ingestor
+   │  ├─ Library/             # GRDB schema v1, records, Item/Group/Action repositories, JobQueue, Ingestor, SyncCatalog
    │  ├─ Extraction/          # Extract stage: page fetch, HTML metadata, readable text, schema.org, PDF text, Vision
    │  ├─ Intelligence/        # understanders, brief writers, ActionSuggester, TopicNamer, router, EmbeddingProvider
    │  ├─ Pipeline/            # PipelineRunner actor
    │  ├─ Search/              # HybridSearch (FTS + vectors + RRF), SearchRanking, vector math
    │  ├─ Grouping/            # GroupSpace (centering), assignment, discovery (clustering)
-   │  ├─ Moments/             # MomentPlanner (budget, quiet hours)
+   │  ├─ Moments/             # MomentGenerator, MomentPlanner (budget, quiet hours), notifications
+   │  ├─ Sync/                # SyncStore (records, merge, orphans), CloudSync (CKSyncEngine delegate)
    │  └─ Features/            # SwiftUI screens: sidebar, Inbox, Next Actions, groups, item, Search, Settings
    └─ Tests/                  # Swift Testing, one target per module
 ```
 
-Modules still to come, each added when its milestone starts (§14): `Sync`
-(CKSyncEngine), `Integrations` (EventKit, Spotlight, App Intents, Photos),
+Modules still to come, each added when its milestone starts (§14):
+`Integrations` (EventKit, Spotlight, App Intents, Photos),
 `Store` (StoreKit 2), and `Tests/PromptEvals`.
 
 Dependency rule: `Model` ← `Capture` ← extensions. Extensions link only
@@ -618,7 +673,7 @@ Third-party dependencies: **GRDB** only. Everything else is first-party.
 4. Mac surfaces: Services, menu bar, hotkey *(8)*
 5. `Grouping` + Briefs + Actions + Next Actions *(9–10)*
 6. `Moments` (time and review) + notifications *(11)*
-7. `Sync` (CKSyncEngine) *(12–13)*
+7. `Sync` (CKSyncEngine) *(12–13)*, built: records, merge, two-device tests
 8. Screenshot Rescue onboarding, StoreKit, polish, TestFlight *(14–16)*
 
 Risks to spike in week 1: Foundation Models output quality on the golden

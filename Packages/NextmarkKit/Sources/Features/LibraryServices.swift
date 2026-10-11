@@ -10,13 +10,21 @@ public struct LibraryServices: Sendable {
     public let search: HybridSearch
     /// Runs ingestion and enrichment now, e.g. after asking for a Brief to be rewritten.
     public let refresh: @Sendable () async -> Void
+    /// Fetches from and sends to iCloud now.
+    public let syncNow: @Sendable () async -> Void
 
-    public init(database: LibraryDatabase, search: HybridSearch, refresh: @escaping @Sendable () async -> Void) {
+    public init(
+        database: LibraryDatabase,
+        search: HybridSearch,
+        refresh: @escaping @Sendable () async -> Void,
+        syncNow: @escaping @Sendable () async -> Void = {}
+    ) {
         items = ItemRepository(database: database)
         groups = GroupRepository(database: database)
         actions = ActionRepository(database: database)
         self.search = search
         self.refresh = refresh
+        self.syncNow = syncNow
     }
 }
 

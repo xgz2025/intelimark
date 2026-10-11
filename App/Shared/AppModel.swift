@@ -8,6 +8,7 @@ import Pipeline
 import Search
 import Features
 import Moments
+import Sync
 import UserNotifications
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
@@ -25,6 +26,7 @@ final class AppModel {
     private let ingestor: Ingestor
     private let pipeline: PipelineRunner
     private let moments: MomentsEngine
+    @ObservationIgnored private var cloudSync: CloudSync?
     @ObservationIgnored private var notificationRouter: NotificationRouter?
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
@@ -44,8 +46,19 @@ final class AppModel {
             briefWriter: IntelligenceRouter.makeBriefWriter()
         )
         moments = MomentsEngine(database: database, scheduler: UserNotificationScheduler())
-        services = LibraryServices(database: database, search: search) { [weak self] in
-            await self?.processInbox()
+        services = LibraryServices(
+            database: database,
+            search: search,
+            refresh: { [weak self] in
+                await self?.updateSync()
+                await self?.processInbox()
+            },
+            syncNow: { [weak self] in
+                await self?.syncNow()
+            }
+        )
+        cloudSync = CloudSync(store: SyncStore(database: database, itemsDirectory: AppGroup.itemsURL)) { [weak self] result in
+            await self?.didSync(result)
         }
         // Set before launch finishes, so a tap that launched the app is delivered.
         UserNotificationScheduler.registerCategories()
@@ -62,6 +75,24 @@ final class AppModel {
             navigator.open(destination)
         }
         await rescheduleMoments()
+    }
+
+    /// Starts or stops iCloud sync to match Settings (PRD P1, P2).
+    func updateSync() async {
+        await cloudSync?.update(enabled: SyncSettings.isEnabled(), originals: SyncSettings.syncsOriginals())
+    }
+
+    func syncNow() async {
+        await cloudSync?.syncNow()
+    }
+
+    /// Another device's changes arrived: give new and changed items vectors here, and
+    /// understand them with the on-device model if their sender couldn't (PRD U6).
+    func didSync(_ result: SyncApplyResult) async {
+        await pipeline.enqueueSyncedItems(
+            Array(result.changedItemIDs), canUnderstand: IntelligenceStatus.current == .available
+        )
+        await processInbox()
     }
 
     /// Plans notifications from the library's dates and the user's settings (PRD M1, M2, M5).
@@ -82,6 +113,7 @@ final class AppModel {
     }
 
     func start() async {
+        await updateSync()
         if IntelligenceStatus.current == .available {
             // Items understood without the model (or with an older prompt) get another pass.
             await pipeline.requeueStaleUnderstanding()

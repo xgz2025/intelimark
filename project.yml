@@ -61,6 +61,8 @@ targets:
       - package: NextmarkKit
         product: Moments
       - package: NextmarkKit
+        product: Sync
+      - package: NextmarkKit
         product: Features
       - target: ShareExtension-iOS
       - target: SafariExtension-iOS
@@ -165,6 +167,8 @@ targets:
         product: Search
       - package: NextmarkKit
         product: Moments
+      - package: NextmarkKit
+        product: Sync
       - package: NextmarkKit
         product: Features
       - package: NextmarkKit

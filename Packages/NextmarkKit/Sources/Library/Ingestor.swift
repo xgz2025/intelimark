@@ -38,7 +38,6 @@ public struct Ingestor: Sendable {
             guard try ItemRecord.fetchOne(db, key: itemID) == nil else { return }
             try item.insert(db)
             for attachment in attachments {
-                var attachment = attachment
                 try attachment.insert(db)
             }
             var job = JobRecord(itemID: itemID, stage: .extract, notBefore: now)
@@ -53,7 +52,7 @@ public struct Ingestor: Sendable {
         let directory = itemsDirectory.appending(path: itemID, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        return try files.map { file in
+        return try files.enumerated().map { index, file in
             let source = capture.payloadURL(for: file)
             let destination = directory.appending(path: file.fileName)
             let fileManager = FileManager.default
@@ -63,6 +62,7 @@ public struct Ingestor: Sendable {
             }
             return AttachmentRecord(
                 itemID: itemID,
+                index: index,
                 role: .original,
                 fileName: file.fileName,
                 contentType: file.contentType,
