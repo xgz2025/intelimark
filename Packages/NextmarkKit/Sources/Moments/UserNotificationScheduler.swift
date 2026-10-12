@@ -56,6 +56,26 @@ public struct UserNotificationScheduler: MomentScheduling {
         try? await UNUserNotificationCenter.current().add(Self.request(for: moment, identifier: Self.snoozePrefix + moment.identifier))
     }
 
+    public func pruneSnoozes(keeping relevant: [MomentCandidate]) async {
+        let center = UNUserNotificationCenter.current()
+        let kept = Set(relevant.map { Self.snoozePrefix + $0.identifier })
+        let stale = await center.pendingNotificationRequests()
+            .map(\.identifier)
+            .filter { $0.hasPrefix(Self.snoozePrefix) && !kept.contains($0) }
+        center.removePendingNotificationRequests(withIdentifiers: stale)
+    }
+
+    public func committedFireDates() async -> [Date] {
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications()
+            .filter { $0.request.identifier.hasPrefix(Self.momentPrefix) || $0.request.identifier.hasPrefix(Self.snoozePrefix) }
+            .map(\.date)
+        let snoozed = await center.pendingNotificationRequests()
+            .filter { $0.identifier.hasPrefix(Self.snoozePrefix) }
+            .compactMap { ($0.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() }
+        return delivered + snoozed
+    }
+
     static func categoryID(_ kind: MomentCandidate.TargetKind) -> String {
         "moment.\(kind.rawValue)"
     }

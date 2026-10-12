@@ -18,6 +18,11 @@ public protocol MomentScheduling: Sendable {
     func replaceMoments(with plan: [MomentCandidate]) async
     /// Schedules one Moment again, outside the plan.
     func snooze(_ moment: MomentCandidate) async
+    /// Cancels snoozed Moments whose subject no longer matters: it was done, trashed
+    /// or deleted, or its date passed.
+    func pruneSnoozes(keeping relevant: [MomentCandidate]) async
+    /// When Moments already delivered, and snoozed ones still waiting, fire.
+    func committedFireDates() async -> [Date]
 }
 
 /// Where tapping a Moment leads.
@@ -43,10 +48,12 @@ public struct MomentResponse: Sendable, Equatable {
     public var targetKind: MomentCandidate.TargetKind
     public var title: String
     public var body: String
+    /// The Moment's `latest`: a snooze never goes past it.
+    public var latest: Date?
 
     public init(
         action: Action, reason: MomentCandidate.Reason, targetID: String,
-        targetKind: MomentCandidate.TargetKind, title: String = "", body: String = ""
+        targetKind: MomentCandidate.TargetKind, title: String = "", body: String = "", latest: Date? = nil
     ) {
         self.action = action
         self.reason = reason
@@ -54,6 +61,7 @@ public struct MomentResponse: Sendable, Equatable {
         self.targetKind = targetKind
         self.title = title
         self.body = body
+        self.latest = latest
     }
 
     /// Reads a response's action identifier and the `userInfo` a Moment was scheduled with.
@@ -64,13 +72,18 @@ public struct MomentResponse: Sendable, Equatable {
         else { return nil }
         self.init(
             action: Action(rawValue: actionIdentifier) ?? (actionIdentifier.hasSuffix("DismissActionIdentifier") ? .dismiss : .open),
-            reason: reason, targetID: targetID, targetKind: kind, title: title, body: body
+            reason: reason, targetID: targetID, targetKind: kind, title: title, body: body,
+            latest: (userInfo["latest"] as? String).flatMap { Double($0) }.map { Date(timeIntervalSince1970: $0) }
         )
     }
 
     /// The `userInfo` a Moment is scheduled with.
     public static func userInfo(for moment: MomentCandidate) -> [String: String] {
-        ["reason": moment.reason.rawValue, "targetID": moment.targetID, "targetKind": moment.targetKind.rawValue]
+        var userInfo = ["reason": moment.reason.rawValue, "targetID": moment.targetID, "targetKind": moment.targetKind.rawValue]
+        if let latest = moment.latest {
+            userInfo["latest"] = String(latest.timeIntervalSince1970)
+        }
+        return userInfo
     }
 }
 
@@ -97,7 +110,7 @@ public struct MomentsEngine: Sendable {
     @discardableResult
     public func reschedule(settings: MomentSettings, now: Date = Date()) async throws -> [MomentCandidate] {
         // Date reminders off still leaves the Weekly Review, which has its own switch.
-        let candidates = generator.candidates(
+        let relevant = generator.relevant(
             items: try await items.itemsWithDates(),
             plans: try await groups.plans(),
             actions: try await actions.openActions(),
@@ -105,9 +118,12 @@ public struct MomentsEngine: Sendable {
             settings: settings,
             now: now
         )
+        // A snooze was asked for, so a muted type doesn't cancel it; only its subject passing does.
+        await scheduler.pruneSnoozes(keeping: relevant)
         let muted = MuteRule.mutedReasons(try await ledger.entries(since: now.addingTimeInterval(-MuteRule.duration)), now: now)
+        let candidates = generator.candidates(from: relevant, now: now).filter { !muted.contains($0.reason.rawValue) }
         let plan = MomentPlanner(policy: settings.policy, calendar: generator.calendar)
-            .plan(candidates.filter { !muted.contains($0.reason.rawValue) }, now: now)
+            .plan(candidates, now: now, committed: await scheduler.committedFireDates())
         await scheduler.replaceMoments(with: plan)
         return plan
     }
@@ -132,10 +148,11 @@ public struct MomentsEngine: Sendable {
         case .snooze:
             outcome = .snoozed
             let tomorrow = generator.calendar.date(byAdding: .day, value: 1, to: now).flatMap { generator.at($0, hour: 9) }
-            if let tomorrow {
+            // Tomorrow is too late for something that's over by then.
+            if let tomorrow, response.latest.map({ tomorrow < $0 }) ?? true {
                 await scheduler.snooze(MomentCandidate(
                     targetID: response.targetID, targetKind: response.targetKind, fireDate: tomorrow,
-                    reason: response.reason, title: response.title, body: response.body
+                    reason: response.reason, title: response.title, body: response.body, latest: response.latest
                 ))
             }
         case .dismiss:
