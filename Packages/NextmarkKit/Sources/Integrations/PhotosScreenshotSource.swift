@@ -52,16 +52,24 @@ public struct PhotosScreenshotSource: ScreenshotSource {
         options.isNetworkAccessAllowed = true       // iCloud Photos may keep only a preview on the device
         options.deliveryMode = .highQualityFormat
         options.version = .current
-        return await withCheckedContinuation { continuation in
-            PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, type, _, _ in
-                guard let data, let type else {
-                    continuation.resume(returning: nil)
-                    return
+        // Downloading from iCloud can take long: cancelling (the background task
+        // expired, the user stopped it) cancels the request, which then returns nothing.
+        let request = ImageRequest()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let id = PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, type, _, _ in
+                    guard let data, let type else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    continuation.resume(returning: ImportedScreenshot(
+                        assetID: screenshot.id, data: data, contentType: type, takenAt: screenshot.takenAt
+                    ))
                 }
-                continuation.resume(returning: ImportedScreenshot(
-                    assetID: screenshot.id, data: data, contentType: type, takenAt: screenshot.takenAt
-                ))
+                request.started(id)
             }
+        } onCancel: {
+            request.cancel()
         }
     }
 
@@ -69,5 +77,28 @@ public struct PhotosScreenshotSource: ScreenshotSource {
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.deleteAssets(PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil))
         }
+    }
+}
+
+/// A Photos request that may be cancelled from another thread, before or after it starts.
+private final class ImageRequest: @unchecked Sendable {
+    private let lock = NSLock()
+    private var id: PHImageRequestID?
+    private var isCancelled = false
+
+    func started(_ id: PHImageRequestID) {
+        let cancelNow = lock.withLock {
+            self.id = id
+            return isCancelled
+        }
+        if cancelNow { PHImageManager.default().cancelImageRequest(id) }
+    }
+
+    func cancel() {
+        let id = lock.withLock {
+            isCancelled = true
+            return self.id
+        }
+        if let id { PHImageManager.default().cancelImageRequest(id) }
     }
 }

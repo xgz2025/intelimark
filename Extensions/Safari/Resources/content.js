@@ -65,9 +65,28 @@
     return result;
   }
 
+  // A brief note in the corner of the page: saved, or not.
+  function showResult(ok) {
+    const note = document.createElement("div");
+    note.textContent = ok ? "Saved to Nextmark" : "Couldn't save to Nextmark";
+    note.setAttribute("role", "status");
+    note.style.cssText = "position:fixed;z-index:2147483647;right:16px;bottom:16px;padding:10px 14px;" +
+      "border-radius:10px;font:600 13px -apple-system,system-ui,sans-serif;color:#fff;" +
+      "background:" + (ok ? "rgba(30,30,30,.88)" : "rgba(190,40,40,.92)") + ";box-shadow:0 4px 16px rgba(0,0,0,.25)";
+    (document.body || document.documentElement).appendChild(note);
+    setTimeout(() => note.remove(), 2200);
+  }
+
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message && message.type === "capture") {
-      sendResponse(capturePage());
+    if (!message) return;
+    if (message.type === "capture") {
+      try {
+        sendResponse(capturePage());
+      } catch (error) {
+        sendResponse({ url: document.URL, title: document.title });
+      }
+    } else if (message.type === "saved") {
+      showResult(Boolean(message.ok));
     }
   });
 })();

@@ -35,6 +35,8 @@ public final class RescueController {
     }
 
     public static let completedKey = "rescue.completed"
+    /// Set when a rescue starts, so one that was stopped partway resumes.
+    public static let startedKey = "rescue.started"
 
     public private(set) var phase: Phase = .idle
     public private(set) var access: PhotosAccess
@@ -42,6 +44,9 @@ public final class RescueController {
     public private(set) var screenshotCount = 0
     /// Imported screenshots still in Photos, which Clean Up can delete.
     public private(set) var inPhotosCount = 0
+    /// Screenshots in Photos not in the library yet.
+    public private(set) var pendingCount = 0
+    @ObservationIgnored private var isImportingNew = false
 
     @ObservationIgnored public let rescue: ScreenshotRescue
     @ObservationIgnored public weak var runner: (any LongTaskRunner)?
@@ -63,6 +68,7 @@ public final class RescueController {
         guard access == .granted else { return }
         screenshotCount = await rescue.screenshotCount()
         inPhotosCount = await rescue.inPhotosCount()
+        pendingCount = await rescue.pending().count
     }
 
     public func requestAccess() async {
@@ -73,15 +79,17 @@ public final class RescueController {
     /// Imports every screenshot not yet in the library, in the background if the app can.
     public func start() {
         guard access == .granted, !isImporting else { return }
+        UserDefaults.standard.set(true, forKey: Self.startedKey)
         phase = .importing(RescueProgress(done: 0, total: 0))
         let (rescue, onImported) = (rescue, onImported)
         // The controller lives as long as the app, so the work holds it strongly.
         let work: @Sendable (@escaping @Sendable (RescueProgress) -> Void) async -> Bool = { report in
             do {
-                let imported = try await rescue.run { progress in
-                    report(progress)
+                let imported = try await rescue.run(onProgress: report) { progress in
                     await self.update(progress)
-                    await onImported()
+                    // Not awaited: sorting can take much longer than importing, and an
+                    // expiring background task must be able to stop at once.
+                    Task { await onImported() }
                 }
                 await self.finish(imported: imported)
                 return true
@@ -98,11 +106,16 @@ public final class RescueController {
 
     /// New screenshots since the last import, quietly (PRD C9: "import new screenshots when the app runs").
     public func importNew() async {
-        guard access == .granted, !isImporting, UserDefaults.standard.bool(forKey: Self.completedKey) else { return }
+        let hasStarted = UserDefaults.standard.bool(forKey: Self.startedKey)
+            || UserDefaults.standard.bool(forKey: Self.completedKey)
+        guard access == .granted, !isImporting, !isImportingNew, hasStarted else { return }
+        // Two passes at once would import the same screenshots twice.
+        isImportingNew = true
+        defer { isImportingNew = false }
         if let imported = try? await rescue.run(), imported > 0 {
             await onImported()
-            await refresh()
         }
+        await refresh()
     }
 
     /// Deletes the imported screenshots from Photos; the system asks the user first.

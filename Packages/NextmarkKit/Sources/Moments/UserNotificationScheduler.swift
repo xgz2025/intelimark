@@ -41,7 +41,10 @@ public struct UserNotificationScheduler: MomentScheduling {
     public func replaceMoments(with plan: [MomentCandidate]) async {
         let center = UNUserNotificationCenter.current()
         if !plan.isEmpty, await center.notificationSettings().authorizationStatus == .notDetermined {
-            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+            // Not awaited: an unanswered prompt (the user left the app) would otherwise
+            // hold up everything waiting on this, saves included. Requests added now
+            // are delivered once allowed.
+            Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) }
         }
         let scheduled = await center.pendingNotificationRequests()
             .map(\.identifier)

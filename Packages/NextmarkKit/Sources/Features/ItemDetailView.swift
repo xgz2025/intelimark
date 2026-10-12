@@ -23,6 +23,9 @@ struct ItemDetailView: View {
     @State private var newAction = ""
     @State private var showsAddToGroup = false
     @State private var showsDonePrompt = false
+    @State private var showsFullText = false
+    /// Laying out a very long text at once stalls the screen; longer text is shown on request.
+    static let previewCharacters = 4_000
 
     var body: some View {
         Group {
@@ -83,9 +86,13 @@ struct ItemDetailView: View {
 
             if let quote = item.text, !quote.isEmpty {
                 Section {
-                    Text(quote)
+                    let isLong = quote.count > Self.previewCharacters
+                    Text(isLong && !showsFullText ? String(quote.prefix(Self.previewCharacters)) + "…" : quote)
                         .italic(item.anchor != nil)
                         .textSelection(.enabled)
+                    if isLong && !showsFullText {
+                        Button("Show All") { showsFullText = true }
+                    }
                 } header: {
                     if item.anchor == nil { Text("Text") } else { Text("Highlight") }
                 }

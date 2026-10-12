@@ -193,14 +193,32 @@ struct PipelineTests {
         #expect(try await harness.queue.next(now: now) == nil)              // backed off
         #expect(try await harness.queue.next(now: now.addingTimeInterval(61))?.stage == .extract)
 
-        // Four more failures exhaust the retries; Understand then runs on what we have.
-        for _ in 0..<4 {
+        // Eleven more failures (about two days) exhaust the retries; Understand then runs on what we have.
+        for _ in 0..<11 {
             now = now.addingTimeInterval(7 * 60 * 60)
             await runner.drain(now: now)
         }
         let item = try #require(try await harness.repository.item(id: envelope.id.rawValue))
         #expect(item.aiTitle == "Saved offline")
         #expect(item.extractVersion == 0)
+        #expect(try await harness.queue.count() == 0)
+    }
+
+    @Test func aJobThatNeverFinishesIsGivenUpNotReplayed() async throws {
+        let harness = try PipelineHarness()
+        var now = Date()
+        let envelope = CaptureEnvelope(id: ULID(), device: "d", surface: .services, text: "a note")
+        try await harness.capture(envelope, now: now)
+        // Claimed, then the app dies before finishing, again and again.
+        for _ in 0..<PipelineRunner.maxAttempts(for: .extract) {
+            let job = try #require(try await harness.queue.claimNext(now: now))
+            #expect(job.stage == .extract)
+            #expect(try await harness.queue.claimNext(now: now) == nil)   // put off, not handed straight back
+            now = now.addingTimeInterval(7 * 60 * 60)
+        }
+        await harness.runner(fetcher: StubFetcher.html("")).drain(now: now)
+        let item = try #require(try await harness.repository.item(id: envelope.id.rawValue))
+        #expect(item.extractVersion == 0)          // given up on, and nothing left queued
         #expect(try await harness.queue.count() == 0)
     }
 

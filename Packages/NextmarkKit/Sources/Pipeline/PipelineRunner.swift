@@ -68,24 +68,71 @@ public actor PipelineRunner {
         self.briefWriter = briefWriter
     }
 
-    /// Runs up to `limit` due jobs. Returns how many ran.
+    /// How often a stage is tried before giving up. Fetching gets about two days, so
+    /// links saved offline (a flight, the subway) still get their page once back online.
+    static func maxAttempts(for stage: PipelineStage) -> Int {
+        stage == .extract ? 12 : 5
+    }
+
+    /// Runs up to `limit` due jobs. Returns how many ran. Stops early when the queue
+    /// can't be written (storage full), or the task is cancelled.
     @discardableResult
     public func drain(limit: Int = 25, now: Date = Date()) async -> Int {
         var processed = 0
-        while processed < limit, let job = try? await queue.next(now: now) {
+        while processed < limit, !Task.isCancelled {
+            let job: JobRecord
+            do {
+                guard let claimed = try await queue.claimNext(now: now) else { break }
+                job = claimed
+            } catch {
+                break
+            }
+            processed += 1
+            let lastAttempt = job.attempts >= Self.maxAttempts(for: job.stage)
+            if job.attempts > Self.maxAttempts(for: job.stage) {
+                // Claimed that often without finishing: it may be what ends the app.
+                await giveUp(on: job, now: now)
+                continue
+            }
             do {
                 try await run(job, now: now)
                 try await queue.complete(job)
             } catch {
-                let willRetry = (try? await queue.retry(job, now: now)) ?? false
-                if !willRetry, job.stage == .extract {
-                    // Extraction gave up (e.g. offline for days): understand what we have.
-                    try? await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
-                }
+                // Cancelled from outside: the claim already put the job off; it runs later.
+                if Task.isCancelled { break }
+                if lastAttempt { await giveUp(on: job, now: now) }
             }
-            processed += 1
         }
         return processed
+    }
+
+    private func giveUp(on job: JobRecord, now: Date) async {
+        try? await queue.complete(job)
+        if job.stage == .extract {
+            // Extraction gave up (e.g. offline for days): understand what we have.
+            try? await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
+        }
+    }
+
+    /// Queues Extract again for recent links whose page never arrived, e.g. saved
+    /// offline and given up on. Call at launch and when the network comes back.
+    @discardableResult
+    public func requeueMissingPages(limit: Int = 100, now: Date = Date()) async -> Int {
+        let since = now.addingTimeInterval(-14 * 86_400)
+        guard let ids = try? await repository.linkIDsNeedingExtraction(below: Self.extractVersion, since: since, limit: limit) else {
+            return 0
+        }
+        return await enqueue(.extract, ids: ids, now: now)
+    }
+
+    /// Fetches waiting out a backoff run now: the network just came back.
+    public func retryFetchesNow(now: Date = Date()) async {
+        try? await queue.makeDue(.extract, now: now)
+    }
+
+    /// When the next postponed job is due, to wake the pipeline then.
+    public func nextDueDate() async -> Date? {
+        try? await queue.nextDueDate()
     }
 
     /// Queues Understand again for items with provisional or outdated results.

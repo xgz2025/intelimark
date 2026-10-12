@@ -76,7 +76,7 @@ struct ScreenshotRescueTests {
     @Test func importsEveryScreenshotInBatches() async throws {
         let photos = FakeScreenshots(count: 120, newest: now)
         let log = ProgressLog()
-        let imported = try await rescue(photos).run(now: now) { await log.append($0) }
+        let imported = try await rescue(photos).run(now: now, onBatch: { await log.append($0) })
 
         #expect(imported == 120)
         let reports = await log.reports

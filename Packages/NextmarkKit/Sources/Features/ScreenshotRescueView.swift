@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import Photos
 import Model
 import Library
 import Integrations
@@ -35,7 +36,7 @@ struct ScreenshotRescueView: View {
                 let members = items.filter { $0.semanticKind == kind }
                 if !members.isEmpty {
                     Section {
-                        ScreenshotGrid(items: members, services: services)
+                        ScreenshotSection(title: Text(kind.pluralTitle), items: members, services: services)
                     } header: {
                         Label { Text(kind.pluralTitle) } icon: { Image(systemName: kind.symbolName) }
                             .badge(members.count)
@@ -45,7 +46,7 @@ struct ScreenshotRescueView: View {
             let unsorted = items.filter { $0.semanticKind == nil }
             if !unsorted.isEmpty {
                 Section {
-                    ScreenshotGrid(items: unsorted, services: services)
+                    ScreenshotSection(title: Text("Still Sorting"), items: unsorted, services: services)
                 } header: {
                     Label("Still Sorting", systemImage: "hourglass")
                         .badge(unsorted.count)
@@ -69,6 +70,8 @@ struct ScreenshotRescueView: View {
                 Task {
                     do {
                         try await controller.cleanUpPhotos()
+                    } catch let error as PHPhotosError where error.code == .userCancelled {
+                        // The user said no in the system's own prompt: nothing to report.
                     } catch {
                         cleanUpError = error.localizedDescription
                     }
@@ -139,6 +142,13 @@ struct ScreenshotRescueView: View {
                         Button("Sort My Screenshots") { controller.start() }
                             .disabled(controller.screenshotCount == 0)
                     }
+                } else if controller.pendingCount > 0 {
+                    // A rescue stopped partway (or new screenshots since): pick up the rest.
+                    Section {
+                        Button("Import \(controller.pendingCount) More Screenshots", systemImage: "arrow.down.circle") {
+                            controller.start()
+                        }
+                    }
                 }
             }
         }
@@ -162,6 +172,32 @@ struct RescuePitch: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// A section's first screenshots, and the rest one tap away. A grid inside a list
+/// row is laid out in full, so after a big rescue showing them all here would load
+/// thousands of images at once.
+private struct ScreenshotSection: View {
+    static let previewCount = 24
+
+    let title: Text
+    let items: [ItemRecord]
+    let services: LibraryServices
+
+    var body: some View {
+        ScreenshotGrid(items: Array(items.prefix(Self.previewCount)), services: services)
+        if items.count > Self.previewCount {
+            NavigationLink {
+                ScrollView {
+                    ScreenshotGrid(items: items, services: services)
+                        .padding()
+                }
+                .navigationTitle(title)
+            } label: {
+                Text("Show All \(items.count)")
+            }
+        }
     }
 }
 

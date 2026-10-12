@@ -89,32 +89,35 @@ public actor ScreenshotRescue {
         return await source.screenshots().count
     }
 
-    /// Imports every pending screenshot. Reports progress after each batch and
-    /// stops between batches when the task is cancelled. Returns how many were imported.
+    /// Imports every pending screenshot, one at a time. `onProgress` hears after each
+    /// one; `onBatch` after each batch. Stops at the next screenshot when the task is
+    /// cancelled (a download in progress is cancelled too). Returns how many were imported.
     @discardableResult
     public func run(
         now: Date = Date(),
+        onProgress: @escaping @Sendable (RescueProgress) -> Void = { _ in },
         onBatch: @escaping @Sendable (RescueProgress) async -> Void = { _ in }
     ) async throws -> Int {
         let pending = await pending()
         var progress = RescueProgress(done: 0, total: pending.count)
+        onProgress(progress)
         await onBatch(progress)
         var imported = 0
-        var start = pending.startIndex
-        while start < pending.endIndex {
+        for (offset, ref) in pending.enumerated() {
             try Task.checkCancellation()
-            let batch = pending[start..<min(start + Self.batchSize, pending.endIndex)]
-            // One at a time: a batch of full-size iPad screenshots held in memory together
-            // could get the background task stopped.
-            for ref in batch {
-                guard let screenshot = await source.load(ref) else { continue }
+            // One at a time: full-size iPad screenshots held in memory together could
+            // get the background task stopped.
+            if let screenshot = await source.load(ref) {
+                try Task.checkCancellation()
                 imported += try await importer.importScreenshots(
                     [screenshot], recentSince: now.addingTimeInterval(-Self.recentInterval), now: now
                 ).count
             }
-            start = batch.endIndex
-            progress.done = start - pending.startIndex
-            await onBatch(progress)
+            progress.done = offset + 1
+            onProgress(progress)
+            if progress.done % Self.batchSize == 0 || progress.done == pending.count {
+                await onBatch(progress)
+            }
         }
         return imported
     }

@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import Network
 import Observation
 import Model
 import Capture
@@ -56,6 +57,10 @@ final class AppModel {
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
+    /// Wakes the pipeline when a postponed job (a fetch that failed offline) is due.
+    @ObservationIgnored private var wake: Task<Void, Never>?
+    @ObservationIgnored private var pathMonitor: NWPathMonitor?
+    @ObservationIgnored private var wasOnline: Bool?
     private static let drainBatch = 25
 
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
@@ -153,6 +158,9 @@ final class AppModel {
             // swiftlint:disable:next force_try
             let model = AppModel(database: try! LibraryDatabase.inMemory())
             model.startupError = error.localizedDescription
+            // Rescued screenshots would only reach the throwaway library, and "Clean Up
+            // Photos" could then delete originals the real one never got.
+            model.rescue = nil
             return model
         }
     }
@@ -175,6 +183,9 @@ final class AppModel {
         // Items saved before the embedding model was on the device, or embedded by
         // a model an OS update replaced, get vectors for semantic search.
         await pipeline.requeueStaleEmbeddings()
+        // Links saved offline whose page never arrived get another try.
+        await pipeline.requeueMissingPages()
+        watchNetwork()
         feedWidget()
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
@@ -232,7 +243,15 @@ final class AppModel {
             return
         }
         isProcessing = true
-        defer { isProcessing = false }
+        // Its own task: a caller being cancelled (an expiring background task) mustn't
+        // cut a pass short and drop the passes folded into it.
+        let pass = Task { await self.runPasses() }
+        await pass.value
+        isProcessing = false
+        await scheduleWake()
+    }
+
+    private func runPasses() async {
         repeat {
             needsAnotherPass = false
             // Each stage runs even if the one before it failed.
@@ -249,5 +268,40 @@ final class AppModel {
             await pipeline.maintainGroups(writesBriefs: pro.isPro)
             await rescheduleMoments()
         } while needsAnotherPass
+    }
+
+    /// Runs the pipeline again when the next postponed job is due, while the app runs
+    /// (the Mac app can run for weeks).
+    private func scheduleWake() async {
+        wake?.cancel()
+        guard let due = await pipeline.nextDueDate() else { return }
+        // At least a few seconds out, so a job due now can't make this spin.
+        let delay = min(max(due.timeIntervalSinceNow, 5), 6 * 60 * 60)
+        wake = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await self?.processInbox()
+        }
+    }
+
+    /// Back online: links saved meanwhile get their pages now instead of after backoff.
+    private func watchNetwork() {
+        guard pathMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let online = path.status == .satisfied
+            Task { @MainActor in await self.networkChanged(online: online) }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.nextmark.app.network"))
+        pathMonitor = monitor
+    }
+
+    private func networkChanged(online: Bool) async {
+        defer { wasOnline = online }
+        guard online, wasOnline == false else { return }
+        await pipeline.retryFetchesNow()
+        await pipeline.requeueMissingPages()
+        await processInbox()
     }
 }

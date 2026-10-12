@@ -82,6 +82,8 @@ struct SchemaOrgTests {
 
     @Test(arguments: [
         ("PT45M", 45 as Int?), ("P1DT2H", 1560), ("pt1h", 60), ("PT0S", nil), ("90 minutes", nil),
+        // Absurd values from a page are ignored rather than overflowing.
+        ("P9999999999999999999999D", nil), ("PT200000000000000000H", nil),
     ])
     func durations(text: String, minutes: Int?) {
         #expect(SchemaDuration.minutes(text) == minutes)

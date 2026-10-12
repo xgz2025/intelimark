@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import os
 import GRDB
 import Model
 import Capture
@@ -26,6 +27,8 @@ public struct Ingestor: Sendable {
         self.itemsDirectory = itemsDirectory
     }
 
+    static let logger = Logger(subsystem: "com.nextmark.app", category: "ingest")
+
     /// Ingests every committed capture, oldest first. Returns the new item IDs.
     @discardableResult
     public func ingestPending(now: Date = Date()) async throws -> [String] {
@@ -37,6 +40,7 @@ public struct Ingestor: Sendable {
                 try await ingest(capture, now: now)
                 ingested.append(capture.envelope.id.rawValue)
             } catch {
+                Self.logger.error("Couldn't add capture \(capture.envelope.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 continue
             }
         }

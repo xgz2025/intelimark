@@ -29,6 +29,10 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private func save(_ message: [String: Any]) -> Bool {
         var content = SharedContent()
         content.apply(PageCapture(dictionary: message))
+        // Only links that can be opened again: not data:, blob: or browser pages.
+        if let scheme = content.url?.scheme?.lowercased(), !["http", "https", "file"].contains(scheme) {
+            content.url = nil
+        }
         content.sourceApp = "com.apple.Safari"
         guard !content.isEmpty else { return false }
         do {

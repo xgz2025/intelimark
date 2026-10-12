@@ -19,6 +19,8 @@ public struct ProPaywallView: View {
     let reason: LocalizedStringKey?
     @Environment(ProAccess.self) private var pro: ProAccess?
     @Environment(\.dismiss) private var dismiss
+    @State private var isAwaitingApproval = false
+    @State private var purchaseError: String?
 
     public init(reason: LocalizedStringKey? = nil) {
         self.reason = reason
@@ -75,9 +77,32 @@ public struct ProPaywallView: View {
                 }
             }
             .onInAppPurchaseCompletion { _, result in
-                if case .success(.success(let verification)) = result {
+                switch result {
+                case .success(.success(let verification)):
                     await pro?.handle(verification)
+                case .success(.pending):
+                    // Ask to Buy, or the bank confirming: Pro arrives when it's approved.
+                    isAwaitingApproval = true
+                case .success(.userCancelled):
+                    break
+                case .failure(let error):
+                    purchaseError = error.localizedDescription
+                case .success:
+                    break
                 }
+            }
+            .alert("Waiting for Approval", isPresented: $isAwaitingApproval) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Nextmark Pro unlocks as soon as the purchase is approved.")
+            }
+            .alert(
+                "Couldn't Complete the Purchase",
+                isPresented: Binding(get: { purchaseError != nil }, set: { if !$0 { purchaseError = nil } })
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(purchaseError ?? "")
             }
             .onChange(of: pro?.isPro ?? false) { _, isPro in
                 if isPro { dismiss() }
