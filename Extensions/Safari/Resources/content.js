@@ -12,20 +12,38 @@
 // Share/Shared/PageCapture.js, so `PageCapture(dictionary:)` parses both.
 // Next (PRD C7): a "Mark" button on selection and re-rendering saved highlights.
 (() => {
+  const maxExact = 2000;
+  const contextLength = 48;
+
+  // Text just before or after the selection, in whole words, for a text-fragment link.
   function textAround(selection, before) {
     if (!selection.rangeCount) return null;
     const range = selection.getRangeAt(0);
     const node = before ? range.startContainer : range.endContainer;
-    const text = node.textContent || "";
-    const snippet = (before
-      ? text.slice(Math.max(0, range.startOffset - 48), range.startOffset)
-      : text.slice(range.endOffset, range.endOffset + 48)).trim();
+    // Offsets count characters only in text nodes; in an element they count children.
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.data;
+    let snippet;
+    if (before) {
+      const start = Math.max(0, range.startOffset - contextLength);
+      snippet = text.slice(start, range.startOffset);
+      // Text fragments match whole words: drop one cut in half.
+      if (start > 0 && /\S/.test(text[start - 1])) snippet = snippet.replace(/^\S*/, "");
+    } else {
+      const end = range.endOffset + contextLength;
+      snippet = text.slice(range.endOffset, end);
+      if (end < text.length && /\S/.test(text[end])) snippet = snippet.replace(/\S*$/, "");
+    }
+    snippet = snippet.trim();
     return snippet.length ? snippet : null;
   }
 
   function capturePage() {
     const selection = window.getSelection();
-    const exact = selection ? selection.toString().trim() : "";
+    let exact = selection ? selection.toString().trim() : "";
+    // A long selection is cut at a word; the text after the cut isn't its suffix.
+    const truncated = exact.length > maxExact;
+    if (truncated) exact = exact.slice(0, maxExact).replace(/\s+\S*$/, "");
     const canonical = document.querySelector('link[rel="canonical"]');
     const result = {
       url: document.URL,
@@ -39,9 +57,9 @@
     };
     if (exact) {
       result.selection = {
-        exact: exact.slice(0, 2000),
+        exact: exact,
         prefix: textAround(selection, true),
-        suffix: textAround(selection, false)
+        suffix: truncated ? null : textAround(selection, false)
       };
     }
     return result;
