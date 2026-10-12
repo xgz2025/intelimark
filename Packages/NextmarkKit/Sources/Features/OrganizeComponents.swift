@@ -48,7 +48,7 @@ struct ItemLinkRow: View {
 
     private func setStatus(_ status: ItemStatus) {
         let (items, id) = (services.items, item.id)
-        Task { try? await items.setStatus(status, forItem: id) }
+        performEdit { try await items.setStatus(status, forItem: id) }
     }
 }
 
@@ -168,7 +168,7 @@ struct NewActionSheet: View {
     private func add() {
         let due: Date? = hasDueDate ? dueDate : nil
         let (actions, title, itemID, groupID) = (services.actions, title, itemID, groupID)
-        Task { _ = try? await actions.add(title: title, dueAt: due, itemID: itemID, groupID: groupID) }
+        performEdit { _ = try await actions.add(title: title, dueAt: due, itemID: itemID, groupID: groupID) }
         dismiss()
     }
 }
@@ -224,10 +224,9 @@ struct NewGroupSheet: View {
     private func create() {
         let (groups, title, emoji, itemIDs) = (services.groups, title, emoji, itemIDs)
         let onCreate = onCreate
-        Task {
-            if let id = try? await groups.createGroup(title: title, emoji: emoji, itemIDs: itemIDs) {
-                onCreate(id)
-            }
+        performEdit {
+            let id = try await groups.createGroup(title: title, emoji: emoji, itemIDs: itemIDs)
+            onCreate(id)
         }
         dismiss()
     }
@@ -278,7 +277,7 @@ struct AddToGroupSheet: View {
 
     private func add(to groupID: String) {
         let (groups, itemIDs) = (services.groups, itemIDs)
-        Task { _ = try? await groups.addItems(itemIDs, to: groupID) }
+        performEdit { _ = try await groups.addItems(itemIDs, to: groupID) }
         dismiss()
     }
 }

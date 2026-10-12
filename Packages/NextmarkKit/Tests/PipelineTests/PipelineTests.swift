@@ -222,6 +222,14 @@ struct PipelineTests {
         #expect(try await harness.queue.count() == 0)
     }
 
+    @Test func enrichmentSlowsDownWhenHotOrSavingPower() {
+        #expect(PowerBudget.budget(thermal: .nominal, lowPower: false) == .full)
+        #expect(PowerBudget.budget(thermal: .fair, lowPower: true) == .reduced)
+        #expect(PowerBudget.budget(thermal: .serious, lowPower: false) == .reduced)
+        #expect(PowerBudget.budget(thermal: .critical, lowPower: false) == .paused)
+        #expect(PowerBudget.paused.batchSize == 0)
+    }
+
     @Test func failingJobsAreRetriedWithBackoff() async throws {
         struct Failing: ItemUnderstander {
             func understand(_ input: UnderstandingInput) async throws -> Understanding {

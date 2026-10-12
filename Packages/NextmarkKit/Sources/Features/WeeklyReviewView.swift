@@ -166,20 +166,20 @@ struct WeeklyReviewView: View {
             tally.done += 1
             let suggestion = ActionSuggester.suggestions(for: card.item.digest).first
                 ?? SuggestedAction(title: String(localized: "Follow up: \(card.item.displayTitle)"), itemID: card.item.id)
-            Task {
-                try? await items.setStatus(.active, forItem: card.id)
-                _ = try? await actions.accept(suggestion)
+            performEdit {
+                try await items.setStatus(.active, forItem: card.id)
+                _ = try await actions.accept(suggestion)
             }
         case .keep:
             tally.kept += 1
-            Task {
-                try? await items.setStatus(.active, forItem: card.id)
-                try? await items.markOpened(card.id)
+            performEdit {
+                try await items.setStatus(.active, forItem: card.id)
+                try await items.markOpened(card.id)
             }
         case .toss:
             tally.tossed += 1
             lastTossed = card
-            Task { try? await items.setStatus(.trashed, forItem: card.id) }
+            performEdit { try await items.setStatus(.trashed, forItem: card.id) }
         }
         withAnimation(.snappy) {
             drag = .zero
@@ -191,7 +191,7 @@ struct WeeklyReviewView: View {
         tally.tossed -= 1
         lastTossed = nil
         let (items, id, status) = (services.items, card.id, card.item.status)
-        Task { try? await items.setStatus(status, forItem: id) }
+        performEdit { try await items.setStatus(status, forItem: id) }
     }
 
     private func load() async {

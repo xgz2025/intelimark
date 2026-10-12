@@ -68,7 +68,7 @@ struct NextActionsView: View {
                             .swipeActions {
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     let (repository, id) = (services.actions, context.action.id)
-                                    Task { try? await repository.delete(id) }
+                                    performEdit { try await repository.delete(id) }
                                 }
                             }
                         }
@@ -107,7 +107,7 @@ struct NextActionsView: View {
         .alert("All Actions Done", isPresented: $showsFinishedPrompt, presenting: finishedItem) { item in
             Button("Mark as Done") {
                 let (items, id) = (services.items, item.id)
-                Task { try? await items.setStatus(.done, forItem: id) }
+                performEdit { try await items.setStatus(.done, forItem: id) }
             }
             Button("Not Now", role: .cancel) {}
         } message: { item in
@@ -127,14 +127,14 @@ struct NextActionsView: View {
         guard !title.isEmpty else { return }
         newAction = ""
         let repository = services.actions
-        Task { _ = try? await repository.add(title: title) }
+        performEdit { _ = try await repository.add(title: title) }
     }
 
     private func complete(_ action: ActionRecord) {
         let (repository, items) = (services.actions, services.items)
-        Task {
-            let completion = try? await repository.setDone(true, forAction: action.id)
-            if let itemID = completion?.finishedItemID, let item = try? await items.item(id: itemID) {
+        performEdit {
+            let completion = try await repository.setDone(true, forAction: action.id)
+            if let itemID = completion.finishedItemID, let item = try? await items.item(id: itemID) {
                 finishedItem = FinishedItem(id: itemID, title: item.displayTitle)
                 showsFinishedPrompt = true
             }
@@ -144,13 +144,13 @@ struct NextActionsView: View {
     private func accept(_ suggestion: SuggestedAction) {
         suggestions.removeAll { $0 == suggestion }
         let repository = services.actions
-        Task { _ = try? await repository.accept(suggestion) }
+        performEdit { _ = try await repository.accept(suggestion) }
     }
 
     private func dismissSuggestion(_ suggestion: SuggestedAction) {
         suggestions.removeAll { $0 == suggestion }
         let repository = services.actions
-        Task { try? await repository.dismiss(suggestion) }
+        performEdit { try await repository.dismiss(suggestion) }
     }
 
     /// Next steps for the newest saves that have no actions of that name yet.

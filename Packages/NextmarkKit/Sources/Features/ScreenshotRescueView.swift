@@ -219,7 +219,7 @@ private struct ScreenshotGrid: View {
                 .contextMenu {
                     Button("Move to Trash", systemImage: "trash", role: .destructive) {
                         let (repository, id) = (services.items, item.id)
-                        Task { try? await repository.setStatus(.trashed, forItem: id) }
+                        performEdit { try await repository.setStatus(.trashed, forItem: id) }
                     }
                 }
             }

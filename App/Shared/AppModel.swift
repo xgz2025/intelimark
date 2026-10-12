@@ -61,10 +61,11 @@ final class AppModel {
     @ObservationIgnored private var wake: Task<Void, Never>?
     @ObservationIgnored private var pathMonitor: NWPathMonitor?
     @ObservationIgnored private var wasOnline: Bool?
+    @ObservationIgnored private var powerObservers: [any NSObjectProtocol] = []
+    @ObservationIgnored private var lastPowerBudget = PowerBudget.full
     /// Whether Apple Intelligence was ready last time we looked, to catch it becoming
     /// ready (its model finished downloading, it was turned on) while the app runs.
     @ObservationIgnored private var wasIntelligenceAvailable = false
-    private static let drainBatch = 25
 
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
         self.store = store
@@ -185,6 +186,7 @@ final class AppModel {
         // Links saved offline whose page never arrived get another try.
         await pipeline.requeueMissingPages()
         watchNetwork()
+        watchPower()
         feedWidget()
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
@@ -268,11 +270,18 @@ final class AppModel {
             // Each stage runs even if the one before it failed.
             do {
                 try await ingestor.ingestPending()
+                lastError = nil
             } catch {
                 lastError = error.localizedDescription
             }
-            // A full batch means more is waiting (e.g. a screenshot rescue): go round again.
-            if await pipeline.drain(limit: Self.drainBatch) == Self.drainBatch {
+            // What's still waiting couldn't be added; the Inbox says so.
+            let waiting = ingestor.waitingCount()
+            CaptureStatus.shared.stuckCount = waiting
+            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+            // A full batch means more is waiting (e.g. a screenshot rescue): go round again,
+            // unless the device is hot or in Low Power Mode, when a few jobs at a time will do.
+            let budget = PowerBudget.current
+            if budget.batchSize > 0, await pipeline.drain(limit: budget.batchSize) == budget.batchSize, budget == .full {
                 needsAnotherPass = true
             }
             // Suggested groups and Briefs follow the items they're built from.
@@ -286,13 +295,34 @@ final class AppModel {
     private func scheduleWake() async {
         wake?.cancel()
         guard let due = await pipeline.nextDueDate() else { return }
-        // At least a few seconds out, so a job due now can't make this spin.
-        let delay = min(max(due.timeIntervalSinceNow, 5), 6 * 60 * 60)
+        // At least a few seconds out, so a job due now can't make this spin; minutes
+        // out while the device is hot or in Low Power Mode.
+        let delay = min(max(due.timeIntervalSinceNow, PowerBudget.current.minimumWakeDelay), 6 * 60 * 60)
         wake = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             await self?.processInbox()
         }
+    }
+
+    /// Cooler, or out of Low Power Mode: catch up on what waited.
+    private func watchPower() {
+        guard powerObservers.isEmpty else { return }
+        lastPowerBudget = PowerBudget.current
+        let names = [ProcessInfo.thermalStateDidChangeNotification, Notification.Name.NSProcessInfoPowerStateDidChange]
+        powerObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in await self.powerChanged() }
+            }
+        }
+    }
+
+    private func powerChanged() async {
+        let budget = PowerBudget.current
+        defer { lastPowerBudget = budget }
+        guard budget == .full, lastPowerBudget != .full else { return }
+        await processInbox()
     }
 
     /// Back online: links saved meanwhile get their pages now instead of after backoff.

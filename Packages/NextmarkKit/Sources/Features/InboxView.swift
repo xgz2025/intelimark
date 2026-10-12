@@ -16,12 +16,37 @@ struct InboxView: View {
     @State private var items: [ItemRecord] = []
     @State private var errorMessage: String?
 
+    private var captures: CaptureStatus { CaptureStatus.shared }
+
     var body: some View {
-        List(items) { item in
-            ItemLinkRow(item: item, services: services)
+        List {
+            if captures.stuckCount > 0 {
+                Section {
+                    Label(
+                        "\(captures.stuckCount) saves couldn't be added to your library yet.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    if let reason = captures.reason {
+                        Text(reason).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button("Try Again") {
+                        let refresh = services.refresh
+                        Task { await refresh() }
+                    }
+                } footer: {
+                    Text("They're kept safe until they can be added. Freeing up storage on this device usually helps.")
+                }
+            }
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(items) { item in
+                ItemLinkRow(item: item, services: services)
+            }
         }
         .overlay {
-            if items.isEmpty {
+            if items.isEmpty, captures.stuckCount == 0, errorMessage == nil {
                 ContentUnavailableView(
                     "Nothing saved yet", systemImage: "tray",
                     description: Text("Tap Share in any app and choose Nextmark.")

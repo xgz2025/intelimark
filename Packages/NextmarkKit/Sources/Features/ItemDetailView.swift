@@ -109,7 +109,14 @@ struct ItemDetailView: View {
                     get: { item.intent },
                     set: { intent in
                         let (items, id) = (services.items, item.id)
-                        Task { try? await items.setIntent(intent, forItem: id) }
+                        // A binding's setter may run off the main actor: report from a main-actor task.
+                        Task { @MainActor in
+                            do {
+                                try await items.setIntent(intent, forItem: id)
+                            } catch {
+                                EditFailure.shared.report(error)
+                            }
+                        }
                     }
                 ))
                 if item.intent == nil, let suggested = item.suggestedIntent {
@@ -152,10 +159,10 @@ struct ItemDetailView: View {
                 ForEach(suggestions, id: \.self) { suggestion in
                     SuggestedActionRow(suggestion: suggestion) {
                         let repository = services.actions
-                        Task { _ = try? await repository.accept(suggestion) }
+                        performEdit { _ = try await repository.accept(suggestion) }
                     } onDismiss: {
                         let repository = services.actions
-                        Task { try? await repository.dismiss(suggestion) }
+                        performEdit { try await repository.dismiss(suggestion) }
                     }
                 }
                 TextField("Add an action", text: $newAction)
@@ -196,20 +203,20 @@ struct ItemDetailView: View {
         guard !title.isEmpty else { return }
         newAction = ""
         let (repository, id) = (services.actions, itemID)
-        Task { _ = try? await repository.add(title: title, itemID: id) }
+        performEdit { _ = try await repository.add(title: title, itemID: id) }
     }
 
     private func toggle(_ action: ActionRecord) {
         let (repository, id) = (services.actions, itemID)
-        Task {
-            let completion = try? await repository.setDone(action.status != .done, forAction: action.id)
-            if completion?.finishedItemID == id { showsDonePrompt = true }
+        performEdit {
+            let completion = try await repository.setDone(action.status != .done, forAction: action.id)
+            if completion.finishedItemID == id { showsDonePrompt = true }
         }
     }
 
     private func setStatus(_ status: ItemStatus) {
         let (items, id) = (services.items, itemID)
-        Task { try? await items.setStatus(status, forItem: id) }
+        performEdit { try await items.setStatus(status, forItem: id) }
     }
 }
 

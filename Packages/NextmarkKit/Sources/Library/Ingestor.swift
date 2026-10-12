@@ -48,6 +48,14 @@ public struct Ingestor: Sendable {
         return ingested
     }
 
+    /// Saves still waiting in the Inbox after a pass: the ones that couldn't be added.
+    /// Ones committed in the last minute are left out; they may simply have arrived
+    /// during the pass.
+    public func waitingCount(now: Date = Date()) -> Int {
+        let captures = (try? store.committedCaptures()) ?? []
+        return captures.filter { now.timeIntervalSince($0.envelope.id.date) > 60 }.count
+    }
+
     func ingest(_ capture: CommittedCapture, now: Date) async throws {
         let envelope = capture.envelope
         let itemID = envelope.id.rawValue

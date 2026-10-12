@@ -91,6 +91,7 @@ public struct RootView: View {
                 trashCount = count
             }
         }
+        .editFailureAlert()
         .sheet(isPresented: $showsNewGroup) {
             NewGroupSheet(services: services) { id in
                 selection = .group(id)
@@ -126,7 +127,13 @@ public struct RootView: View {
                         .tag(SidebarSelection.group(summary.id))
                         .dropDestination(for: String.self) { ids, _ in
                             let (repository, groupID) = (services.groups, summary.id)
-                            Task { _ = try? await repository.addItems(ids, to: groupID) }
+                            Task { @MainActor in
+                                do {
+                                    _ = try await repository.addItems(ids, to: groupID)
+                                } catch {
+                                    EditFailure.shared.report(error)
+                                }
+                            }
                             return true
                         }
                 }
