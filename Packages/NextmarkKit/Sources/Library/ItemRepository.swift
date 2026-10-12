@@ -26,6 +26,18 @@ public struct ItemRepository: Sendable {
         }
     }
 
+    /// The Inbox: items in play, without the older screenshots a rescue brought in
+    /// (they have their own screen, and would bury new saves).
+    public func inboxItems() -> AsyncThrowingStream<[ItemRecord], any Error> {
+        database.observe { db in
+            try ItemRecord
+                .filter([ItemStatus.inbox.rawValue, ItemStatus.active.rawValue].contains(Column("status")))
+                .filter(!(Column("surface") == CaptureSurface.screenshotImport.rawValue && Column("status") == ItemStatus.active.rawValue))
+                .order(Column("createdAt").desc)
+                .fetchAll(db)
+        }
+    }
+
     /// The newest items still in play (inbox or active).
     public func recentItems(limit: Int = 30) async throws -> [ItemRecord] {
         try await database.writer.read { db in

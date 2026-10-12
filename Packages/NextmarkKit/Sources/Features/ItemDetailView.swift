@@ -42,6 +42,16 @@ struct ItemDetailView: View {
         return List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
+                    if let preview = item.thumbnailURL(in: services.itemsDirectory) {
+                        AsyncImage(url: preview) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            EmptyView()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: 280)
+                        .clipShape(.rect(cornerRadius: 8))
+                        .accessibilityHidden(true)
+                    }
                     Text(item.displayTitle)
                         .font(.title2.bold())
                     if let subtitle = item.subtitle, subtitle != item.summary {

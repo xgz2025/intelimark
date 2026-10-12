@@ -86,7 +86,8 @@ public enum SyncCatalog {
                 ]),
             ],
             latestColumns: ["updatedAt", "lastOpenedAt"],
-            localColumns: [],
+            // Photos identifiers differ from device to device.
+            localColumns: ["sourceAssetID"],
             sendCondition: "syncScope = 'cloud'",
             keepCondition: nil,
             stampOnInsert: nil

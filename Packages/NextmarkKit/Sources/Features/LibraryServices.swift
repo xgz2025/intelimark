@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Library
 import Search
 
@@ -12,13 +13,17 @@ public struct LibraryServices: Sendable {
     public let refresh: @Sendable () async -> Void
     /// Fetches from and sends to iCloud now.
     public let syncNow: @Sendable () async -> Void
+    /// Where each item's files live (`<itemsDirectory>/<itemID>/…`).
+    public let itemsDirectory: URL?
 
     public init(
         database: LibraryDatabase,
         search: HybridSearch,
+        itemsDirectory: URL? = nil,
         refresh: @escaping @Sendable () async -> Void,
         syncNow: @escaping @Sendable () async -> Void = {}
     ) {
+        self.itemsDirectory = itemsDirectory
         items = ItemRepository(database: database)
         groups = GroupRepository(database: database)
         actions = ActionRepository(database: database)
@@ -26,6 +31,19 @@ public struct LibraryServices: Sendable {
         self.refresh = refresh
         self.syncNow = syncNow
     }
+}
+
+extension ItemRecord {
+    /// The preview of an image or PDF item, drawn by the Extract stage.
+    func thumbnailURL(in itemsDirectory: URL?) -> URL? {
+        guard let itemsDirectory, [.image, .pdf].contains(kind) else { return nil }
+        return itemsDirectory.appending(path: id).appending(path: "thumbnail.jpg")
+    }
+}
+
+extension EnvironmentValues {
+    /// Lets rows find item previews without passing services down.
+    @Entry var itemsDirectory: URL? = nil
 }
 
 /// Navigates to an item's screen.

@@ -95,6 +95,19 @@ struct ChangeTrackingTests {
         #expect(try await device.pending().isEmpty)
     }
 
+    @Test func photosIdentifiersStayOnTheDevice() async throws {
+        let importer = ScreenshotImporter(database: device.database, itemsDirectory: device.itemsDirectory, device: "A")
+        let screenshot = ImportedScreenshot(assetID: "asset-1", data: Data("png".utf8), contentType: "public.png", takenAt: Date())
+        let id = try #require(try await importer.importScreenshots([screenshot], recentSince: .distantPast).first)
+        let record = try #require(try await device.store.outgoing([RecordKey("Item", id)]).first?.record)
+        #expect(record.fields["sourceAssetID"] == nil)
+
+        let pending = try await device.pending()
+        try await device.store.didSend(saved: pending.map { SentChange(key: $0.key, seq: $0.seq, systemFields: nil) }, deleted: [])
+        try await device.items.forgetAssets(["asset-1"])
+        #expect(try await device.pending().isEmpty)
+    }
+
     @Test func itemsKeptOnThisDeviceAreNeverSent() async throws {
         try await device.addItem("Private notes", scope: .local)
         let outgoing = try await device.store.outgoing()

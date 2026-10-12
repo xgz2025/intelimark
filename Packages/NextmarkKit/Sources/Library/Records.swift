@@ -53,6 +53,8 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     public var pinned: Bool
     public var lastOpenedAt: Date?
     public var syncScope: SyncScope
+    /// Screenshot Rescue: the Photos asset this came from, until it's deleted there.
+    public var sourceAssetID: String?
 
     public var displayTitle: String {
         for candidate in [userTitle, aiTitle, sourceTitle] {
@@ -124,6 +126,7 @@ extension ItemRecord {
         pinned = false
         lastOpenedAt = nil
         syncScope = .cloud
+        sourceAssetID = nil
     }
 }
 
@@ -183,7 +186,30 @@ public struct AttachmentRecord: Codable, Sendable, Identifiable, FetchableRecord
         byteSize: Int64?,
         syncPolicy: AttachmentSyncPolicy
     ) {
-        id = "\(itemID)-\(index < 10 ? "0" : "")\(index)"
+        self.init(
+            id: "\(itemID)-\(index < 10 ? "0" : "")\(index)", itemID: itemID, role: role,
+            fileName: fileName, contentType: contentType, byteSize: byteSize, syncPolicy: syncPolicy
+        )
+    }
+
+    /// The item's preview (`thumbnail.jpg`). It always syncs, so every device can show it (PRD P2).
+    public static func thumbnail(itemID: String, fileName: String, byteSize: Int64?) -> AttachmentRecord {
+        AttachmentRecord(
+            id: "\(itemID)-thumb", itemID: itemID, role: .thumbnail,
+            fileName: fileName, contentType: "public.jpeg", byteSize: byteSize, syncPolicy: .always
+        )
+    }
+
+    init(
+        id: String,
+        itemID: String,
+        role: AttachmentRole,
+        fileName: String,
+        contentType: String,
+        byteSize: Int64?,
+        syncPolicy: AttachmentSyncPolicy
+    ) {
+        self.id = id
         self.itemID = itemID
         self.role = role
         self.fileName = fileName

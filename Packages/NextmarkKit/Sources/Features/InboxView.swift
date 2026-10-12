@@ -21,7 +21,7 @@ struct InboxView: View {
         .navigationTitle("Inbox")
         .task {
             do {
-                for try await snapshot in services.items.items() {
+                for try await snapshot in services.items.inboxItems() {
                     items = snapshot
                 }
             } catch {

@@ -9,6 +9,7 @@ import Search
 import Features
 import Moments
 import Sync
+import Integrations
 import UserNotifications
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
@@ -27,10 +28,16 @@ final class AppModel {
     private let pipeline: PipelineRunner
     private let moments: MomentsEngine
     @ObservationIgnored private var cloudSync: CloudSync?
+    /// Screenshot Rescue (PRD C9), on iPhone and iPad.
+    @ObservationIgnored private(set) var rescue: RescueController?
+    #if os(iOS)
+    @ObservationIgnored private let continuedTasks = ContinuedTaskRunner()
+    #endif
     @ObservationIgnored private var notificationRouter: NotificationRouter?
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
+    private static let drainBatch = 25
 
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
         self.store = store
@@ -49,6 +56,7 @@ final class AppModel {
         services = LibraryServices(
             database: database,
             search: search,
+            itemsDirectory: AppGroup.itemsURL,
             refresh: { [weak self] in
                 await self?.updateSync()
                 await self?.processInbox()
@@ -60,6 +68,14 @@ final class AppModel {
         cloudSync = CloudSync(store: SyncStore(database: database, itemsDirectory: AppGroup.itemsURL)) { [weak self] result in
             await self?.didSync(result)
         }
+        #if os(iOS)
+        let importer = ScreenshotImporter(database: database, itemsDirectory: AppGroup.itemsURL, device: DeviceIdentity.current())
+        let rescue = RescueController(rescue: ScreenshotRescue(source: PhotosScreenshotSource(), importer: importer)) { [weak self] in
+            await self?.processInbox()
+        }
+        rescue.runner = continuedTasks
+        self.rescue = rescue
+        #endif
         // Set before launch finishes, so a tap that launched the app is delivered.
         UserNotificationScheduler.registerCategories()
         let router = NotificationRouter { [weak self] response in
@@ -133,6 +149,12 @@ final class AppModel {
         await processInbox()
     }
 
+    /// Back in the foreground: new screenshots (once a rescue has run), new captures.
+    func becameActive() async {
+        await rescue?.importNew()
+        await processInbox()
+    }
+
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
     func processInbox() async {
         guard !isProcessing else {
@@ -145,7 +167,10 @@ final class AppModel {
             needsAnotherPass = false
             do {
                 try await ingestor.ingestPending()
-                await pipeline.drain()
+                // A full batch means more is waiting (e.g. a screenshot rescue): go round again.
+                if await pipeline.drain(limit: Self.drainBatch) == Self.drainBatch {
+                    needsAnotherPass = true
+                }
                 // Suggested groups and Briefs follow the items they're built from.
                 await pipeline.maintainGroups()
                 await rescheduleMoments()

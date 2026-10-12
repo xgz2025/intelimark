@@ -194,6 +194,12 @@ public actor PipelineRunner {
             )
             let extraction = try await extractor.extract(input)
             try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            if let original = files.first {
+                let thumbnail = itemsDirectory.appending(path: job.itemID).appending(path: Thumbnailer.fileName)
+                if let byteSize = Thumbnailer.write(from: original, to: thumbnail) {
+                    try await repository.saveThumbnail(forItem: job.itemID, fileName: Thumbnailer.fileName, byteSize: byteSize)
+                }
+            }
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
 
         case .understand:

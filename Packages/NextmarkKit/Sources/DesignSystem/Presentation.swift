@@ -72,6 +72,24 @@ extension SemanticKind {
         }
     }
 
+    /// For section headers ("Receipts", "Tickets"…).
+    public var pluralTitle: LocalizedStringKey {
+        switch self {
+        case .article: "Articles"
+        case .product: "Products"
+        case .place: "Places"
+        case .event: "Events"
+        case .recipe: "Recipes"
+        case .video: "Videos"
+        case .person: "People"
+        case .receipt: "Receipts"
+        case .ticket: "Tickets"
+        case .quote: "Quotes"
+        case .document: "Documents"
+        case .other: "Other"
+        }
+    }
+
     public var symbolName: String {
         switch self {
         case .article: "doc.text"

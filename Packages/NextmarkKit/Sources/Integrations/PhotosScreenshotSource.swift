@@ -1,0 +1,63 @@
+import Foundation
+import Photos
+import Library
+
+/// Screenshots from the Photos library (the Screenshots smart album).
+public struct PhotosScreenshotSource: ScreenshotSource {
+    public init() {}
+
+    public func access() -> PhotosAccess {
+        Self.access(PHPhotoLibrary.authorizationStatus(for: .readWrite))
+    }
+
+    public func requestAccess() async -> PhotosAccess {
+        Self.access(await PHPhotoLibrary.requestAuthorization(for: .readWrite))
+    }
+
+    static func access(_ status: PHAuthorizationStatus) -> PhotosAccess {
+        switch status {
+        case .authorized, .limited: .granted
+        case .notDetermined: .notDetermined
+        default: .denied
+        }
+    }
+
+    public func screenshots() async -> [ScreenshotRef] {
+        let albums = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .smartAlbumScreenshots, options: nil)
+        guard let album = albums.firstObject else { return [] }
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        let assets = PHAsset.fetchAssets(in: album, options: options)
+        return (0..<assets.count).map { index in
+            let asset = assets.object(at: index)
+            return ScreenshotRef(id: asset.localIdentifier, takenAt: asset.creationDate ?? .distantPast)
+        }
+    }
+
+    public func load(_ screenshot: ScreenshotRef) async -> ImportedScreenshot? {
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [screenshot.id], options: nil).firstObject else {
+            return nil
+        }
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true       // iCloud Photos may keep only a preview on the device
+        options.deliveryMode = .highQualityFormat
+        options.version = .current
+        return await withCheckedContinuation { continuation in
+            PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, type, _, _ in
+                guard let data, let type else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: ImportedScreenshot(
+                    assetID: screenshot.id, data: data, contentType: type, takenAt: screenshot.takenAt
+                ))
+            }
+        }
+    }
+
+    public func delete(_ ids: [String]) async throws {
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.deleteAssets(PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil))
+        }
+    }
+}
