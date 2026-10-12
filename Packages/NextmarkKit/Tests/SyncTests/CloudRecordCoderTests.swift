@@ -40,4 +40,10 @@ struct CloudRecordCoderTests {
         #expect(second.recordID == first.recordID)
         #expect(try CloudRecordCoder.syncRecord(from: second)?.fields["locked"] == .integer(0))
     }
+
+    @Test func syncFailuresAreExplainedPlainly() {
+        #expect(CloudSync.message(for: CKError(.networkUnavailable)).contains("offline"))
+        #expect(CloudSync.message(for: CKError(.quotaExceeded)).contains("iCloud storage is full"))
+        #expect(CloudSync.message(for: CKError(.notAuthenticated)).contains("Sign in"))
+    }
 }
