@@ -1,4 +1,14 @@
 // swift-tools-version: 6.2
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import PackageDescription
 
 // Shared code for the Nextmark app and its extensions.

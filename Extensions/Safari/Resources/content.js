@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 // Answers capture requests from background.js with the same keys as
 // Share/Shared/PageCapture.js, so `PageCapture(dictionary:)` parses both.
 // Next (PRD C7): a "Mark" button on selection and re-rendering saved highlights.
