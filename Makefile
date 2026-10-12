@@ -8,6 +8,8 @@ bootstrap:
 
 generate: bootstrap
 	xcodegen generate
+	@# The app targets' build checks this is newer than project.yml.
+	touch $(PROJECT)/project.pbxproj
 
 open: generate
 	open $(PROJECT)

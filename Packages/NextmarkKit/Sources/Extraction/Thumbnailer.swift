@@ -29,8 +29,8 @@ public enum Thumbnailer {
         let options = [kCGImageDestinationLossyCompressionQuality: 0.75] as CFDictionary
         CGImageDestinationAddImage(output, image, options)
         guard CGImageDestinationFinalize(output) else { return nil }
-        let attributes = try? FileManager.default.attributesOfItem(atPath: destination.path(percentEncoded: false))
-        return (attributes?[.size] as? NSNumber)?.int64Value
+        // The size alone, through resource values: no file timestamps (a required-reason API) involved.
+        return (try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
     }
 
     static func image(for file: LocalFile, maxPixelSize: Int) -> CGImage? {

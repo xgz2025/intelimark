@@ -196,6 +196,7 @@ erDiagram
 - **Source facts:** `sourceTitle`, `text`, `anchor`, `pageContextJSON`
 - **Derived** (AI and extractors, each with `derivedVersion`): `aiTitle`, `summary`, `imageDescription`, `ocrText`, `kindGuess`, `entitiesJSON`, `typedFieldsJSON` (product/place/event/recipe…), `datesJSON`, `placesJSON`, `suggestedIntent`, `language`
 - **User layer:** `userTitle`, `note`, `intent`, `status` (`inbox · active · done · faded · trashed`), `pinned`, `editedFields` (bitset), `lastOpenedAt`
+- **Trash:** a trashed item stays restorable for 30 days (counted from its last change), then is deleted at launch; "Delete Permanently" and "Empty Trash" do it at once. Deleting removes the row (attachments, memberships, actions and vectors cascade), its jobs and its files, and syncs as a deletion. A Photos screenshot deleted this way goes into the local `ignoredAsset` table so Screenshot Rescue doesn't import it again.
 
 **Highlight**: `itemID`, `anchor`, `quote`, `color`, `note`
 
@@ -247,7 +248,8 @@ erDiagram
   - Records being applied from the server set a flag, so they are not
     recorded and sent back.
   - A send clears only the change it carried, so an edit made while a
-    record was in flight still goes up.
+    record was in flight still goes up: after each send, every change still
+    waiting is handed to the engine again.
   - Because the triggers do all this, repositories need no sync code.
 - **Records from the server** are applied parents first. A membership,
   action or attachment that arrives before its item or group is parked in
@@ -256,9 +258,12 @@ erDiagram
   - A local deletion that hasn't been sent yet wins over an incoming edit.
   - An edit saved after another device's deletion recreates the record
     (CloudKit reports the record as unknown, and it is sent as new).
-  - A remote deletion of a membership the user confirmed or removed is
-    refused, and the row is sent again: another device's AI can't undo
-    the user's decision.
+  - Deletions are applied parents first. Memberships are only ever deleted
+    with their group (the user deletes or merges it; the AI never deletes
+    one), so a membership deletion is always applied.
+  - A suggested group's ID comes from its members, so two devices that
+    find the same cluster make the same record, and a dismissed one stays
+    dismissed.
 - **Account and zone changes never delete local data.**
   - Sign-in, a switch of account, or a zone that was deleted or reset
     (encrypted data reset) clears the server state we keep. The whole

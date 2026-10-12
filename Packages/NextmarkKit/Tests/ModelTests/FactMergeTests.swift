@@ -42,7 +42,10 @@ struct FactMergeTests {
     }
 
     @Test func dateOnlyValuesHaveNoTimeOfDay() {
-        #expect(FactMerge.hasTimeOfDay(Date(timeIntervalSince1970: 1_790_812_800)) == false)   // 2026-10-01T00:00Z
-        #expect(FactMerge.hasTimeOfDay(Date(timeIntervalSince1970: 1_790_812_800 + 3_600)))
+        var tokyo = Calendar(identifier: .gregorian)
+        tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        let midnight = tokyo.date(from: DateComponents(year: 2026, month: 10, day: 1))!
+        #expect(FactMerge.hasTimeOfDay(midnight, calendar: tokyo) == false)
+        #expect(FactMerge.hasTimeOfDay(midnight.addingTimeInterval(3_600), calendar: tokyo))
     }
 }

@@ -33,14 +33,11 @@
 	<dict/>
 	<key>UIBackgroundModes</key>
 	<array>
-		<string>fetch</string>
 		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.nextmark.app.refresh</string>
-		<string>com.nextmark.app.enrich</string>
 		<string>com.nextmark.app.rescue</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>

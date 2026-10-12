@@ -14,7 +14,7 @@ import Moments
 import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, screenshots, settings
+    case inbox, nextActions, review, search, suggestions, screenshots, trash, settings
     case group(String)
 }
 
@@ -30,6 +30,7 @@ public struct RootView: View {
     @State private var groups: [GroupSummary] = []
     @State private var suggestionCount = 0
     @State private var openActionCount = 0
+    @State private var trashCount = 0
     @State private var showsNewGroup = false
 
     /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
@@ -64,7 +65,8 @@ public struct RootView: View {
             }
             .interactiveDismissDisabled()
         }
-        .onChange(of: navigator.destination) {
+        .onChange(of: navigator.destination, initial: true) {
+            // `initial`: a notification tap that launched the app arrives before this view.
             guard let destination = navigator.destination else { return }
             navigator.destination = nil
             open(destination)
@@ -73,11 +75,20 @@ public struct RootView: View {
             for await summaries in services.groups.summaries(states: [.accepted, .suggested]).ignoringErrors() {
                 groups = summaries.filter { $0.group.state == .accepted }
                 suggestionCount = summaries.count - groups.count
+                // A deleted or merged group leaves the sidebar; don't stay on its empty screen.
+                if case .group(let id) = selection, !groups.contains(where: { $0.id == id }) {
+                    selection = .inbox
+                }
             }
         }
         .task {
             for await actions in services.actions.nextActions().ignoringErrors() {
                 openActionCount = actions.count
+            }
+        }
+        .task {
+            for await count in services.items.trashCount().ignoringErrors() {
+                trashCount = count
             }
         }
         .sheet(isPresented: $showsNewGroup) {
@@ -126,12 +137,15 @@ public struct RootView: View {
                 }
                 .buttonStyle(.borderless)
             }
-            #if os(iOS)
             Section {
+                Label("Trash", systemImage: "trash")
+                    .badge(trashCount)
+                    .tag(SidebarSelection.trash)
+                #if os(iOS)
                 Label("Settings", systemImage: "gearshape")
                     .tag(SidebarSelection.settings)
+                #endif
             }
-            #endif
         }
         .navigationTitle("Nextmark")
     }
@@ -153,6 +167,8 @@ public struct RootView: View {
             if let rescue {
                 ScreenshotRescueView(services: services, controller: rescue)
             }
+        case .trash:
+            TrashView(services: services)
         case .settings:
             SettingsView(onChange: services.refresh, onSyncNow: services.syncNow)
         case .group(let id):
@@ -167,7 +183,14 @@ extension RootView {
     private func open(_ destination: MomentDestination) {
         switch destination {
         case .item(let id):
-            path.append(ItemLink(id: id))
+            if selection == nil {
+                // On iPhone the detail column isn't showing while the sidebar is. Choosing
+                // the Inbox resets the path, so the item goes on after that has happened.
+                selection = .inbox
+                Task { @MainActor in path.append(ItemLink(id: id)) }
+            } else {
+                path.append(ItemLink(id: id))
+            }
         case .group(let id):
             selection = .group(id)
         case .nextActions:

@@ -18,9 +18,19 @@ import Model
 actor FakeScheduler: MomentScheduling {
     private(set) var plans: [[MomentCandidate]] = []
     private(set) var snoozed: [MomentCandidate] = []
+    var delivered: [Date] = []
 
     func replaceMoments(with plan: [MomentCandidate]) async { plans.append(plan) }
     func snooze(_ moment: MomentCandidate) async { snoozed.append(moment) }
+
+    func pruneSnoozes(keeping relevant: [MomentCandidate]) async {
+        let kept = Set(relevant.map(\.identifier))
+        snoozed.removeAll { !kept.contains($0.identifier) }
+    }
+
+    func committedFireDates() async -> [Date] { delivered + snoozed.map(\.fireDate) }
+
+    func deliver(_ dates: [Date]) { delivered += dates }
 }
 
 struct MomentsEngineTests {
@@ -48,10 +58,12 @@ struct MomentsEngineTests {
         #expect(await scheduler.plans.last == plan)
     }
 
-    @Test func turnedOffMeansNothingScheduled() async throws {
+    @Test func dateRemindersOffLeavesTheWeeklyReview() async throws {
         try await insert(item("Sale", dates: [ItemDate(date: clock.date(20), hasTime: false, role: .expiry, source: .structured)], createdAt: clock.now))
         var settings = MomentSettings()
         settings.isEnabled = false
+        #expect(try await engine.reschedule(settings: settings, now: clock.now).map(\.reason) == [.weeklyReview])
+        settings.isReviewEnabled = false
         #expect(try await engine.reschedule(settings: settings, now: clock.now).isEmpty)
         #expect(await scheduler.plans.last == [])
     }
@@ -82,6 +94,52 @@ struct MomentsEngineTests {
 
         let entries = try await NotificationLedger(database: database).entries(since: clock.date(1))
         #expect(Set(entries.map(\.outcome)) == [.done, .snoozed])
+    }
+
+    @Test func snoozesEndWithTheirSubject() async throws {
+        let concert = item(
+            "Concert", dates: [ItemDate(date: clock.date(11, 19), hasTime: true, role: .eventStart, source: .structured)],
+            status: .active, createdAt: clock.now
+        )
+        try await insert(concert)
+        let plan = try await engine.reschedule(settings: MomentSettings(), now: clock.now)
+        let moment = try #require(plan.first { $0.targetID == concert.id })
+        #expect(moment.latest == clock.date(11, 19))
+
+        // Remind me tomorrow at 9, the day of the concert: kept while the concert is ahead.
+        let response = try #require(MomentResponse(
+            actionIdentifier: "moment.snooze", userInfo: MomentResponse.userInfo(for: moment), title: "Concert", body: ""
+        ))
+        try await engine.handle(response, now: clock.now)
+        try await engine.reschedule(settings: MomentSettings(), now: clock.now)
+        #expect(await scheduler.snoozed.count == 1)
+
+        // Trashed: the snooze goes too.
+        try await ItemRepository(database: database).setStatus(.trashed, forItem: concert.id, now: clock.now)
+        try await engine.reschedule(settings: MomentSettings(), now: clock.now)
+        #expect(await scheduler.snoozed.isEmpty)
+    }
+
+    @Test func noSnoozePastTheEvent() async throws {
+        // Tonight's concert can't wait until tomorrow morning.
+        let response = MomentResponse(
+            action: .snooze, reason: .eventStart, targetID: "item", targetKind: .item, latest: clock.date(10, 20)
+        )
+        try await engine.handle(response, now: clock.now)
+        #expect(await scheduler.snoozed.isEmpty)
+    }
+
+    @Test func deliveredMomentsUseUpTheDay() async throws {
+        let actions = ActionRepository(database: database)
+        for index in 0..<3 {
+            try await actions.add(title: "Errand \(index)", dueAt: clock.date(12), now: clock.now)
+        }
+        var settings = MomentSettings()
+        settings.isReviewEnabled = false
+        #expect(try await engine.reschedule(settings: settings, now: clock.now).count == 3)
+
+        await scheduler.deliver([clock.date(12, 8), clock.date(12, 8, 30)])
+        #expect(try await engine.reschedule(settings: settings, now: clock.date(12, 8, 45)).count == 1)
     }
 
     @Test func openingLeadsToTheTarget() async throws {

@@ -86,4 +86,10 @@ struct SchemaOrgTests {
     func durations(text: String, minutes: Int?) {
         #expect(SchemaDuration.minutes(text) == minutes)
     }
+
+    @Test func aDateWithoutATimeIsThatDayWhereTheUserIs() throws {
+        let date = try #require(SchemaDate.parse("2026-11-21"))
+        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour], from: date)
+        #expect(parts.year == 2026 && parts.month == 11 && parts.day == 21 && parts.hour == 0)
+    }
 }

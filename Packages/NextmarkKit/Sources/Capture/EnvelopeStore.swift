@@ -78,6 +78,9 @@ public struct EnvelopeStore: Sendable {
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(envelope)
         try data.write(to: directory.appending(path: Self.envelopeFileName), options: .atomic)
+        // Tell a running app: the write landed inside a subdirectory, which the Inbox
+        // watcher's directory events don't see.
+        InboxSignal.post()
     }
 
     /// Committed captures, oldest first. Unreadable envelopes are skipped and left in place.

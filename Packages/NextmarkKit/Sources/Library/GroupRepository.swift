@@ -339,8 +339,11 @@ public struct GroupRepository: Sendable {
     /// A group proposed by clustering (§7), waiting for the user. Returns its ID.
     @discardableResult
     public func addSuggestedGroup(title: String?, itemIDs: [String], score: Double? = nil, now: Date = Date()) async throws -> String {
-        let group = GroupRecord(kind: .smart, state: .suggested, aiTitle: title, now: now)
+        // Named by its members: two devices that find the same cluster make the same
+        // record, so sync shows one suggestion, and one already dismissed stays dismissed.
+        let group = GroupRecord(id: Self.suggestionID(for: itemIDs), kind: .smart, state: .suggested, aiTitle: title, now: now)
         try await database.writer.write { db in
+            guard try !GroupRecord.exists(db, key: group.id) else { return }
             try group.insert(db)
             for itemID in itemIDs {
                 guard try ItemRecord.exists(db, key: itemID) else { continue }
@@ -348,6 +351,11 @@ public struct GroupRepository: Sendable {
             }
         }
         return group.id
+    }
+
+    static func suggestionID(for itemIDs: [String]) -> String {
+        let digest = SHA256.hash(data: Data(Set(itemIDs).sorted().joined(separator: "\n").utf8))
+        return "S" + digest.map { String(format: "%02x", $0) }.joined().prefix(25)
     }
 
     /// Member vectors of accepted, active groups for one embedding model, by group.

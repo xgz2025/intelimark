@@ -91,10 +91,14 @@ public struct ScreenshotImporter: Sendable {
         }
     }
 
-    /// Photos assets already in the library (still in Photos or not).
+    /// Photos assets already in the library (still in Photos or not), and those the user
+    /// deleted from the library for good.
     public func importedAssetIDs() async throws -> Set<String> {
         try await database.writer.read { db in
-            Set(try String.fetchAll(db, sql: "SELECT sourceAssetID FROM item WHERE sourceAssetID IS NOT NULL"))
+            Set(try String.fetchAll(db, sql: """
+                SELECT sourceAssetID FROM item WHERE sourceAssetID IS NOT NULL
+                UNION SELECT assetID FROM ignoredAsset
+                """))
         }
     }
 }

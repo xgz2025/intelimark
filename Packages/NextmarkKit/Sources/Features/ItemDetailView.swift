@@ -61,6 +61,7 @@ struct ItemDetailView: View {
                         .frame(maxWidth: .infinity, maxHeight: 280)
                         .clipShape(.rect(cornerRadius: 8))
                         .accessibilityHidden(true)
+                        .id(item.updatedAt)
                     }
                     Text(item.displayTitle)
                         .font(.title2.bold())
@@ -162,6 +163,13 @@ struct ItemDetailView: View {
                     Button("Mark as Not Done", systemImage: "arrow.uturn.backward") { setStatus(.active) }
                 } else {
                     Button("Mark as Done", systemImage: "checkmark.circle") { setStatus(.done) }
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                if item.status == .trashed {
+                    Button("Restore", systemImage: "arrow.uturn.backward") { setStatus(.active) }
+                } else {
+                    Button("Move to Trash", systemImage: "trash", role: .destructive) { setStatus(.trashed) }
                 }
             }
         }

@@ -45,6 +45,19 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    preBuildScripts:
+      # A project generated before project.yml last changed (e.g. after a pull that added
+      # a module) fails with "Unable to find module dependency". Say what to do instead.
+      - name: Check the Xcode project is current
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/project.yml
+          - $(PROJECT_FILE_PATH)/project.pbxproj
+        script: |
+          if [ "$SRCROOT/project.yml" -nt "$PROJECT_FILE_PATH/project.pbxproj" ]; then
+            echo "error: project.yml changed after Nextmark.xcodeproj was generated. Run 'make generate' (or 'make open') and build again."
+            exit 1
+          fi
     dependencies:
       - package: NextmarkKit
         product: Model
@@ -82,6 +95,8 @@ targets:
       - Extensions/Share/iOS
       - path: Extensions/Share/Shared/PageCapture.js
         buildPhase: resources
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
@@ -106,6 +121,8 @@ targets:
       - Extensions/Safari/iOS
       - path: Extensions/Safari/Resources
         buildPhase: resources
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
@@ -126,6 +143,8 @@ targets:
     sources:
       - Extensions/Widgets/Shared
       - Extensions/Widgets/iOS
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkWidgets
@@ -157,6 +176,19 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    preBuildScripts:
+      # A project generated before project.yml last changed (e.g. after a pull that added
+      # a module) fails with "Unable to find module dependency". Say what to do instead.
+      - name: Check the Xcode project is current
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/project.yml
+          - $(PROJECT_FILE_PATH)/project.pbxproj
+        script: |
+          if [ "$SRCROOT/project.yml" -nt "$PROJECT_FILE_PATH/project.pbxproj" ]; then
+            echo "error: project.yml changed after Nextmark.xcodeproj was generated. Run 'make generate' (or 'make open') and build again."
+            exit 1
+          fi
     dependencies:
       - package: NextmarkKit
         product: Model
@@ -198,6 +230,8 @@ targets:
       - Extensions/Share/macOS
       - path: Extensions/Share/Shared/PageCapture.js
         buildPhase: resources
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
@@ -222,6 +256,8 @@ targets:
       - Extensions/Safari/macOS
       - path: Extensions/Safari/Resources
         buildPhase: resources
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
@@ -242,6 +278,8 @@ targets:
     sources:
       - Extensions/Widgets/Shared
       - Extensions/Widgets/macOS
+      - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkWidgets

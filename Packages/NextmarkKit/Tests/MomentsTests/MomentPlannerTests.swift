@@ -40,6 +40,21 @@ struct MomentPlannerTests {
         #expect(plan.map(\.targetID) == ["2", "3"])
     }
 
+    @Test func quietHoursNeverPushAMomentPastItsEvent() {
+        let planner = MomentPlanner(calendar: calendar)
+        // Three hours before a 1 AM show lands at 10 PM, in quiet hours; 8 AM is too late.
+        let late = MomentCandidate(targetID: "a", fireDate: date(9, 22), reason: .eventStart, latest: date(10, 1))
+        let fine = MomentCandidate(targetID: "b", fireDate: date(9, 23), reason: .deadline, latest: date(11, 0))
+        #expect(planner.plan([late, fine], now: date(9, 12)).map(\.targetID) == ["b"])
+    }
+
+    @Test func deliveredAndSnoozedMomentsCountAgainstTheDay() {
+        let planner = MomentPlanner(policy: MomentPolicy(maxPerDay: 3), calendar: calendar)
+        let candidates = (0..<3).map { MomentCandidate(targetID: "\($0)", fireDate: date(10, 12 + $0), reason: .deadline) }
+        let plan = planner.plan(candidates, now: date(10, 11), committed: [date(10, 9), date(10, 10), date(11, 9)])
+        #expect(plan.map(\.targetID) == ["0"])
+    }
+
     @Test func dropsPastMomentsAndCapsPending() {
         let planner = MomentPlanner(policy: MomentPolicy(maxPerDay: 10, maxPending: 3), calendar: calendar)
         let past = MomentCandidate(targetID: "past", fireDate: date(1, 12), reason: .deadline)

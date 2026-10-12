@@ -28,12 +28,20 @@ public actor CloudSync: CKSyncEngineDelegate {
 
     private var engine: CKSyncEngine?
     private var isStarting = false
+    /// What the settings last asked for; `start()` checks it again after awaiting.
+    private var wantsToRun = false
     private var observation: Task<Void, Never>?
     /// The last change handed to the engine; later ones are added as they happen.
     private var enqueuedSeq: Int64 = 0
     /// The change each record in flight carries, so a save only clears that change.
     private var inFlight: [RecordKey: Int64] = [:]
     private var syncedOriginals: Bool?
+    /// Fetched changes couldn't be written. The engine's state isn't saved past them,
+    /// and once the fetch ends the engine restarts from the last saved state, which
+    /// fetches them again. Once per launch, so a change that can never be written
+    /// doesn't loop.
+    private var failedApply = false
+    private var hasRefetched = false
 
     /// - Parameter onChange: called after records from other devices were written.
     public init(
@@ -58,7 +66,8 @@ public actor CloudSync: CKSyncEngineDelegate {
 
     /// Starts or stops syncing to match the user's settings. Cheap to call often.
     public func update(enabled: Bool, originals: Bool) async {
-        guard enabled, Self.isAvailable else {
+        wantsToRun = enabled && Self.isAvailable
+        guard wantsToRun else {
             stop()
             if !Self.isAvailable { setStatus(String(localized: "This build isn't signed for iCloud.")) }
             return
@@ -79,6 +88,8 @@ public actor CloudSync: CKSyncEngineDelegate {
         let container = CKContainer(identifier: containerIdentifier)
         let serialization = (try? await store.engineState())
             .flatMap { try? JSONDecoder().decode(CKSyncEngine.State.Serialization.self, from: $0) }
+        // Turned off while this was waiting.
+        guard wantsToRun else { return }
         var configuration = CKSyncEngine.Configuration(
             database: container.privateCloudDatabase, stateSerialization: serialization, delegate: self
         )
@@ -103,6 +114,17 @@ public actor CloudSync: CKSyncEngineDelegate {
         if let status = try? await container.accountStatus(), status != .available {
             setStatus(String(localized: "Sign in to iCloud to sync your library."))
         }
+    }
+
+    /// Starts a new engine from the last saved state, so changes fetched since then
+    /// arrive again. Local changes are handed to it from the database as at launch.
+    private func refetch() async {
+        guard failedApply else { return }
+        failedApply = false
+        hasRefetched = true
+        logger.notice("Fetching again from the last saved sync state")
+        stop()
+        await start()
     }
 
     func stop() {
@@ -144,6 +166,8 @@ public actor CloudSync: CKSyncEngineDelegate {
     public func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
+        // An engine replaced by a restart may still ask; only the current one sends.
+        guard syncEngine === engine else { return nil }
         let scope = context.options.scope
         let pending = Array(syncEngine.state.pendingRecordZoneChanges.filter { scope.contains($0) }.prefix(Self.batchSize))
         guard !pending.isEmpty else { return nil }
@@ -203,9 +227,11 @@ public actor CloudSync: CKSyncEngineDelegate {
     }
 
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
+        // Events from an engine that was stopped or replaced would save stale state.
+        guard syncEngine === engine else { return }
         switch event {
         case .stateUpdate(let update):
-            if let data = try? JSONEncoder().encode(update.stateSerialization) {
+            if !failedApply, let data = try? JSONEncoder().encode(update.stateSerialization) {
                 try? await store.saveEngineState(data)
             }
 
@@ -222,9 +248,10 @@ public actor CloudSync: CKSyncEngineDelegate {
             let deletions = changes.deletions.compactMap { CloudRecordCoder.key(for: $0.recordID) }
             do {
                 let result = try await store.apply(records, deletions: deletions)
-                if !result.isEmpty { await onChange(result) }
+                if !result.isEmpty { notify(result) }
             } catch {
                 logger.error("Couldn't apply fetched changes: \(error.localizedDescription, privacy: .public)")
+                if !hasRefetched { failedApply = true }
             }
 
         case .sentRecordZoneChanges(let sent):
@@ -235,7 +262,15 @@ public actor CloudSync: CKSyncEngineDelegate {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
             }
 
-        case .didFetchChanges, .didSendChanges:
+        case .didFetchChanges:
+            if failedApply {
+                // Not from inside this engine's own event: restart once it's handled.
+                Task { await self.refetch() }
+            } else {
+                markSynced()
+            }
+
+        case .didSendChanges:
             markSynced()
 
         case .willFetchChanges, .willFetchRecordZoneChanges, .didFetchRecordZoneChanges, .willSendChanges:
@@ -244,6 +279,13 @@ public actor CloudSync: CKSyncEngineDelegate {
         @unknown default:
             break
         }
+    }
+
+    /// The app's follow-up (embedding, enrichment) runs on its own; the engine handles
+    /// its events one at a time and shouldn't wait for it.
+    private func notify(_ result: SyncApplyResult) {
+        let onChange = onChange
+        Task { await onChange(result) }
     }
 
     private func handleSentChanges(_ sent: CKSyncEngine.Event.SentRecordZoneChanges, syncEngine: CKSyncEngine) async {
@@ -300,7 +342,7 @@ public actor CloudSync: CKSyncEngineDelegate {
             try await store.forgetSystemFields(forgotten)
             if !conflicts.isEmpty {
                 let result = try await store.apply(conflicts)
-                if !result.isEmpty { await onChange(result) }
+                if !result.isEmpty { notify(result) }
             }
         } catch {
             logger.error("Couldn't record sent changes: \(error.localizedDescription, privacy: .public)")
@@ -311,6 +353,9 @@ public actor CloudSync: CKSyncEngineDelegate {
         if !retry.isEmpty {
             syncEngine.state.add(pendingRecordZoneChanges: retry)
         }
+        // A record edited again while it was uploading still has a change waiting, but the
+        // engine has just dropped it as sent: look at every pending change, not only new ones.
+        enqueuedSeq = 0
         await enqueuePending()
     }
 

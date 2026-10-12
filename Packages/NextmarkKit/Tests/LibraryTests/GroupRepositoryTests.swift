@@ -123,9 +123,11 @@ struct GroupRepositoryTests {
 
     @Test func freeKeepsThreeSmartGroups() async throws {
         let items = try await insertThree()
+        // Each suggestion is named by its members, so they need different ones.
+        let memberSets = [[items[0]], [items[1]], [items[2]], [items[0], items[1]], [items[1], items[2]]]
         var ids: [String] = []
-        for title in ["Kyoto", "Desk", "Ramen", "Garden"] {
-            ids.append(try await groups.addSuggestedGroup(title: title, itemIDs: items, score: 0.7, now: now))
+        for (title, members) in zip(["Kyoto", "Desk", "Ramen", "Garden"], memberSets) {
+            ids.append(try await groups.addSuggestedGroup(title: title, itemIDs: members, score: 0.7, now: now))
         }
         for id in ids.prefix(3) {
             try await groups.acceptSuggestion(id, smartGroupLimit: 3, now: now)
@@ -138,7 +140,7 @@ struct GroupRepositoryTests {
         // A finished group frees its place; Pro has no limit at all.
         try await groups.setStatus(.done, forGroup: ids[0], now: now)
         try await groups.acceptSuggestion(ids[3], smartGroupLimit: 3, now: now)
-        let more = try await groups.addSuggestedGroup(title: "Books", itemIDs: items, score: 0.7, now: now)
+        let more = try await groups.addSuggestedGroup(title: "Books", itemIDs: memberSets[4], score: 0.7, now: now)
         try await groups.acceptSuggestion(more, smartGroupLimit: nil, now: now)
         #expect(try await summary(more, states: [.accepted]) != nil)
     }

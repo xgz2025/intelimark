@@ -22,6 +22,7 @@ import Sync
 import Integrations
 import Store
 import UserNotifications
+import WidgetKit
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
 @MainActor
@@ -36,6 +37,11 @@ final class AppModel {
     /// Nextmark Pro (PRD P4): Moments, Briefs and unlimited smart groups.
     let pro = ProAccess()
     private(set) var lastError: String?
+    /// The library couldn't be opened. Captures then stay in the Inbox untouched (an
+    /// in-memory library would lose them) and the app says so.
+    private(set) var startupError: String?
+    @ObservationIgnored private var hasStarted = false
+    @ObservationIgnored private var widgetFeed: Task<Void, Never>?
 
     private let ingestor: Ingestor
     private let pipeline: PipelineRunner
@@ -113,6 +119,8 @@ final class AppModel {
 
     /// Starts or stops iCloud sync to match Settings (PRD P1, P2).
     func updateSync() async {
+        // An in-memory library must never sync: it would look like everything was deleted.
+        guard startupError == nil else { return }
         await cloudSync?.update(enabled: SyncSettings.isEnabled(), originals: SyncSettings.syncsOriginals())
     }
 
@@ -143,13 +151,20 @@ final class AppModel {
             // Keep the UI usable and surface the problem instead of crashing at launch.
             // swiftlint:disable:next force_try
             let model = AppModel(database: try! LibraryDatabase.inMemory())
-            model.lastError = error.localizedDescription
+            model.startupError = error.localizedDescription
             return model
         }
     }
 
+    /// Runs once, at launch: capture, sync and Moments work with no window open (the
+    /// Mac's menu bar, hotkey and Services).
     func start() async {
+        guard !hasStarted else { return }
+        hasStarted = true
         await pro.start()
+        guard startupError == nil else { return }
+        // Items in the Trash longer than 30 days are deleted for good.
+        _ = try? await repository.purgeTrash(itemsDirectory: AppGroup.itemsURL)
         await updateSync()
         if IntelligenceStatus.current == .available {
             // Items understood without the model (or with an older prompt) get another pass.
@@ -159,6 +174,7 @@ final class AppModel {
         // Items saved before the embedding model was on the device, or embedded by
         // a model an OS update replaced, get vectors for semantic search.
         await pipeline.requeueStaleEmbeddings()
+        feedWidget()
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
                 guard let self else { return }
@@ -170,14 +186,46 @@ final class AppModel {
         await processInbox()
     }
 
+    /// Keeps the Next Actions widget's snapshot current: the widget never opens the
+    /// database, it reads this file (Docs/architecture.md §2).
+    private func feedWidget() {
+        guard widgetFeed == nil else { return }
+        let actions = services.actions
+        widgetFeed = Task {
+            var last: [WidgetSnapshot.Action]?
+            do {
+                for try await open in actions.nextActions() {
+                    let snapshot = WidgetSnapshot(generatedAt: Date(), actions: open.prefix(8).map { context in
+                        WidgetSnapshot.Action(
+                            id: context.id,
+                            title: context.action.title,
+                            groupTitle: context.groupTitle ?? context.itemTitle,
+                            dueDate: context.action.dueAt
+                        )
+                    })
+                    guard snapshot.actions != last else { continue }
+                    last = snapshot.actions
+                    try? snapshot.save()
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+            } catch {
+                // The observation ended; the widget keeps its last snapshot.
+            }
+        }
+    }
+
     /// Back in the foreground: new screenshots (once a rescue has run), new captures.
     func becameActive() async {
+        // A subscription can lapse while the app runs; StoreKit sends no update for that.
+        await pro.refresh()
+        guard startupError == nil else { return }
         await rescue?.importNew()
         await processInbox()
     }
 
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
     func processInbox() async {
+        guard startupError == nil else { return }
         guard !isProcessing else {
             needsAnotherPass = true
             return
@@ -186,18 +234,19 @@ final class AppModel {
         defer { isProcessing = false }
         repeat {
             needsAnotherPass = false
+            // Each stage runs even if the one before it failed.
             do {
                 try await ingestor.ingestPending()
-                // A full batch means more is waiting (e.g. a screenshot rescue): go round again.
-                if await pipeline.drain(limit: Self.drainBatch) == Self.drainBatch {
-                    needsAnotherPass = true
-                }
-                // Suggested groups and Briefs follow the items they're built from.
-                await pipeline.maintainGroups(writesBriefs: pro.isPro)
-                await rescheduleMoments()
             } catch {
                 lastError = error.localizedDescription
             }
+            // A full batch means more is waiting (e.g. a screenshot rescue): go round again.
+            if await pipeline.drain(limit: Self.drainBatch) == Self.drainBatch {
+                needsAnotherPass = true
+            }
+            // Suggested groups and Briefs follow the items they're built from.
+            await pipeline.maintainGroups(writesBriefs: pro.isPro)
+            await rescheduleMoments()
         } while needsAnotherPass
     }
 }

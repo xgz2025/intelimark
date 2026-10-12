@@ -28,6 +28,9 @@ public struct MomentCandidate: Sendable, Hashable {
     public var priority: Int
     public var title: String
     public var body: String
+    /// When the Moment's subject passes (the event starts, the day of the deadline
+    /// ends). A Moment that would fire after it isn't worth sending.
+    public var latest: Date?
 
     public init(
         targetID: String,
@@ -36,7 +39,8 @@ public struct MomentCandidate: Sendable, Hashable {
         reason: Reason,
         priority: Int = 0,
         title: String = "",
-        body: String = ""
+        body: String = "",
+        latest: Date? = nil
     ) {
         self.targetID = targetID
         self.targetKind = targetKind
@@ -45,6 +49,7 @@ public struct MomentCandidate: Sendable, Hashable {
         self.priority = priority
         self.title = title
         self.body = body
+        self.latest = latest
     }
 
     /// Stable per target and reason, so rescheduling replaces rather than duplicates.
@@ -78,20 +83,25 @@ public struct MomentPlanner: Sendable {
         self.calendar = calendar
     }
 
-    public func plan(_ candidates: [MomentCandidate], now: Date) -> [MomentCandidate] {
+    /// - Parameter committed: When Moments already delivered, and snoozed ones still
+    ///   waiting, fire. They use up their day's budget.
+    public func plan(_ candidates: [MomentCandidate], now: Date, committed: [Date] = []) -> [MomentCandidate] {
         let upcoming = candidates
             .filter { $0.fireDate > now }
-            .map { candidate -> MomentCandidate in
+            .compactMap { candidate -> MomentCandidate? in
                 var moved = candidate
                 moved.fireDate = outsideQuietHours(candidate.fireDate)
+                // Quiet hours never push a Moment past what it's about.
+                if let latest = candidate.latest, moved.fireDate >= latest { return nil }
                 return moved
             }
+        let used = Dictionary(grouping: committed) { calendar.startOfDay(for: $0) }.mapValues(\.count)
         let byDay = Dictionary(grouping: upcoming) { calendar.startOfDay(for: $0.fireDate) }
-        let withinBudget = byDay.values.flatMap { day in
-            day.sorted { lhs, rhs in
+        let withinBudget = byDay.flatMap { day, moments in
+            moments.sorted { lhs, rhs in
                 lhs.priority != rhs.priority ? lhs.priority > rhs.priority : lhs.fireDate < rhs.fireDate
             }
-            .prefix(policy.maxPerDay)
+            .prefix(max(0, policy.maxPerDay - used[day, default: 0]))
         }
         return Array(
             withinBudget

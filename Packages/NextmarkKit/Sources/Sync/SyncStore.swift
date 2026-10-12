@@ -137,6 +137,8 @@ public struct SyncStore: Sendable {
             }
             for change in deleted {
                 try Self.forget(change.key, in: db)
+                // Records that arrived for a parent we deleted will never find it.
+                try db.execute(sql: "DELETE FROM syncOrphan WHERE waitingFor = ?", arguments: [change.key.description])
                 try db.execute(
                     sql: "DELETE FROM syncChange WHERE recordType = ? AND recordName = ? AND isDeletion = 1 AND seq <= ?",
                     arguments: [change.key.recordType, change.key.recordName, change.seq]
@@ -175,7 +177,7 @@ public struct SyncStore: Sendable {
     public func apply(_ records: [SyncRecord], deletions: [RecordKey] = []) async throws -> SyncApplyResult {
         guard !records.isEmpty || !deletions.isEmpty else { return SyncApplyResult() }
         let directory = itemsDirectory
-        return try await database.writer.write { db in
+        let applied = try await database.writer.write { db in
             try db.execute(sql: "UPDATE syncControl SET applying = 1")
             var result = SyncApplyResult()
             let order = Dictionary(uniqueKeysWithValues: SyncCatalog.tables.enumerated().map { ($1.recordType, $0) })
@@ -186,12 +188,22 @@ public struct SyncStore: Sendable {
                 try Self.apply(record, in: db, result: &result)
             }
             try Self.adoptOrphans(in: db, result: &result)
-            for key in deletions {
+            // Parents first: a group's deletion takes its memberships and actions with it.
+            let sortedDeletions = deletions.sorted {
+                order[$0.recordType, default: .max] < order[$1.recordType, default: .max]
+            }
+            for key in sortedDeletions {
                 try Self.applyDeletion(key, in: db, result: &result)
             }
             try db.execute(sql: "UPDATE syncControl SET applying = 0")
             return result
         }
+        // Items deleted for good on another device: their files go here too, once the
+        // deletion is committed.
+        for id in applied.deletedItemIDs {
+            ItemRepository.removeFiles(ofItem: id, in: directory)
+        }
+        return applied
     }
 
     static func apply(_ record: SyncRecord, in db: Database, result: inout SyncApplyResult) throws {

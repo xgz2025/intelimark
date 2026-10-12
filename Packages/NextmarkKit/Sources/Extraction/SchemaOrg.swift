@@ -220,15 +220,19 @@ enum SchemaDate {
         guard let text = text?.trimmingCharacters(in: .whitespaces), !text.isEmpty else { return nil }
         let iso = ISO8601DateFormatter()
         for options: ISO8601DateFormatter.Options in [
-            [.withInternetDateTime, .withFractionalSeconds], [.withInternetDateTime], [.withFullDate],
+            [.withInternetDateTime, .withFractionalSeconds], [.withInternetDateTime],
         ] {
             iso.formatOptions = options
             if let date = iso.date(from: text) { return date }
         }
-        // Local date-times without an offset are common for events.
+        // Local date-times without an offset are common for events. A date alone
+        // ("2026-11-21") is that day where the user is: local midnight, which
+        // `FactMerge.hasTimeOfDay` reads as "no time". Parsed as UTC it would land on
+        // the previous evening west of Greenwich.
         let local = DateFormatter()
         local.locale = Locale(identifier: "en_US_POSIX")
-        for format in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd HH:mm"] {
+        local.timeZone = .current
+        for format in ["yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd HH:mm", "yyyy-MM-dd"] {
             local.dateFormat = format
             if let date = local.date(from: text) { return date }
         }

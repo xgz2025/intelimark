@@ -26,15 +26,19 @@ public struct OnboardingView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 24) {
-            if showsRescue, let rescue {
-                rescuePage(rescue)
-            } else {
-                welcomePage
+        // Scrolls at large text sizes, so Continue is always reachable.
+        ScrollView {
+            VStack(spacing: 24) {
+                if showsRescue, let rescue {
+                    rescuePage(rescue)
+                } else {
+                    welcomePage
+                }
             }
+            .padding(32)
+            .frame(maxWidth: 520)
+            .frame(maxWidth: .infinity)
         }
-        .padding(32)
-        .frame(maxWidth: 520)
         .animation(.default, value: showsRescue)
     }
 

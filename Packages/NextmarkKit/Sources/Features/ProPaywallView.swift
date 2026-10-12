@@ -19,7 +19,6 @@ public struct ProPaywallView: View {
     let reason: LocalizedStringKey?
     @Environment(ProAccess.self) private var pro: ProAccess?
     @Environment(\.dismiss) private var dismiss
-    @State private var restoreFailed = false
 
     public init(reason: LocalizedStringKey? = nil) {
         self.reason = reason
@@ -59,17 +58,10 @@ public struct ProPaywallView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     HStack {
-                        Button("Restore Purchases") {
-                            Task {
-                                do {
-                                    try await pro?.restore()
-                                } catch {
-                                    restoreFailed = true
-                                }
-                            }
-                        }
+                        RestorePurchasesButton()
                         Spacer()
-                        Link("Terms of Use", destination: Self.termsOfUse)
+                        Link("Privacy Policy", destination: NextmarkLinks.privacy)
+                        Link("Terms of Use", destination: NextmarkLinks.termsOfUse)
                     }
                     .font(.footnote)
                 }
@@ -90,19 +82,12 @@ public struct ProPaywallView: View {
             .onChange(of: pro?.isPro ?? false) { _, isPro in
                 if isPro { dismiss() }
             }
-            .alert("Couldn't Restore Purchases", isPresented: $restoreFailed) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Check that you're signed in to the App Store with the Apple Account you bought Pro with.")
-            }
         }
         #if os(macOS)
         .frame(minWidth: 480, minHeight: 600)
         #endif
     }
 
-    /// Apple's standard licence agreement.
-    static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 }
 
 private struct ProFeatureRow<Detail: View>: View {

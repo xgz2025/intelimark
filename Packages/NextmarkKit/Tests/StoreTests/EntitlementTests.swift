@@ -40,6 +40,16 @@ struct EntitlementTests {
         #expect(EntitlementSnapshot.isPro([upgraded, yearly], now: now))
     }
 
+    @Test func lifetimeAndSubscriptionsAreToldApart() {
+        let lifetime = EntitlementSnapshot(productID: ProProduct.lifetime)
+        let yearly = EntitlementSnapshot(productID: ProProduct.yearly, expiresAt: now.addingTimeInterval(86_400))
+        #expect(EntitlementSnapshot.hasLifetime([lifetime], now: now))
+        #expect(!EntitlementSnapshot.hasSubscription([lifetime], now: now))
+        // Bought lifetime while subscribed: the subscription is still there to cancel.
+        #expect(EntitlementSnapshot.hasSubscription([lifetime, yearly], now: now))
+        #expect(!EntitlementSnapshot.hasLifetime([yearly], now: now))
+    }
+
     @Test func otherProductsDontUnlockPro() {
         #expect(!EntitlementSnapshot.isPro([EntitlementSnapshot(productID: "com.example.other")], now: now))
     }

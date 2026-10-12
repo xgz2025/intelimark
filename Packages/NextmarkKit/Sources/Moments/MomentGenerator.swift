@@ -25,6 +25,7 @@ public struct MomentSettings: Sendable, Equatable {
         public static let reviewHour = "moments.reviewHour"
     }
 
+    /// Date, plan and action reminders ("Remind Me About Dates in My Saves").
     public var isEnabled = true
     public var policy = MomentPolicy()
     public var isReviewEnabled = true
@@ -70,33 +71,65 @@ public struct MomentGenerator: Sendable {
         settings: MomentSettings,
         now: Date
     ) -> [MomentCandidate] {
-        var candidates: [MomentCandidate] = []
-        if settings.includesTimeMoments {
+        candidates(
+            from: relevant(items: items, plans: plans, actions: actions, reviewCount: reviewCount, settings: settings, now: now),
+            now: now
+        )
+    }
+
+    /// Every Moment whose subject still matters (its date hasn't passed, its target is
+    /// open), including ones whose time to fire has gone. A snoozed Moment lives as
+    /// long as it is in here.
+    public func relevant(
+        items: [ItemRecord],
+        plans: [GroupSummary],
+        actions: [ActionContext],
+        reviewCount: Int,
+        settings: MomentSettings,
+        now: Date
+    ) -> [MomentCandidate] {
+        var moments: [MomentCandidate] = []
+        if settings.isEnabled && settings.includesTimeMoments {
             for item in items where item.status == .inbox || item.status == .active {
-                candidates += itemMoments(item, now: now)
+                moments += itemMoments(item, now: now)
             }
             for plan in plans {
-                if let moment = planMoment(plan, now: now) { candidates.append(moment) }
+                if let moment = planMoment(plan, now: now) { moments.append(moment) }
             }
             for context in actions {
-                if let moment = actionMoment(context, now: now) { candidates.append(moment) }
+                if let moment = actionMoment(context, now: now) { moments.append(moment) }
             }
         }
         if settings.isReviewEnabled, reviewCount > 0, let moment = reviewMoment(count: reviewCount, settings: settings, now: now) {
-            candidates.append(moment)
+            moments.append(moment)
         }
-        return candidates.filter { $0.fireDate > now }
+        return moments
+    }
+
+    /// What to schedule from `relevant`: Moments still ahead, and one per item, for
+    /// its earliest date that can still be announced in time.
+    public func candidates(from relevant: [MomentCandidate], now: Date) -> [MomentCandidate] {
+        var announcedItems = Set<String>()
+        return relevant.filter { moment in
+            guard moment.fireDate > now else { return false }
+            guard moment.targetKind == .item else { return true }
+            return announcedItems.insert(moment.targetID).inserted
+        }
     }
 
     // MARK: Rules
 
-    /// One Moment per item: its earliest upcoming date that is worth a notification.
+    /// A Moment for each of an item's dates that is worth a notification and hasn't
+    /// passed, earliest first.
     func itemMoments(_ item: ItemRecord, now: Date) -> [MomentCandidate] {
-        let title = String(item.displayTitle.prefix(80))
-        let upcoming = item.dates
-            .filter { $0.date > now && $0.date < now.addingTimeInterval(Self.horizon) && $0.role != .mentioned && $0.role != .eventEnd }
+        item.dates
+            .filter { latest(for: $0) > now && $0.date < now.addingTimeInterval(Self.horizon) && $0.role != .mentioned && $0.role != .eventEnd }
             .sorted { $0.date < $1.date }
-        guard let date = upcoming.first else { return [] }
+            .compactMap { itemMoment(item, date: $0, now: now) }
+    }
+
+    func itemMoment(_ item: ItemRecord, date: ItemDate, now: Date) -> MomentCandidate? {
+        let title = String(item.displayTitle.prefix(80))
         let when = describe(date)
         let fire: Date?
         let body: String
@@ -126,33 +159,38 @@ public struct MomentGenerator: Sendable {
             reason = .reservation
             priority = 3
         case .mentioned, .eventEnd:
-            return []
+            return nil
         }
-        guard let fire else { return [] }
-        return [MomentCandidate(targetID: item.id, targetKind: .item, fireDate: fire, reason: reason, priority: priority, title: title, body: body)]
+        guard let fire else { return nil }
+        return MomentCandidate(
+            targetID: item.id, targetKind: .item, fireDate: fire, reason: reason, priority: priority,
+            title: title, body: body, latest: latest(for: date)
+        )
     }
 
     /// Plans come back five days before their date, then the day before (PRD G6, M1).
     func planMoment(_ plan: GroupSummary, now: Date) -> MomentCandidate? {
         guard let target = plan.group.targetDate, target > now else { return nil }
-        let fire = [
+        let fires = [
             calendar.date(byAdding: .day, value: -5, to: at(target, hour: 9) ?? target),
             dayBefore(target, hour: 9),
         ]
         .compactMap { $0 }
-        .first { $0 > now }
-        guard let fire else { return nil }
+        guard let fire = fires.first(where: { $0 > now }) ?? fires.last else { return nil }
         let title = [plan.group.emoji, plan.group.displayTitle].compactMap { $0 }.joined(separator: " ")
         let date = target.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
         let body = plan.openActionCount > 0
             ? String(localized: "\(date) · \(plan.memberCount) saves, \(plan.openActionCount) open actions")
             : String(localized: "\(date) · \(plan.memberCount) saves")
-        return MomentCandidate(targetID: plan.id, targetKind: .group, fireDate: fire, reason: .planDate, priority: 2, title: title, body: body)
+        return MomentCandidate(
+            targetID: plan.id, targetKind: .group, fireDate: fire, reason: .planDate, priority: 2,
+            title: title, body: body, latest: endOfDay(target)
+        )
     }
 
     /// Actions are due in the morning of their day.
     func actionMoment(_ context: ActionContext, now: Date) -> MomentCandidate? {
-        guard let due = context.action.dueAt, let fire = at(due, hour: 9), fire > now else { return nil }
+        guard let due = context.action.dueAt, let fire = at(due, hour: 9), let latest = endOfDay(due), latest > now else { return nil }
         let body: String
         if let group = context.groupTitle {
             body = [context.groupEmoji, group].compactMap { $0 }.joined(separator: " ")
@@ -161,7 +199,7 @@ public struct MomentGenerator: Sendable {
         }
         return MomentCandidate(
             targetID: context.action.id, targetKind: .action, fireDate: fire, reason: .actionDue, priority: 3,
-            title: String(localized: "Due today: \(context.action.title)"), body: body
+            title: String(localized: "Due today: \(context.action.title)"), body: body, latest: latest
         )
     }
 
@@ -184,6 +222,15 @@ public struct MomentGenerator: Sendable {
     func dayBefore(_ date: Date, hour: Int) -> Date? {
         calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: date))
             .flatMap { at($0, hour: hour) }
+    }
+
+    func endOfDay(_ date: Date) -> Date? {
+        calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date))
+    }
+
+    /// When a date stops mattering: its time, or the end of its day when it has none.
+    func latest(for date: ItemDate) -> Date {
+        date.hasTime ? date.date : endOfDay(date.date) ?? date.date
     }
 
     /// `preferred` while it is still ahead, else `fallback`.

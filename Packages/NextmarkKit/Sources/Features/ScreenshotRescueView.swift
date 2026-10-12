@@ -174,6 +174,7 @@ private struct ScreenshotGrid: View {
             ForEach(items) { item in
                 NavigationLink(value: ItemLink(id: item.id)) {
                     ItemThumbnail(url: item.thumbnailURL(in: services.itemsDirectory), symbolName: "camera.viewfinder")
+                        .id(item.updatedAt)
                         .frame(height: 140)
                         .frame(maxWidth: .infinity)
                 }

@@ -24,6 +24,14 @@ browser.runtime.onInstalled.addListener(() => {
 if (browser.contextMenus) {
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== MENU_ID || !tab) return;
+    // A right-clicked link or image is saved on its own: the page around it isn't
+    // its context, and its title, text and structured data would be wrong for it.
+    const target = info.linkUrl || info.srcUrl;
+    if (target) {
+      const label = info.linkText || undefined;
+      await browser.runtime.sendNativeMessage("application.id", { type: "save", url: target, title: label });
+      return;
+    }
     let page = {};
     try {
       page = (await browser.tabs.sendMessage(tab.id, { type: "capture" })) || {};
@@ -31,7 +39,6 @@ if (browser.contextMenus) {
       // Pages where content scripts can't run (e.g. the start page): fall back to tab info.
     }
     const payload = Object.assign({ url: tab.url, title: tab.title }, page, { type: "save" });
-    if (info.linkUrl) payload.url = info.linkUrl;
     await browser.runtime.sendNativeMessage("application.id", payload);
   });
 }

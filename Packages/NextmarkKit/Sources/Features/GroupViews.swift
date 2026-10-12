@@ -19,6 +19,7 @@ struct GroupDetailView: View {
     let groupID: String
     let services: LibraryServices
     @State private var detail: GroupDetail?
+    @State private var loaded = false
     @State private var newAction = ""
     @State private var showsRename = false
     @State private var showsPlan = false
@@ -33,6 +34,9 @@ struct GroupDetailView: View {
         Group {
             if let detail {
                 content(detail)
+            } else if loaded {
+                // Deleted here, on another device, or merged into another group.
+                ContentUnavailableView("This Group Is Gone", systemImage: "square.stack.3d.up.slash")
             } else {
                 ProgressView()
             }
@@ -40,6 +44,7 @@ struct GroupDetailView: View {
         .task(id: groupID) {
             for await value in services.groups.detail(id: groupID).ignoringErrors() {
                 detail = value
+                loaded = true
             }
         }
     }
@@ -162,10 +167,12 @@ struct GroupDetailView: View {
                     } else {
                         Button("Make a Plan…", systemImage: "calendar.badge.clock") { showsPlan = true }
                     }
-                    Button("Write Brief Again", systemImage: "arrow.clockwise") {
-                        run {
-                            try await services.groups.requestBrief(groupID)
-                            await services.refresh()
+                    if pro?.isPro == true {
+                        Button("Write Brief Again", systemImage: "arrow.clockwise") {
+                            run {
+                                try await services.groups.requestBrief(groupID)
+                                await services.refresh()
+                            }
                         }
                     }
                     Divider()
@@ -238,7 +245,7 @@ struct GroupDetailView: View {
     }
 
     private func keep() {
-        let (groups, limit) = (services.groups, pro?.smartGroupLimit ?? FreeTier.smartGroups)
+        let (groups, limit) = (services.groups, ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false))
         Task {
             do {
                 try await groups.acceptSuggestion(groupID, smartGroupLimit: limit)
@@ -449,7 +456,7 @@ struct SuggestionsView: View {
                     }
                     Button("Keep", systemImage: "checkmark") {
                         let (groups, id) = (services.groups, summary.id)
-                        let limit = pro?.smartGroupLimit ?? FreeTier.smartGroups
+                        let limit = ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false)
                         Task {
                             do {
                                 try await groups.acceptSuggestion(id, smartGroupLimit: limit)

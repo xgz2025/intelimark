@@ -42,16 +42,36 @@ public struct EntitlementSnapshot: Sendable, Equatable {
         self.isUpgraded = isUpgraded
     }
 
-    /// Pro, if any current entitlement is one of ours, not refunded, not replaced by an
-    /// upgrade, and (for a subscription) not expired.
-    public static func isPro(_ snapshots: [EntitlementSnapshot], now: Date) -> Bool {
-        snapshots.contains { snapshot in
-            ProProduct.all.contains(snapshot.productID)
-                && snapshot.revokedAt == nil
-                && !snapshot.isUpgraded
-                && (snapshot.expiresAt.map { $0 > now } ?? true)
-        }
+    /// One of ours, not refunded, not replaced by an upgrade, and (for a subscription)
+    /// not expired.
+    func grantsPro(now: Date) -> Bool {
+        ProProduct.all.contains(productID)
+            && revokedAt == nil
+            && !isUpgraded
+            && (expiresAt.map { $0 > now } ?? true)
     }
+
+    public static func isPro(_ snapshots: [EntitlementSnapshot], now: Date) -> Bool {
+        snapshots.contains { $0.grantsPro(now: now) }
+    }
+
+    public static func hasLifetime(_ snapshots: [EntitlementSnapshot], now: Date) -> Bool {
+        snapshots.contains { $0.grantsPro(now: now) && $0.productID == ProProduct.lifetime }
+    }
+
+    /// A subscription is current, so there's something to manage or cancel (even
+    /// alongside a lifetime unlock).
+    public static func hasSubscription(_ snapshots: [EntitlementSnapshot], now: Date) -> Bool {
+        snapshots.contains { $0.grantsPro(now: now) && $0.productID != ProProduct.lifetime }
+    }
+}
+
+/// What "Restore Purchases" found.
+public enum RestoreOutcome: Sendable, Equatable {
+    case restored
+    case nothingToRestore
+    /// The person dismissed the App Store sign-in.
+    case cancelled
 }
 
 /// Whether this person has Pro, kept current from StoreKit. The last answer is
@@ -62,6 +82,8 @@ public final class ProAccess {
     public static let cacheKey = "pro.active"
 
     public private(set) var isPro: Bool
+    public private(set) var hasLifetime = false
+    public private(set) var hasSubscription = false
     /// Called when `isPro` changes, so the app can schedule Moments and write Briefs.
     @ObservationIgnored public var onChange: (@MainActor (Bool) -> Void)?
     @ObservationIgnored private var updates: Task<Void, Never>?
@@ -106,7 +128,10 @@ public final class ProAccess {
                 isUpgraded: transaction.isUpgraded
             ))
         }
-        set(EntitlementSnapshot.isPro(snapshots, now: Date()))
+        let now = Date()
+        hasLifetime = EntitlementSnapshot.hasLifetime(snapshots, now: now)
+        hasSubscription = EntitlementSnapshot.hasSubscription(snapshots, now: now)
+        set(EntitlementSnapshot.isPro(snapshots, now: now))
     }
 
     /// A purchase made in the app: finish it, then re-read entitlements.
@@ -118,9 +143,14 @@ public final class ProAccess {
     }
 
     /// "Restore Purchases": asks the App Store for this Apple Account's transactions.
-    public func restore() async throws {
-        try await AppStore.sync()
+    public func restore() async throws -> RestoreOutcome {
+        do {
+            try await AppStore.sync()
+        } catch StoreKitError.userCancelled {
+            return .cancelled
+        }
         await refresh()
+        return isPro ? .restored : .nothingToRestore
     }
 
     private func set(_ value: Bool) {

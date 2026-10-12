@@ -33,6 +33,7 @@ public struct SettingsView: View {
     @AppStorage(SyncSettings.Key.status) private var syncStatus = ""
     @State private var isSyncing = false
     @State private var showsPaywall = false
+    @State private var showsAcknowledgements = false
     @State private var showsManageSubscriptions = false
     @Environment(ProAccess.self) private var pro: ProAccess?
     @Environment(\.openURL) private var openURL
@@ -46,20 +47,23 @@ public struct SettingsView: View {
         Form {
             Section {
                 if pro?.isPro == true {
-                    LabeledContent("Nextmark Pro") { Text("Active") }
-                    Button("Manage Subscription") { showsManageSubscriptions = true }
+                    LabeledContent("Nextmark Pro") {
+                        if pro?.hasLifetime == true { Text("Lifetime") } else { Text("Active") }
+                    }
+                    if pro?.hasSubscription == true {
+                        Button("Manage Subscription") { showsManageSubscriptions = true }
+                    }
                 } else {
                     Button("Upgrade to Pro", systemImage: "sparkles") { showsPaywall = true }
-                    Button("Restore Purchases") {
-                        let pro = pro
-                        Task { try? await pro?.restore() }
-                    }
+                    RestorePurchasesButton()
                 }
             } header: {
                 Text("Nextmark Pro")
             } footer: {
                 if pro?.isPro != true {
                     Text("Pro adds Moments, Briefs and unlimited smart groups. Saving, search, sync and the Weekly Review are always free.")
+                } else if pro?.hasLifetime == true, pro?.hasSubscription == true {
+                    Text("You own Pro for life, so you can cancel your subscription in Manage Subscription.")
                 }
             }
             Section {
@@ -113,7 +117,7 @@ public struct SettingsView: View {
             } header: {
                 Text("iCloud")
             } footer: {
-                Text("Your library syncs through your private iCloud database, end-to-end encrypted. Nextmark has no server. Without original files, titles, notes, text and AI results still sync, using little iCloud space.")
+                Text("Your library syncs through your private iCloud database; Nextmark has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
             }
             Section("Apple Intelligence") {
                 LabeledContent("On-device model", value: IntelligenceStatus.current.description)
@@ -123,12 +127,18 @@ public struct SettingsView: View {
                     "Version",
                     value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
                 )
+                Link("Support", destination: NextmarkLinks.support)
+                Link("Privacy Policy", destination: NextmarkLinks.privacy)
+                Button("Acknowledgements") { showsAcknowledgements = true }
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
         .sheet(isPresented: $showsPaywall) {
             ProPaywallView()
+        }
+        .sheet(isPresented: $showsAcknowledgements) {
+            AcknowledgementsView()
         }
         #if os(iOS)
         .manageSubscriptionsSheet(isPresented: $showsManageSubscriptions)

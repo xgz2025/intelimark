@@ -35,6 +35,8 @@ struct ItemLinkRow: View {
             } else {
                 Button("Mark as Done", systemImage: "checkmark.circle") { setStatus(.done) }
             }
+            Divider()
+            Button("Move to Trash", systemImage: "trash", role: .destructive) { setStatus(.trashed) }
         }
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)

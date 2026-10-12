@@ -21,6 +21,8 @@ struct ItemRow: View {
             if let thumbnail = item.thumbnailURL(in: itemsDirectory) {
                 ItemThumbnail(url: thumbnail, symbolName: item.kind.symbolName)
                     .frame(width: 44, height: 44)
+                    // The Extract stage writes the file later; a new `updatedAt` loads it again.
+                    .id(item.updatedAt)
             } else {
                 Image(systemName: item.kind.symbolName)
                     .foregroundStyle(.secondary)

@@ -78,6 +78,21 @@ struct MomentGeneratorTests {
         #expect(moments(items: [item("Done", dates: dates, status: .done, createdAt: clock.now)]).isEmpty)
     }
 
+    @Test func aDeadlineStaysRelevantUntilItsDayEnds() {
+        let grant = item("Grant", dates: [
+            ItemDate(date: clock.date(11, 0), hasTime: false, role: .deadline, source: .model),
+            ItemDate(date: clock.date(25, 0), hasTime: false, role: .expiry, source: .model),
+        ], createdAt: clock.now)
+        let relevant = generator.relevant(
+            items: [grant], plans: [], actions: [], reviewCount: 0, settings: MomentSettings(), now: clock.now
+        )
+        // The morning before tomorrow's deadline has passed, but the deadline still matters.
+        #expect(relevant.map(\.reason) == [.deadline, .expiry])
+        #expect(relevant.first?.latest == clock.date(12, 0))
+        // What gets scheduled is the next date that can still be announced in time.
+        #expect(moments(items: [grant]).map(\.fireDate) == [clock.date(24, 10)])
+    }
+
     @Test func plansComeBackFiveDaysAndOneDayBefore() {
         func plan(_ day: Int) -> GroupSummary {
             var group = GroupRecord(kind: .plan, state: .accepted, userTitle: "Kyoto trip", emoji: "🧳", now: clock.now)

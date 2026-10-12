@@ -50,10 +50,16 @@ public enum Grounding {
             else { continue }
             let (date, hasTime) = parsed
 
-            let detectorAgrees = DateFinder.matches(in: evidence).contains { calendar.isDate($0.date, inSameDayAs: date) }
-            let day = calendar.component(.day, from: date)
-            let statesTheDay = evidence.range(of: #"(?<!\d)0?\#(day)(?!\d)"#, options: .regularExpression) != nil
-            guard detectorAgrees || statesTheDay else { continue }
+            // When the evidence holds a date the detector can read, it must be this one: "Oct 21"
+            // never supports Nov 21. Only evidence the detector can't read ("the 21st") falls
+            // back to stating the day number.
+            let detected = DateFinder.matches(in: evidence)
+            if detected.isEmpty {
+                let day = calendar.component(.day, from: date)
+                guard evidence.range(of: #"(?<!\d)0?\#(day)(?!\d)"#, options: .regularExpression) != nil else { continue }
+            } else {
+                guard detected.contains(where: { calendar.isDate($0.date, inSameDayAs: date) }) else { continue }
+            }
 
             if !grounded.contains(where: { calendar.isDate($0.date, inSameDayAs: date) && $0.role == candidate.role }) {
                 grounded.append(ItemDate(date: date, hasTime: hasTime, role: candidate.role, evidence: evidence, source: .model))

@@ -107,11 +107,9 @@ public enum FactMerge {
         return Array(merged.prefix(maxPlaces))
     }
 
-    /// schema.org dates without a time parse to midnight UTC.
-    static func hasTimeOfDay(_ date: Date) -> Bool {
-        var utc = Calendar(identifier: .gregorian)
-        utc.timeZone = TimeZone(identifier: "UTC") ?? .current
-        let parts = utc.dateComponents([.hour, .minute, .second], from: date)
+    /// schema.org dates without a time parse to local midnight (`SchemaDate`).
+    static func hasTimeOfDay(_ date: Date, calendar: Calendar = .current) -> Bool {
+        let parts = calendar.dateComponents([.hour, .minute, .second], from: date)
         return parts.hour != 0 || parts.minute != 0 || parts.second != 0
     }
 }
