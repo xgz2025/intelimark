@@ -30,6 +30,16 @@ extension LibraryDatabase {
         }
     }
 
+    /// The model managed after all (an edit, a new prompt): consider it again later.
+    public func clearModelSkip(_ stage: ModelSkipStage, subjectID: String) async throws {
+        try await writer.write { db in
+            try db.execute(
+                sql: "DELETE FROM modelSkip WHERE subjectID = ? AND stage = ?",
+                arguments: [subjectID, stage.rawValue]
+            )
+        }
+    }
+
     /// SQL condition: `column` (an item or group ID) wasn't declined for `stage` on this OS.
     static func notSkipped(_ stage: ModelSkipStage, column: String) -> String {
         "NOT EXISTS (SELECT 1 FROM modelSkip WHERE modelSkip.subjectID = \(column) AND modelSkip.stage = '\(stage.rawValue)' AND modelSkip.osVersion = ?)"

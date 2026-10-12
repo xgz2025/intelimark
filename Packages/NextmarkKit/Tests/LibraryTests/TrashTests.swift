@@ -86,13 +86,33 @@ struct DatabaseLocationTests {
         try FileManager.default.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
         _ = try LibraryDatabase.onDisk(at: legacy)
 
-        LibraryDatabase.moveLegacyDatabase(from: legacy, to: current)
+        #expect(LibraryDatabase.moveLegacyDatabase(from: legacy, to: current) == current)
 
         #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
         #expect(FileManager.default.fileExists(atPath: current.path(percentEncoded: false)))
         _ = try LibraryDatabase.onDisk(at: current)
         // Nothing to move the second time.
-        LibraryDatabase.moveLegacyDatabase(from: legacy, to: current)
+        #expect(LibraryDatabase.moveLegacyDatabase(from: legacy, to: current) == current)
         #expect(FileManager.default.fileExists(atPath: current.path(percentEncoded: false)))
+    }
+
+    @Test func aLibraryThatCantMoveStaysWhereItIs() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appending(path: "DatabaseLocationTests-\(UUID().uuidString)")
+        let legacy = root.appending(path: "Group/library.sqlite")
+        let current = root.appending(path: "App/library.sqlite")
+        try fileManager.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: current.deletingLastPathComponent(), withIntermediateDirectories: true)
+        for path in [legacy.path(percentEncoded: false), legacy.path(percentEncoded: false) + "-wal",
+                     legacy.path(percentEncoded: false) + "-shm", current.path(percentEncoded: false) + "-shm"] {
+            #expect(fileManager.createFile(atPath: path, contents: Data("x".utf8)))
+        }
+
+        // The log moves, the shared memory file can't (one is already there): all goes back.
+        #expect(LibraryDatabase.moveLegacyDatabase(from: legacy, to: current) == legacy)
+        #expect(fileManager.fileExists(atPath: legacy.path(percentEncoded: false)))
+        #expect(fileManager.fileExists(atPath: legacy.path(percentEncoded: false) + "-wal"))
+        #expect(!fileManager.fileExists(atPath: current.path(percentEncoded: false)))
+        #expect(!fileManager.fileExists(atPath: current.path(percentEncoded: false) + "-wal"))
     }
 }

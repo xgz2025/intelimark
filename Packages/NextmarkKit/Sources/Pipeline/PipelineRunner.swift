@@ -40,6 +40,9 @@ public actor PipelineRunner {
     let discovery: GroupDiscovery
     var groupSpaces: [String: (space: GroupSpace, computedAt: Date)] = [:]
     var lastDiscovery: Date?
+    /// Groups whose Brief the model was too busy to write: when to try again, and how
+    /// many times it has been busy, for a growing backoff.
+    var briefRetries: [String: (after: Date, failures: Int)] = [:]
 
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
@@ -113,8 +116,10 @@ public actor PipelineRunner {
 
     private func giveUp(on job: JobRecord, now: Date) async {
         try? await queue.complete(job)
-        if job.stage == .extract {
-            // Extraction gave up (e.g. offline for days): understand what we have.
+        // Extraction gave up (e.g. offline for days): understand what we have, unless the
+        // item already is (a link fetched again later and given up on again).
+        if job.stage == .extract,
+           let item = try? await repository.item(id: job.itemID), item.derivedVersion < Self.understandVersion {
             try? await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
         }
     }
@@ -127,8 +132,22 @@ public actor PipelineRunner {
         guard let ids = try? await repository.linkIDsNeedingExtraction(below: Self.extractVersion, since: since, limit: limit) else {
             return 0
         }
-        return await enqueue(.extract, ids: ids, now: now)
+        // A few more tries each time, not the full two days: a link that's simply gone
+        // (a dead domain) costs little.
+        let attempts = Self.maxAttempts(for: .extract) - Self.requeuedExtractTries
+        var queued = 0
+        for id in ids {
+            do {
+                try await queue.enqueue(.extract, itemID: id, notBefore: now, attempts: attempts)
+                queued += 1
+            } catch {
+                continue
+            }
+        }
+        return queued
     }
+
+    static let requeuedExtractTries = 3
 
     /// Fetches waiting out a backoff run now: the network just came back.
     public func retryFetchesNow(now: Date = Date()) async {
@@ -288,6 +307,8 @@ public actor PipelineRunner {
             if declined {
                 // Not tried again at every launch; an OS update may bring a model that can.
                 try? await repository.database.recordModelSkip(.understand, subjectID: job.itemID)
+            } else if !understanding.isProvisional {
+                try? await repository.database.clearModelSkip(.understand, subjectID: job.itemID)
             }
             try await queue.enqueue(.embed, itemID: job.itemID, notBefore: now)
 
@@ -308,6 +329,7 @@ public actor PipelineRunner {
                 return
             }
             try await repository.saveEmbedding(embedding.vector, modelID: embedding.modelID, forItem: job.itemID)
+            try? await repository.database.clearModelSkip(.embed, subjectID: job.itemID)
             try await queue.enqueue(.group, itemID: job.itemID, notBefore: now)
 
         case .group:

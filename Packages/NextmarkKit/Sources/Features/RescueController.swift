@@ -35,8 +35,6 @@ public final class RescueController {
     }
 
     public static let completedKey = "rescue.completed"
-    /// Set when a rescue starts, so one that was stopped partway resumes.
-    public static let startedKey = "rescue.started"
 
     public private(set) var phase: Phase = .idle
     public private(set) var access: PhotosAccess
@@ -78,8 +76,7 @@ public final class RescueController {
 
     /// Imports every screenshot not yet in the library, in the background if the app can.
     public func start() {
-        guard access == .granted, !isImporting else { return }
-        UserDefaults.standard.set(true, forKey: Self.startedKey)
+        guard access == .granted, !isImporting, !isImportingNew else { return }
         phase = .importing(RescueProgress(done: 0, total: 0))
         let (rescue, onImported) = (rescue, onImported)
         // The controller lives as long as the app, so the work holds it strongly.
@@ -106,9 +103,14 @@ public final class RescueController {
 
     /// New screenshots since the last import, quietly (PRD C9: "import new screenshots when the app runs").
     public func importNew() async {
-        let hasStarted = UserDefaults.standard.bool(forKey: Self.startedKey)
-            || UserDefaults.standard.bool(forKey: Self.completedKey)
-        guard access == .granted, !isImporting, !isImportingNew, hasStarted else { return }
+        // Only after a rescue finished: one the person stopped resumes from its own
+        // button ("Continue Importing"), with progress, not silently.
+        guard access == .granted, !isImporting, !isImportingNew,
+              UserDefaults.standard.bool(forKey: Self.completedKey)
+        else {
+            await refresh()
+            return
+        }
         // Two passes at once would import the same screenshots twice.
         isImportingNew = true
         defer { isImportingNew = false }

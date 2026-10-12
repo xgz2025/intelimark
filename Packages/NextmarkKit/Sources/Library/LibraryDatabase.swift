@@ -43,12 +43,15 @@ public final class LibraryDatabase: Sendable {
     }
 
     /// Moves a library that earlier builds kept at `legacy` (with its WAL files) to
-    /// `url`, unless one is already there. Leaves it in place if any part can't move.
-    public static func moveLegacyDatabase(from legacy: URL, to url: URL) {
+    /// `url`, unless one is already there. Returns where the library is: `url`, or
+    /// `legacy` when it couldn't be moved, so it's opened there rather than an empty
+    /// one being made at `url`.
+    @discardableResult
+    public static func moveLegacyDatabase(from legacy: URL, to url: URL) -> URL {
         let fileManager = FileManager.default
         let old = legacy.path(percentEncoded: false)
         let new = url.path(percentEncoded: false)
-        guard fileManager.fileExists(atPath: old), !fileManager.fileExists(atPath: new) else { return }
+        guard fileManager.fileExists(atPath: old), !fileManager.fileExists(atPath: new) else { return url }
         try? fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         // The database file goes last, so a failure never leaves it apart from its log.
         var moved: [(from: String, to: String)] = []
@@ -60,9 +63,10 @@ public final class LibraryDatabase: Sendable {
                 for file in moved.reversed() {
                     try? fileManager.moveItem(atPath: file.to, toPath: file.from)
                 }
-                return
+                return legacy
             }
         }
+        return url
     }
 }
 

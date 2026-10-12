@@ -70,8 +70,11 @@ public enum ShareItemLoader {
     /// A shared document (a .txt or source file from Files or Finder) rather than a
     /// snippet of text: it has a file name.
     static func isFile(_ provider: NSItemProvider) -> Bool {
-        provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-            || !(provider.suggestedName.map { ($0 as NSString).pathExtension } ?? "").isEmpty
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) { return true }
+        // A name like "notes.txt", not text that happens to contain a dot ("v1.2 notes").
+        guard let name = provider.suggestedName else { return false }
+        let pathExtension = (name as NSString).pathExtension
+        return !pathExtension.isEmpty && UTType(filenameExtension: pathExtension).map { !$0.isDynamic } == true
     }
 
     static func loadPage(from provider: NSItemProvider, completion: @escaping @Sendable (PageCapture?) -> Void) {

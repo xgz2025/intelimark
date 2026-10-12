@@ -23,7 +23,7 @@ struct InboxView: View {
             if captures.stuckCount > 0 {
                 Section {
                     Label(
-                        "\(captures.stuckCount) saves couldn't be added to your library yet.",
+                        "^[\(captures.stuckCount) save](inflect: true) couldn't be added to your library yet.",
                         systemImage: "exclamationmark.triangle"
                     )
                     if let reason = captures.reason {

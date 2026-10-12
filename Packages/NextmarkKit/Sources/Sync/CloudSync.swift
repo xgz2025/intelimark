@@ -50,6 +50,7 @@ public actor CloudSync: CKSyncEngineDelegate {
     private var held: Set<RecordKey> = []
     private var heldSince: Date?
     private var isQuotaFull = false
+    private var holdTimer: Task<Void, Never>?
     static let holdInterval: TimeInterval = 3600
 
     /// - Parameter onChange: called after records from other devices were written.
@@ -148,6 +149,8 @@ public actor CloudSync: CKSyncEngineDelegate {
     func stop() {
         observation?.cancel()
         observation = nil
+        // Started again later, everything waiting is offered afresh.
+        releaseHeld()
         engine = nil
         inFlight = [:]
     }
@@ -171,6 +174,8 @@ public actor CloudSync: CKSyncEngineDelegate {
     private func releaseHeld() {
         held = []
         heldSince = nil
+        holdTimer?.cancel()
+        holdTimer = nil
         isQuotaFull = false
         // Held changes were skipped over: look at every pending change again.
         enqueuedSeq = 0
@@ -178,7 +183,20 @@ public actor CloudSync: CKSyncEngineDelegate {
 
     private func hold(_ key: RecordKey) {
         held.insert(key)
-        if heldSince == nil { heldSince = Date() }
+        startHolding()
+    }
+
+    /// Starts the hold's clock, and a timer that offers the held records again when it
+    /// runs out, even if nothing else happens meanwhile.
+    private func startHolding() {
+        guard heldSince == nil else { return }
+        heldSince = Date()
+        holdTimer?.cancel()
+        holdTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.holdInterval))
+            guard !Task.isCancelled else { return }
+            await self?.enqueuePending()
+        }
     }
 
     /// Hands new local changes to the engine.
@@ -188,12 +206,10 @@ public actor CloudSync: CKSyncEngineDelegate {
             releaseHeld()
         }
         guard let engine, var pending = try? await store.pendingChanges(after: enqueuedSeq), !pending.isEmpty else { return }
-        if isQuotaFull {
-            // Nothing new goes up while iCloud is full, except deletions, which free space.
-            pending.removeAll { !$0.isDeletion }
-        } else if !held.isEmpty {
-            pending.removeAll { held.contains($0.key) }
-        }
+        // Held records wait; while iCloud is full nothing new goes up either, except
+        // deletions, which free space.
+        let quotaFull = isQuotaFull
+        pending.removeAll { held.contains($0.key) || (quotaFull && !$0.isDeletion) }
         enqueuedSeq = pending.map(\.seq).max() ?? enqueuedSeq
         let existing = Set(engine.state.pendingRecordZoneChanges)
         let changes = pending.map { change -> CKSyncEngine.PendingRecordZoneChange in
@@ -307,7 +323,12 @@ public actor CloudSync: CKSyncEngineDelegate {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
                 if failure.error.code == .quotaExceeded {
                     isQuotaFull = true
-                    if heldSince == nil { heldSince = Date() }
+                    startHolding()
+                    // Saves would only fail for want of the zone; they wait for space.
+                    let saves = syncEngine.state.pendingRecordZoneChanges.filter {
+                        if case .saveRecord = $0 { true } else { false }
+                    }
+                    syncEngine.state.remove(pendingRecordZoneChanges: saves)
                 }
                 setStatus(Self.message(for: failure.error))
             }
@@ -317,6 +338,8 @@ public actor CloudSync: CKSyncEngineDelegate {
                 // Not from inside this engine's own event: restart once it's handled.
                 Task { await self.recoverFromFailedApply() }
             } else {
+                // A clean fetch: a later failure in this session gets its refetch too.
+                hasRefetched = false
                 markSynced()
             }
 
@@ -366,6 +389,9 @@ public actor CloudSync: CKSyncEngineDelegate {
                 if let server = failure.error.serverRecord, let record = try? CloudRecordCoder.syncRecord(from: server) {
                     conflicts.append(record)
                 }
+            case .zoneNotFound where isQuotaFull:
+                // The zone couldn't be made because iCloud is full: wait for space.
+                hold(key)
             case .zoneNotFound:
                 needsZone = true
                 retry.append(.saveRecord(recordID))

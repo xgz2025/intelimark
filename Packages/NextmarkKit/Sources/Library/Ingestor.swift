@@ -32,7 +32,13 @@ public struct Ingestor: Sendable {
     /// Ingests every committed capture, oldest first. Returns the new item IDs.
     @discardableResult
     public func ingestPending(now: Date = Date()) async throws -> [String] {
+        try await ingestPendingReportingFailures(now: now).ingested
+    }
+
+    /// Like `ingestPending`, and says why the last capture that couldn't be added failed.
+    public func ingestPendingReportingFailures(now: Date = Date()) async throws -> (ingested: [String], lastFailure: (any Error)?) {
         var ingested: [String] = []
+        var lastFailure: (any Error)?
         for capture in try store.committedCaptures() {
             // One capture that fails (e.g. its files can't be moved) stays in the Inbox for
             // the next pass; it doesn't hold up the others.
@@ -41,11 +47,11 @@ public struct Ingestor: Sendable {
                 ingested.append(capture.envelope.id.rawValue)
             } catch {
                 Self.logger.error("Couldn't add capture \(capture.envelope.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                continue
+                lastFailure = error
             }
         }
         try store.collectGarbage(now: now)
-        return ingested
+        return (ingested, lastFailure)
     }
 
     /// Saves still waiting in the Inbox after a pass: the ones that couldn't be added.

@@ -161,7 +161,8 @@ final class QuickCaptureSession {
             let (id, store) = (id, store)
             loading = Task {
                 let content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
-                guard !Task.isCancelled else { return }
+                // Replaced or cancelled while copying: the copy recreated the discarded folder.
+                guard !Task.isCancelled else { try? store.discard(id); return }
                 show(content)
             }
         case .screenshot:
@@ -197,7 +198,8 @@ final class QuickCaptureSession {
         loading = Task {
             let content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
             let thumbnail = content.files.count == 1 ? await Self.thumbnail(of: snapshot.fileURLs.first) : nil
-            guard !Task.isCancelled else { return }
+            // Replaced or cancelled while copying: the copy recreated the discarded folder.
+            guard !Task.isCancelled else { try? store.discard(id); return }
             draft.thumbnail = thumbnail.map { Image(decorative: $0, scale: 1) }
             show(content)
         }

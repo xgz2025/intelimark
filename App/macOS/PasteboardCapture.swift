@@ -79,8 +79,10 @@ enum PasteboardCapture {
     static let maxTextCharacters = 100_000
 
     /// Folders aren't saved: copying one could take as long as the disk is big.
+    /// Documents stored as packages (.rtfd, Pages, Keynote) are files to the person, and are saved.
     static func isDirectory(_ url: URL) -> Bool {
-        (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+        return values?.isDirectory == true && values?.isPackage != true
     }
 
     @MainActor

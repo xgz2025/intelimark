@@ -155,8 +155,8 @@ final class AppModel {
 
     static func live() -> AppModel {
         do {
-            LibraryDatabase.moveLegacyDatabase(from: AppGroup.legacyDatabaseURL, to: LibraryDatabase.defaultURL)
-            return AppModel(database: try LibraryDatabase.onDisk(at: LibraryDatabase.defaultURL))
+            let url = LibraryDatabase.moveLegacyDatabase(from: AppGroup.legacyDatabaseURL, to: LibraryDatabase.defaultURL)
+            return AppModel(database: try LibraryDatabase.onDisk(at: url))
         } catch {
             // Keep the UI usable and surface the problem instead of crashing at launch.
             // swiftlint:disable:next force_try
@@ -242,8 +242,11 @@ final class AppModel {
     /// becomes ready while the app runs.
     private func requeueForModelIfReady() async {
         let isAvailable = IntelligenceStatus.current == .available
-        defer { wasIntelligenceAvailable = isAvailable }
-        guard isAvailable, !wasIntelligenceAvailable else { return }
+        let becameAvailable = isAvailable && !wasIntelligenceAvailable
+        // Before awaiting: launch calls this from start() and becameActive() at once,
+        // and only one of them should queue the work.
+        wasIntelligenceAvailable = isAvailable
+        guard becameAvailable else { return }
         await pipeline.requeueStaleUnderstanding()
         await pipeline.requeueStaleBriefs()
     }
@@ -257,11 +260,15 @@ final class AppModel {
         }
         isProcessing = true
         // Its own task: a caller being cancelled (an expiring background task) mustn't
-        // cut a pass short and drop the passes folded into it.
-        let pass = Task { await self.runPasses() }
-        await pass.value
-        isProcessing = false
-        await scheduleWake()
+        // cut a pass short, drop the passes folded into it, or lose the next wake.
+        let run = Task {
+            await self.runPasses()
+            // Straight after the last check of `needsAnotherPass`, with no suspension in
+            // between, so a save that arrives now starts a new run rather than being missed.
+            self.isProcessing = false
+            await self.scheduleWake()
+        }
+        await run.value
     }
 
     private func runPasses() async {
@@ -269,12 +276,12 @@ final class AppModel {
             needsAnotherPass = false
             // Each stage runs even if the one before it failed.
             do {
-                try await ingestor.ingestPending()
-                lastError = nil
+                let report = try await ingestor.ingestPendingReportingFailures()
+                lastError = report.lastFailure?.localizedDescription
             } catch {
                 lastError = error.localizedDescription
             }
-            // What's still waiting couldn't be added; the Inbox says so.
+            // What's still waiting couldn't be added; the Inbox says so, and why.
             let waiting = ingestor.waitingCount()
             CaptureStatus.shared.stuckCount = waiting
             CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
@@ -284,8 +291,11 @@ final class AppModel {
             if budget.batchSize > 0, await pipeline.drain(limit: budget.batchSize) == budget.batchSize, budget == .full {
                 needsAnotherPass = true
             }
-            // Suggested groups and Briefs follow the items they're built from.
-            await pipeline.maintainGroups(writesBriefs: pro.isPro)
+            // Suggested groups and Briefs follow the items they're built from. Not while the
+            // device is critically hot; no model-written Briefs while it's warm or saving power.
+            if budget != .paused {
+                await pipeline.maintainGroups(writesBriefs: pro.isPro && budget == .full)
+            }
             await rescheduleMoments()
         } while needsAnotherPass
     }
@@ -300,8 +310,11 @@ final class AppModel {
         let delay = min(max(due.timeIntervalSinceNow, PowerBudget.current.minimumWakeDelay), 6 * 60 * 60)
         wake = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled else { return }
-            await self?.processInbox()
+            guard !Task.isCancelled, let self else { return }
+            // This task is done waiting: the run it starts must not cancel it as the
+            // previous wake (which would stop the chain of wakes).
+            self.wake = nil
+            await self.processInbox()
         }
     }
 

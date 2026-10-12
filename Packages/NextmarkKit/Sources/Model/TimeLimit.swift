@@ -27,7 +27,8 @@ public func withTimeLimit<T: Sendable>(
     let outcome = Outcome<T>()
     return try await withTaskCancellationHandler {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, any Error>) in
-            outcome.start(continuation)
+            // Cancelled before it began: don't start work nobody will wait for.
+            guard outcome.start(continuation) else { return }
             let work = Task {
                 do {
                     outcome.finish(.success(try await operation()))
@@ -54,14 +55,17 @@ private final class Outcome<T: Sendable>: @unchecked Sendable {
     private var isFinished = false
     private var cleanup: (@Sendable () -> Void)?
 
-    func start(_ continuation: CheckedContinuation<T, any Error>) {
+    /// Returns false when the outcome is already known (the caller was cancelled), in
+    /// which case the continuation has been resumed with it.
+    func start(_ continuation: CheckedContinuation<T, any Error>) -> Bool {
         let result: Result<T, any Error>? = lock.withLock {
             if let early { return early }
             self.continuation = continuation
             return nil
         }
-        // Cancelled before the work could start.
-        if let result { continuation.resume(with: result) }
+        guard let result else { return true }
+        continuation.resume(with: result)
+        return false
     }
 
     /// The cleanup runs once the outcome is known (now, if it already is).

@@ -145,7 +145,7 @@ struct ScreenshotRescueView: View {
                 } else if controller.pendingCount > 0 {
                     // A rescue stopped partway (or new screenshots since): pick up the rest.
                     Section {
-                        Button("Import \(controller.pendingCount) More Screenshots", systemImage: "arrow.down.circle") {
+                        Button("Continue Importing (\(controller.pendingCount) Left)", systemImage: "arrow.down.circle") {
                             controller.start()
                         }
                     }

@@ -21,9 +21,11 @@ public struct JobQueue: Sendable {
         self.database = database
     }
 
-    public func enqueue(_ stage: PipelineStage, itemID: String, notBefore: Date = Date()) async throws {
+    /// - Parameter attempts: attempts already counted, so a job tried again on purpose
+    ///   gets only a few more tries.
+    public func enqueue(_ stage: PipelineStage, itemID: String, notBefore: Date = Date(), attempts: Int = 0) async throws {
         try await database.writer.write { db in
-            var job = JobRecord(itemID: itemID, stage: stage, notBefore: notBefore)
+            var job = JobRecord(itemID: itemID, stage: stage, attempts: attempts, notBefore: notBefore)
             try job.insert(db)
         }
     }

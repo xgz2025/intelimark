@@ -53,7 +53,7 @@ struct TrashView: View {
                     .disabled(items.isEmpty)
             }
         }
-        .confirmationDialog("Delete \(items.count) items permanently?", isPresented: $confirmsEmpty, titleVisibility: .visible) {
+        .confirmationDialog("Delete ^[\(items.count) item](inflect: true) permanently?", isPresented: $confirmsEmpty, titleVisibility: .visible) {
             Button("Empty Trash", role: .destructive) {
                 let (repository, directory) = (services.items, services.itemsDirectory)
                 performEdit { try await repository.emptyTrash(itemsDirectory: directory) }
