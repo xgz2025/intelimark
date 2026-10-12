@@ -34,6 +34,36 @@ public final class LibraryDatabase: Sendable {
     public static func inMemory() throws -> LibraryDatabase {
         try LibraryDatabase(writer: DatabaseQueue())
     }
+
+    /// In the app's own container, not the App Group's: iOS ends an app that is
+    /// suspended while holding a SQLite lock in a shared container (0xdead10cc), and
+    /// only the app opens the library.
+    public static var defaultURL: URL {
+        URL.applicationSupportDirectory.appending(path: "Database/library.sqlite")
+    }
+
+    /// Moves a library that earlier builds kept at `legacy` (with its WAL files) to
+    /// `url`, unless one is already there. Leaves it in place if any part can't move.
+    public static func moveLegacyDatabase(from legacy: URL, to url: URL) {
+        let fileManager = FileManager.default
+        let old = legacy.path(percentEncoded: false)
+        let new = url.path(percentEncoded: false)
+        guard fileManager.fileExists(atPath: old), !fileManager.fileExists(atPath: new) else { return }
+        try? fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // The database file goes last, so a failure never leaves it apart from its log.
+        var moved: [(from: String, to: String)] = []
+        for suffix in ["-wal", "-shm", ""] where fileManager.fileExists(atPath: old + suffix) {
+            do {
+                try fileManager.moveItem(atPath: old + suffix, toPath: new + suffix)
+                moved.append((old + suffix, new + suffix))
+            } catch {
+                for file in moved.reversed() {
+                    try? fileManager.moveItem(atPath: file.to, toPath: file.from)
+                }
+                return
+            }
+        }
+    }
 }
 
 extension LibraryDatabase {

@@ -146,7 +146,8 @@ final class AppModel {
 
     static func live() -> AppModel {
         do {
-            return AppModel(database: try LibraryDatabase.onDisk(at: AppGroup.databaseURL))
+            LibraryDatabase.moveLegacyDatabase(from: AppGroup.legacyDatabaseURL, to: LibraryDatabase.defaultURL)
+            return AppModel(database: try LibraryDatabase.onDisk(at: LibraryDatabase.defaultURL))
         } catch {
             // Keep the UI usable and surface the problem instead of crashing at launch.
             // swiftlint:disable:next force_try

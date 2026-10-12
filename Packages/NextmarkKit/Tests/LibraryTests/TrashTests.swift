@@ -77,3 +77,22 @@ struct TrashTests {
         #expect(try await repository.item(id: ids[1])?.status == .trashed)
     }
 }
+
+struct DatabaseLocationTests {
+    @Test func aLegacyLibraryMovesWithItsLog() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "DatabaseLocationTests-\(UUID().uuidString)")
+        let legacy = root.appending(path: "Group/Database/library.sqlite")
+        let current = root.appending(path: "App/Database/library.sqlite")
+        try FileManager.default.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
+        _ = try LibraryDatabase.onDisk(at: legacy)
+
+        LibraryDatabase.moveLegacyDatabase(from: legacy, to: current)
+
+        #expect(!FileManager.default.fileExists(atPath: legacy.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: current.path(percentEncoded: false)))
+        _ = try LibraryDatabase.onDisk(at: current)
+        // Nothing to move the second time.
+        LibraryDatabase.moveLegacyDatabase(from: legacy, to: current)
+        #expect(FileManager.default.fileExists(atPath: current.path(percentEncoded: false)))
+    }
+}

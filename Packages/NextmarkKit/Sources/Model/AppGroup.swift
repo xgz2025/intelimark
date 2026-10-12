@@ -32,7 +32,8 @@ public enum AppGroup {
     public static var inboxURL: URL { containerURL.appending(path: "Inbox", directoryHint: .isDirectory) }
     /// Original files and thumbnails, one directory per item.
     public static var itemsURL: URL { containerURL.appending(path: "Items", directoryHint: .isDirectory) }
-    public static var databaseURL: URL { containerURL.appending(path: "Database/library.sqlite") }
+    /// Where builds before the library moved to the app's own container kept it.
+    public static var legacyDatabaseURL: URL { containerURL.appending(path: "Database/library.sqlite") }
     public static var widgetSnapshotURL: URL { containerURL.appending(path: "widget-snapshot.json") }
 }
 
