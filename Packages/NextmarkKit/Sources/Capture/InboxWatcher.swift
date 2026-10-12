@@ -15,11 +15,11 @@ import Foundation
 /// Says across processes that a capture was committed (Docs/architecture.md §3.1). The
 /// name starts with the App Group, which sandboxed apps require for Darwin notifications.
 public enum InboxSignal {
-    static let name = "group.com.nextmark.app.inbox-changed" as CFString
+    static let name = "group.com.nextmark.app.inbox-changed"
 
     public static func post() {
         CFNotificationCenterPostNotification(
-            CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName(name), nil, nil, true
+            CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName(name as CFString), nil, nil, true
         )
     }
 }
@@ -41,7 +41,7 @@ public final class InboxWatcher: @unchecked Sendable {
     deinit {
         CFNotificationCenterRemoveObserver(
             CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
-            CFNotificationName(InboxSignal.name), nil
+            CFNotificationName(InboxSignal.name as CFString), nil
         )
         source?.cancel()
     }
@@ -68,14 +68,14 @@ public final class InboxWatcher: @unchecked Sendable {
                 guard let observer else { return }
                 Unmanaged<InboxWatcher>.fromOpaque(observer).takeUnretainedValue().signalled()
             },
-            InboxSignal.name, nil, .deliverImmediately
+            InboxSignal.name as CFString, nil, .deliverImmediately
         )
     }
 
     public func stop() {
         CFNotificationCenterRemoveObserver(
             CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
-            CFNotificationName(InboxSignal.name), nil
+            CFNotificationName(InboxSignal.name as CFString), nil
         )
         queue.sync {
             source?.cancel()
