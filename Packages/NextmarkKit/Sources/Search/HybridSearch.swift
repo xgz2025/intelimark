@@ -56,11 +56,16 @@ public struct HybridSearch: Sendable {
         return Array(options.ranking.rank(items, baseScores: fused.scores, now: now).prefix(limit))
     }
 
+    static let semanticTimeLimit: TimeInterval = 1.5
+
     /// Item IDs whose vectors are near the query's, nearest first.
     func semanticMatches(for query: SearchQuery) async -> [String] {
         guard let embedder else { return [] }
+        let text = query.trimmedText
         do {
-            let embedding = try await embedder.embed(query.trimmedText)
+            // Never keep the person waiting on the model (the first query in a new
+            // language may start a download): keyword results stand on their own.
+            let embedding = try await withTimeLimit(Self.semanticTimeLimit) { try await embedder.embed(text) }
             let candidates = try await repository.vectors(modelID: embedding.modelID, matching: query)
             return Self.nearest(to: embedding.vector, among: candidates, options: options)
         } catch {

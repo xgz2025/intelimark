@@ -61,6 +61,9 @@ final class AppModel {
     @ObservationIgnored private var wake: Task<Void, Never>?
     @ObservationIgnored private var pathMonitor: NWPathMonitor?
     @ObservationIgnored private var wasOnline: Bool?
+    /// Whether Apple Intelligence was ready last time we looked, to catch it becoming
+    /// ready (its model finished downloading, it was turned on) while the app runs.
+    @ObservationIgnored private var wasIntelligenceAvailable = false
     private static let drainBatch = 25
 
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
@@ -175,11 +178,7 @@ final class AppModel {
         // Items in the Trash longer than 30 days are deleted for good.
         _ = try? await repository.purgeTrash(itemsDirectory: AppGroup.itemsURL)
         await updateSync()
-        if IntelligenceStatus.current == .available {
-            // Items understood without the model (or with an older prompt) get another pass.
-            await pipeline.requeueStaleUnderstanding()
-            await pipeline.requeueStaleBriefs()
-        }
+        await requeueForModelIfReady()
         // Items saved before the embedding model was on the device, or embedded by
         // a model an OS update replaced, get vectors for semantic search.
         await pipeline.requeueStaleEmbeddings()
@@ -231,8 +230,20 @@ final class AppModel {
         // A subscription can lapse while the app runs; StoreKit sends no update for that.
         await pro.refresh()
         guard startupError == nil else { return }
+        await requeueForModelIfReady()
         await rescue?.importNew()
         await processInbox()
+    }
+
+    /// Items understood without the model (or with an older prompt), and Briefs written
+    /// without it, get another pass once the model is ready: at launch, or when it
+    /// becomes ready while the app runs.
+    private func requeueForModelIfReady() async {
+        let isAvailable = IntelligenceStatus.current == .available
+        defer { wasIntelligenceAvailable = isAvailable }
+        guard isAvailable, !wasIntelligenceAvailable else { return }
+        await pipeline.requeueStaleUnderstanding()
+        await pipeline.requeueStaleBriefs()
     }
 
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.

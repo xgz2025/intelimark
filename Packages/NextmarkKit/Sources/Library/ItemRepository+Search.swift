@@ -124,10 +124,13 @@ extension ItemRepository {
                     WHERE item.status <> 'trashed'
                       AND (embedding.itemID IS NULL OR \(stale))
                       AND NOT EXISTS (SELECT 1 FROM job WHERE job.itemID = item.id)
+                      AND \(LibraryDatabase.notSkipped(.embed, column: "item.id"))
                     ORDER BY item.createdAt DESC
                     LIMIT ?
                     """,
-                arguments: StatementArguments(staleModelIDs.map(\.databaseValue) + [limit.databaseValue])
+                arguments: StatementArguments(
+                    staleModelIDs.map(\.databaseValue) + [LibraryDatabase.osVersion.databaseValue, limit.databaseValue]
+                )
             )
         }
     }

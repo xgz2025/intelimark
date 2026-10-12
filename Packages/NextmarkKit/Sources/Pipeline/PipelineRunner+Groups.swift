@@ -118,7 +118,23 @@ extension PipelineRunner {
                 targetDate: inputs.group.targetDate,
                 items: inputs.members.map(\.digest)
             )
-            guard let brief = try? await briefWriter.brief(for: input) else { continue }
+            let brief: GroupBrief
+            do {
+                brief = try await briefWriter.brief(for: input)
+            } catch let failure as ModelFailure<GroupBrief> {
+                switch failure {
+                case .temporary(let fallback):
+                    // The model is busy: keep the Brief there is and try on a later pass;
+                    // a group with none yet gets the stand-in meanwhile.
+                    guard inputs.group.brief == nil else { continue }
+                    brief = fallback
+                case .permanent(let fallback):
+                    brief = fallback
+                    try? await groups.database.recordModelSkip(.brief, subjectID: id)
+                }
+            } catch {
+                continue
+            }
             let version = brief.isProvisional ? 0 : Self.briefVersion
             try? await groups.saveBrief(brief, inputsHash: inputs.hash, version: version, toGroup: id, now: now)
         }

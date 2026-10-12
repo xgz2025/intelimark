@@ -115,7 +115,8 @@ public struct ItemExtractor: Sendable {
             return Extraction(contentText: Self.pdfText(data: resource.data))
         }
         if mimeType.hasPrefix("image/"), let analyzer = imageAnalyzer {
-            let analysis = try? await analyzer.analyze(imageData: resource.data)
+            let data = resource.data
+            let analysis = try await Self.analyzeWithinLimit { try await analyzer.analyze(imageData: data) }
             return Extraction(ocrText: analysis?.text, imageLabels: analysis?.labels ?? [], barcodes: analysis?.barcodes ?? [])
         }
         guard mimeType.contains("html") || mimeType.hasPrefix("text/"), let html = resource.text else {
@@ -158,7 +159,10 @@ public struct ItemExtractor: Sendable {
             return Extraction(contentText: Self.pdfText(url: file.url))
         }
         if type?.conforms(to: .image) == true {
-            guard let analyzer = imageAnalyzer, let analysis = try? await analyzer.analyze(imageAt: file.url) else {
+            let url = file.url
+            guard let analyzer = imageAnalyzer,
+                  let analysis = try await Self.analyzeWithinLimit({ try await analyzer.analyze(imageAt: url) })
+            else {
                 return Extraction()
             }
             return Extraction(ocrText: analysis.text, imageLabels: analysis.labels, barcodes: analysis.barcodes)
@@ -180,6 +184,25 @@ public struct ItemExtractor: Sendable {
         guard var data = try? handle.read(upToCount: maxPlainTextCharacters * 4) else { return nil }
         URLSessionPageFetcher.dropIncompleteUTF8Tail(&data)
         return String(data: data, encoding: .utf8)
+    }
+
+    /// Reading text in an image normally takes a second or two.
+    static let analysisTimeLimit: TimeInterval = 60
+
+    /// Image analysis with a time limit. Too slow or cancelled: the job is tried again
+    /// later. Failed: nil, and the item goes on without the image's text.
+    static func analyzeWithinLimit(
+        _ analyze: @escaping @Sendable () async throws -> ImageAnalysis
+    ) async throws -> ImageAnalysis? {
+        do {
+            return try await withTimeLimit(analysisTimeLimit, operation: analyze)
+        } catch is TimeLimitExceeded {
+            throw ExtractionError.temporarilyUnavailable("Image analysis took too long")
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return nil
+        }
     }
 
     static func pdfText(url: URL) -> String? {

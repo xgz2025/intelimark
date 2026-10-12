@@ -25,14 +25,21 @@ public struct FoundationModelsUnderstander: ItemUnderstander {
     /// Budget scale for the single retry after a context overflow.
     static let retryBudgetScale = 0.4
 
+    /// Room for the title, summary, keywords, dates and places, with margin.
+    static let maximumResponseTokens = 1_000
+
     public init() {}
 
     public func understand(_ input: UnderstandingInput) async throws -> Understanding {
         do {
-            return try await generate(input, budgetScale: 1)
+            return try await ModelCall.run(within: ModelTimeLimit.understanding) {
+                try await generate(input, budgetScale: 1)
+            }
         } catch let error as LanguageModelSession.GenerationError {
             guard case .exceededContextWindowSize = error else { throw error }
-            return try await generate(input, budgetScale: Self.retryBudgetScale)
+            return try await ModelCall.run(within: ModelTimeLimit.understanding) {
+                try await generate(input, budgetScale: Self.retryBudgetScale)
+            }
         }
     }
 
@@ -40,7 +47,8 @@ public struct FoundationModelsUnderstander: ItemUnderstander {
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
             to: input.promptText(budgetScale: budgetScale),
-            generating: GeneratedUnderstanding.self
+            generating: GeneratedUnderstanding.self,
+            options: GenerationOptions(maximumResponseTokens: Self.maximumResponseTokens)
         )
         let generated = response.content
         let source = input.groundingText
@@ -63,6 +71,29 @@ public struct FoundationModelsUnderstander: ItemUnderstander {
             producer: "foundation-models",
             isProvisional: false
         )
+    }
+}
+
+/// One call to the on-device model, with a time limit. What's worth trying again
+/// later (busy, rate-limited, still downloading, too slow) comes out as `ModelBusy`;
+/// anything else (a guardrail, an unsupported language) is passed on as it is.
+enum ModelCall {
+    static func run<T: Sendable>(
+        within seconds: TimeInterval,
+        _ call: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await withTimeLimit(seconds, operation: call)
+        } catch is TimeLimitExceeded {
+            throw ModelBusy()
+        } catch let error as LanguageModelSession.GenerationError {
+            switch error {
+            case .rateLimited, .concurrentRequests, .assetsUnavailable:
+                throw ModelBusy()
+            default:
+                throw error
+            }
+        }
     }
 }
 

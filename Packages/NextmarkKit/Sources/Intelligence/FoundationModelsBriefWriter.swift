@@ -27,12 +27,18 @@ public struct FoundationModelsBriefWriter: GroupBriefWriter {
 
     public init() {}
 
+    static let maximumResponseTokens = 1_200
+
     public func brief(for input: BriefInput) async throws -> GroupBrief {
         do {
-            return try await generate(input, budgetScale: 1)
+            return try await ModelCall.run(within: ModelTimeLimit.brief) {
+                try await generate(input, budgetScale: 1)
+            }
         } catch let error as LanguageModelSession.GenerationError {
             guard case .exceededContextWindowSize = error else { throw error }
-            return try await generate(input, budgetScale: Self.retryBudgetScale)
+            return try await ModelCall.run(within: ModelTimeLimit.brief) {
+                try await generate(input, budgetScale: Self.retryBudgetScale)
+            }
         }
     }
 
@@ -40,7 +46,8 @@ public struct FoundationModelsBriefWriter: GroupBriefWriter {
         let session = LanguageModelSession(instructions: Self.instructions)
         let response = try await session.respond(
             to: input.promptText(budgetScale: budgetScale),
-            generating: GeneratedBrief.self
+            generating: GeneratedBrief.self,
+            options: GenerationOptions(maximumResponseTokens: Self.maximumResponseTokens)
         )
         let generated = response.content
         let now = Date()

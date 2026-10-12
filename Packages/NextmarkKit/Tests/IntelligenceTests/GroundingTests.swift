@@ -169,8 +169,37 @@ struct AdaptiveUnderstanderTests {
         #expect(try await understander.understand(UnderstandingInput()).producer == "heuristic")
     }
 
-    @Test func fallsBackWhenThePrimaryFails() async throws {
+    struct Busy: ItemUnderstander {
+        func understand(_ input: UnderstandingInput) async throws -> Understanding {
+            throw ModelBusy()
+        }
+    }
+
+    @Test func aFailingModelGivesTheFallbackForGood() async throws {
         let understander = AdaptiveUnderstander(primary: Failing(), fallback: Fixed(producer: "heuristic")) { true }
-        #expect(try await understander.understand(UnderstandingInput()).producer == "heuristic")
+        do {
+            _ = try await understander.understand(UnderstandingInput())
+            Issue.record("Expected a ModelFailure")
+        } catch let failure as ModelFailure<Understanding> {
+            guard case .permanent(let fallback) = failure else {
+                Issue.record("Expected a permanent failure")
+                return
+            }
+            #expect(fallback.producer == "heuristic")
+        }
+    }
+
+    @Test func aBusyModelIsTriedAgainLater() async throws {
+        let understander = AdaptiveUnderstander(primary: Busy(), fallback: Fixed(producer: "heuristic")) { true }
+        do {
+            _ = try await understander.understand(UnderstandingInput())
+            Issue.record("Expected a ModelFailure")
+        } catch let failure as ModelFailure<Understanding> {
+            guard case .temporary(let fallback) = failure else {
+                Issue.record("Expected a temporary failure")
+                return
+            }
+            #expect(fallback.producer == "heuristic")
+        }
     }
 }

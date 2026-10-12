@@ -133,8 +133,8 @@ public struct HeuristicBriefWriter: GroupBriefWriter {
     }
 }
 
-/// Uses the on-device model when it is available, and the heuristic otherwise or
-/// when the model fails; checked per brief, like `AdaptiveUnderstander`.
+/// Uses the on-device model when it is available, and the heuristic otherwise; when
+/// the model fails, says how with a `ModelFailure`, like `AdaptiveUnderstander`.
 public struct AdaptiveBriefWriter: GroupBriefWriter {
     let primary: any GroupBriefWriter
     let fallback: any GroupBriefWriter
@@ -152,8 +152,10 @@ public struct AdaptiveBriefWriter: GroupBriefWriter {
             return try await primary.brief(for: input)
         } catch is CancellationError {
             throw CancellationError()
+        } catch is ModelBusy {
+            throw ModelFailure.temporary(fallback: try await fallback.brief(for: input))
         } catch {
-            return try await fallback.brief(for: input)
+            throw ModelFailure.permanent(fallback: try await fallback.brief(for: input))
         }
     }
 }

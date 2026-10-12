@@ -70,8 +70,13 @@ public actor PipelineRunner {
 
     /// How often a stage is tried before giving up. Fetching gets about two days, so
     /// links saved offline (a flight, the subway) still get their page once back online.
+    /// Understanding gets a couple of hours while the model is busy or downloading.
     static func maxAttempts(for stage: PipelineStage) -> Int {
-        stage == .extract ? 12 : 5
+        switch stage {
+        case .extract: 12
+        case .understand: 8
+        default: 5
+        }
     }
 
     /// Runs up to `limit` due jobs. Returns how many ran. Stops early when the queue
@@ -262,20 +267,45 @@ public actor PipelineRunner {
 
         case .understand:
             guard let item = try await repository.item(id: job.itemID) else { return }
-            let understanding = try await understander.understand(Self.understandingInput(for: item))
+            let understanding: Understanding
+            var declined = false
+            do {
+                understanding = try await understander.understand(Self.understandingInput(for: item))
+            } catch let failure as ModelFailure<Understanding> {
+                switch failure {
+                case .temporary(let fallback):
+                    // Busy or still downloading: try the model again later; keep the
+                    // stand-in only once the attempts run out.
+                    guard job.attempts >= Self.maxAttempts(for: .understand) else { throw failure }
+                    understanding = fallback
+                case .permanent(let fallback):
+                    understanding = fallback
+                    declined = true
+                }
+            }
             let version = understanding.isProvisional ? 0 : Self.understandVersion
             try await repository.applyUnderstanding(understanding, toItem: job.itemID, version: version, now: now)
+            if declined {
+                // Not tried again at every launch; an OS update may bring a model that can.
+                try? await repository.database.recordModelSkip(.understand, subjectID: job.itemID)
+            }
             try await queue.enqueue(.embed, itemID: job.itemID, notBefore: now)
 
         case .embed:
             guard let embedder, let item = try await repository.item(id: job.itemID) else { return }
             let text = Self.embeddingText(for: item)
-            guard !text.isEmpty else { return }
+            guard !text.isEmpty else {
+                try? await repository.database.recordModelSkip(.embed, subjectID: job.itemID)
+                return
+            }
             let embedding: TextEmbedding
             do {
                 embedding = try await embedder.embed(text)
             } catch EmbeddingError.unsupportedLanguage, EmbeddingError.emptyText {
-                return      // retrying won't help; full-text search still finds the item
+                // Retrying won't help, so it isn't re-queued at every launch (where it would
+                // crowd out items that can be embedded); full-text search still finds it.
+                try? await repository.database.recordModelSkip(.embed, subjectID: job.itemID)
+                return
             }
             try await repository.saveEmbedding(embedding.vector, modelID: embedding.modelID, forItem: job.itemID)
             try await queue.enqueue(.group, itemID: job.itemID, notBefore: now)

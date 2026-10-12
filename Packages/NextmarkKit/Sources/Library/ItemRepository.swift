@@ -167,10 +167,11 @@ public struct ItemRepository: Sendable {
                     SELECT id FROM item
                     WHERE derivedVersion < ? AND status <> 'trashed'
                       AND NOT EXISTS (SELECT 1 FROM job WHERE job.itemID = item.id)
+                      AND \(LibraryDatabase.notSkipped(.understand, column: "item.id"))
                     ORDER BY createdAt DESC
                     LIMIT ?
                     """,
-                arguments: [version, limit]
+                arguments: [version, LibraryDatabase.osVersion, limit]
             )
         }
     }
