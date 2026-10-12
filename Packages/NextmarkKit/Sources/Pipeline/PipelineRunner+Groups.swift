@@ -110,7 +110,8 @@ extension PipelineRunner {
 
     func writeBriefs(now: Date) async {
         guard let ids = try? await groups.groupIDsNeedingBrief(now: now) else { return }
-        for id in ids.prefix(Self.maximumBriefsPerPass) {
+        let due = ids.filter { id in briefRetries[id].map { $0.after <= now } ?? true }
+        for id in due.prefix(Self.maximumBriefsPerPass) {
             guard let inputs = try? await groups.briefInputs(for: id) else { continue }
             let input = BriefInput(
                 title: inputs.group.userTitle,
@@ -118,7 +119,31 @@ extension PipelineRunner {
                 targetDate: inputs.group.targetDate,
                 items: inputs.members.map(\.digest)
             )
-            guard let brief = try? await briefWriter.brief(for: input) else { continue }
+            let brief: GroupBrief
+            do {
+                brief = try await briefWriter.brief(for: input)
+            } catch let failure as ModelFailure<GroupBrief> {
+                switch failure {
+                case .temporary(let fallback):
+                    // The model is busy: try again later, backing off (2, 4, 8… min, up to
+                    // 6 h). A group with no Brief yet gets the stand-in meanwhile; it's
+                    // written again by the model once it's ready (`requeueStaleBriefs`).
+                    let failures = (briefRetries[id]?.failures ?? 0) + 1
+                    let delay = min(pow(2, Double(failures)) * 60, 6 * 60 * 60)
+                    briefRetries[id] = (now.addingTimeInterval(delay), failures)
+                    guard inputs.group.brief == nil else { continue }
+                    brief = fallback
+                case .permanent(let fallback):
+                    brief = fallback
+                    try? await groups.database.recordModelSkip(.brief, subjectID: id)
+                }
+            } catch {
+                continue
+            }
+            if !brief.isProvisional {
+                briefRetries[id] = nil
+                try? await groups.database.clearModelSkip(.brief, subjectID: id)
+            }
             let version = brief.isProvisional ? 0 : Self.briefVersion
             try? await groups.saveBrief(brief, inputsHash: inputs.hash, version: version, toGroup: id, now: now)
         }

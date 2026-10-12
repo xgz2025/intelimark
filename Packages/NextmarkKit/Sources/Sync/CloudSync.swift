@@ -36,12 +36,22 @@ public actor CloudSync: CKSyncEngineDelegate {
     /// The change each record in flight carries, so a save only clears that change.
     private var inFlight: [RecordKey: Int64] = [:]
     private var syncedOriginals: Bool?
-    /// Fetched changes couldn't be written. The engine's state isn't saved past them,
-    /// and once the fetch ends the engine restarts from the last saved state, which
-    /// fetches them again. Once per launch, so a change that can never be written
-    /// doesn't loop.
+    /// Fetched changes couldn't be written (the device's storage is full, say). The
+    /// engine's state isn't saved past them, and once the fetch ends the engine restarts
+    /// from the last saved state, which fetches them again. If that fails too, syncing
+    /// stops until the next launch rather than skipping past changes, or looping.
     private var failedApply = false
     private var hasRefetched = false
+    private var applyError: (any Error)?
+    /// Records the server refused for a reason that retrying right away won't fix
+    /// (iCloud storage full, a file too large). Their changes stay pending in the
+    /// database; they're offered again after `holdInterval`, on "Sync Now" and at the
+    /// next launch, instead of in a loop that drains the battery.
+    private var held: Set<RecordKey> = []
+    private var heldSince: Date?
+    private var isQuotaFull = false
+    private var holdTimer: Task<Void, Never>?
+    static let holdInterval: TimeInterval = 3600
 
     /// - Parameter onChange: called after records from other devices were written.
     public init(
@@ -96,6 +106,9 @@ public actor CloudSync: CKSyncEngineDelegate {
         configuration.automaticallySync = true
         let engine = CKSyncEngine(configuration)
         self.engine = engine
+        // A new engine starts from the saved state: nothing it fetches has failed yet.
+        failedApply = false
+        applyError = nil
         if serialization == nil {
             engine.state.add(pendingDatabaseChanges: [.saveZone(CKRecordZone(zoneID: CloudRecordCoder.zoneID))])
         }
@@ -118,18 +131,26 @@ public actor CloudSync: CKSyncEngineDelegate {
 
     /// Starts a new engine from the last saved state, so changes fetched since then
     /// arrive again. Local changes are handed to it from the database as at launch.
-    private func refetch() async {
+    private func recoverFromFailedApply() async {
         guard failedApply else { return }
+        stop()
+        if hasRefetched {
+            let reason = applyError?.localizedDescription ?? ""
+            setStatus(String(localized: "Couldn't save changes from iCloud on this device. Nextmark will try again the next time it opens. \(reason)"))
+            return
+        }
         failedApply = false
+        applyError = nil
         hasRefetched = true
         logger.notice("Fetching again from the last saved sync state")
-        stop()
         await start()
     }
 
     func stop() {
         observation?.cancel()
         observation = nil
+        // Started again later, everything waiting is offered afresh.
+        releaseHeld()
         engine = nil
         inFlight = [:]
     }
@@ -137,19 +158,58 @@ public actor CloudSync: CKSyncEngineDelegate {
     /// Fetches and sends now, e.g. from "Sync Now" in Settings.
     public func syncNow() async {
         guard let engine else { return }
+        releaseHeld()
+        await enqueuePending()
         do {
             try await engine.fetchChanges()
             try await engine.sendChanges()
             markSynced()
         } catch {
             logger.error("Sync failed: \(error.localizedDescription, privacy: .public)")
-            setStatus(error.localizedDescription)
+            setStatus(Self.message(for: error))
+        }
+    }
+
+    /// Records held back after a refusal are offered again.
+    private func releaseHeld() {
+        held = []
+        heldSince = nil
+        holdTimer?.cancel()
+        holdTimer = nil
+        isQuotaFull = false
+        // Held changes were skipped over: look at every pending change again.
+        enqueuedSeq = 0
+    }
+
+    private func hold(_ key: RecordKey) {
+        held.insert(key)
+        startHolding()
+    }
+
+    /// Starts the hold's clock, and a timer that offers the held records again when it
+    /// runs out, even if nothing else happens meanwhile.
+    private func startHolding() {
+        guard heldSince == nil else { return }
+        heldSince = Date()
+        holdTimer?.cancel()
+        holdTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.holdInterval))
+            guard !Task.isCancelled else { return }
+            await self?.enqueuePending()
         }
     }
 
     /// Hands new local changes to the engine.
     private func enqueuePending() async {
-        guard let engine, let pending = try? await store.pendingChanges(after: enqueuedSeq), !pending.isEmpty else { return }
+        if let heldSince, Date().timeIntervalSince(heldSince) > Self.holdInterval {
+            // Space may have been freed since: try the held records again.
+            releaseHeld()
+        }
+        guard let engine, var pending = try? await store.pendingChanges(after: enqueuedSeq), !pending.isEmpty else { return }
+        // Held records wait; while iCloud is full nothing new goes up either, except
+        // deletions, which free space.
+        let quotaFull = isQuotaFull
+        pending.removeAll { held.contains($0.key) || (quotaFull && !$0.isDeletion) }
         enqueuedSeq = pending.map(\.seq).max() ?? enqueuedSeq
         let existing = Set(engine.state.pendingRecordZoneChanges)
         let changes = pending.map { change -> CKSyncEngine.PendingRecordZoneChange in
@@ -251,7 +311,8 @@ public actor CloudSync: CKSyncEngineDelegate {
                 if !result.isEmpty { notify(result) }
             } catch {
                 logger.error("Couldn't apply fetched changes: \(error.localizedDescription, privacy: .public)")
-                if !hasRefetched { failedApply = true }
+                failedApply = true
+                applyError = error
             }
 
         case .sentRecordZoneChanges(let sent):
@@ -260,13 +321,25 @@ public actor CloudSync: CKSyncEngineDelegate {
         case .sentDatabaseChanges(let sent):
             for failure in sent.failedZoneSaves {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
+                if failure.error.code == .quotaExceeded {
+                    isQuotaFull = true
+                    startHolding()
+                    // Saves would only fail for want of the zone; they wait for space.
+                    let saves = syncEngine.state.pendingRecordZoneChanges.filter {
+                        if case .saveRecord = $0 { true } else { false }
+                    }
+                    syncEngine.state.remove(pendingRecordZoneChanges: saves)
+                }
+                setStatus(Self.message(for: failure.error))
             }
 
         case .didFetchChanges:
             if failedApply {
                 // Not from inside this engine's own event: restart once it's handled.
-                Task { await self.refetch() }
+                Task { await self.recoverFromFailedApply() }
             } else {
+                // A clean fetch: a later failure in this session gets its refetch too.
+                hasRefetched = false
                 markSynced()
             }
 
@@ -295,6 +368,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         var forgotten: [RecordKey] = []
         var retry: [CKSyncEngine.PendingRecordZoneChange] = []
         var needsZone = false
+        var quotaExceeded = false
 
         for record in sent.savedRecords {
             guard let key = CloudRecordCoder.key(for: record.recordID) else { continue }
@@ -315,6 +389,9 @@ public actor CloudSync: CKSyncEngineDelegate {
                 if let server = failure.error.serverRecord, let record = try? CloudRecordCoder.syncRecord(from: server) {
                     conflicts.append(record)
                 }
+            case .zoneNotFound where isQuotaFull:
+                // The zone couldn't be made because iCloud is full: wait for space.
+                hold(key)
             case .zoneNotFound:
                 needsZone = true
                 retry.append(.saveRecord(recordID))
@@ -322,19 +399,42 @@ public actor CloudSync: CKSyncEngineDelegate {
                 // The server no longer has it: send it as a new record.
                 forgotten.append(key)
                 retry.append(.saveRecord(recordID))
+            case .quotaExceeded:
+                // The change stays pending here; it goes up once there's space.
+                quotaExceeded = true
+                hold(key)
             case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .requestRateLimited,
-                 .notAuthenticated, .operationCancelled:
-                break   // the engine tries again
+                 .notAuthenticated, .accountTemporarilyUnavailable, .operationCancelled, .batchRequestFailed:
+                break   // the engine tries again, or the change is offered again below
             default:
+                // Too large, an invalid value, a missing file…: offered again later, not in a loop.
                 logger.error("Couldn't save \(key, privacy: .public): \(failure.error.localizedDescription, privacy: .public)")
+                hold(key)
             }
         }
         for (recordID, error) in sent.failedRecordDeletes {
             guard let key = CloudRecordCoder.key(for: recordID) else { continue }
             let seq = inFlight.removeValue(forKey: key) ?? 0
-            if error.code == .unknownItem {
+            switch error.code {
+            case .unknownItem:
+                // Already gone from the server.
                 deleted.append(SentChange(key: key, seq: seq, systemFields: nil))
+            case .networkFailure, .networkUnavailable, .zoneBusy, .serviceUnavailable, .requestRateLimited,
+                 .notAuthenticated, .accountTemporarilyUnavailable, .operationCancelled, .batchRequestFailed:
+                break
+            default:
+                logger.error("Couldn't delete \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                hold(key)
             }
+        }
+        if quotaExceeded {
+            isQuotaFull = true
+            // Saves already queued would only be refused too; deletions still go, and free space.
+            let saves = syncEngine.state.pendingRecordZoneChanges.filter {
+                if case .saveRecord = $0 { true } else { false }
+            }
+            syncEngine.state.remove(pendingRecordZoneChanges: saves)
+            setStatus(String(localized: "iCloud storage is full. Your changes are kept on this device and will sync when there's space."))
         }
 
         do {
@@ -397,7 +497,29 @@ public actor CloudSync: CKSyncEngineDelegate {
 
     private func markSynced() {
         UserDefaults.standard.set(Date().timeIntervalSinceReferenceDate, forKey: SyncSettings.Key.lastSyncedAt)
-        UserDefaults.standard.set("", forKey: SyncSettings.Key.status)
+        // A full iCloud stays on screen until space frees up.
+        if !isQuotaFull && !failedApply {
+            UserDefaults.standard.set("", forKey: SyncSettings.Key.status)
+        }
+    }
+
+    /// What Settings says when syncing fails.
+    static func message(for error: any Error) -> String {
+        guard let error = error as? CKError else { return error.localizedDescription }
+        switch error.code {
+        case .networkUnavailable, .networkFailure:
+            return String(localized: "You're offline. Nextmark syncs when you're back online.")
+        case .quotaExceeded:
+            return String(localized: "iCloud storage is full. Your changes are kept on this device and will sync when there's space.")
+        case .notAuthenticated:
+            return String(localized: "Sign in to iCloud to sync your library.")
+        case .accountTemporarilyUnavailable:
+            return String(localized: "Your iCloud account needs attention. Check Settings › Apple Account.")
+        case .serviceUnavailable, .requestRateLimited, .zoneBusy:
+            return String(localized: "iCloud is busy. Nextmark will try again shortly.")
+        default:
+            return error.localizedDescription
+        }
     }
 
     private func setStatus(_ status: String) {

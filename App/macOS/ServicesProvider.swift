@@ -29,22 +29,33 @@ final class ServicesProvider: NSObject {
         error errorPointer: AutoreleasingUnsafeMutablePointer<NSString>
     ) {
         let id = ULID()
-        var content = PasteboardCapture.content(from: pasteboard, id: id, store: store)
-        // The app that asked for the service is still frontmost.
-        content.sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        // Text selected on a web page (the browser sends the page URL along) is a highlight.
-        content.quoteTextFromPage()
-        guard !content.isEmpty else {
-            try? store.discard(id)
+        let snapshot = PasteboardCapture.snapshot(of: pasteboard)
+        guard !snapshot.isEmpty else {
             errorPointer.pointee = NSString(string: String(localized: "There was nothing to save."))
             return
         }
-        do {
-            try CaptureWriter.commit(content, id: id, surface: .services, store: store)
-            SavedHUD.show(String(localized: "Saved to Nextmark"))
-        } catch {
-            try? store.discard(id)
-            errorPointer.pointee = NSString(string: error.localizedDescription)
+        // The app that asked for the service is still frontmost.
+        let sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let store = store
+        // Answer the requesting app now: it waits for this reply, and copying large
+        // files can take longer than it will wait. The outcome shows in the HUD.
+        Task {
+            var content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
+            content.sourceApp = sourceApp
+            // Text selected on a web page (the browser sends the page URL along) is a highlight.
+            content.quoteTextFromPage()
+            guard !content.isEmpty else {
+                try? store.discard(id)
+                SavedHUD.show(String(localized: "There was nothing to save."), systemImage: "exclamationmark.triangle.fill")
+                return
+            }
+            do {
+                try CaptureWriter.commit(content, id: id, surface: .services, store: store)
+                SavedHUD.show(String(localized: "Saved to Nextmark"))
+            } catch {
+                try? store.discard(id)
+                SavedHUD.show(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+            }
         }
     }
 }

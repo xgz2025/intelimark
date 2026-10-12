@@ -231,17 +231,17 @@ struct GroupDetailView: View {
 
     private func toggle(_ action: ActionRecord) {
         let (actions, groupID) = (services.actions, groupID)
-        Task {
-            let completion = try? await actions.setDone(action.status != .done, forAction: action.id)
-            if completion?.finishedGroupID == groupID {
+        performEdit {
+            let completion = try await actions.setDone(action.status != .done, forAction: action.id)
+            if completion.finishedGroupID == groupID {
                 showsDonePrompt = true
             }
         }
     }
 
-    /// Runs an edit; observation updates the screen, so errors only leave it unchanged.
+    /// Runs an edit; observation updates the screen, and a failure is reported.
     private func run(_ work: @escaping () async throws -> Void) {
-        Task { try? await work() }
+        performEdit(work)
     }
 
     private func keep() {
@@ -379,7 +379,7 @@ private struct RenameGroupSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         let (groups, id, title, emoji) = (services.groups, group.id, title, String(emoji.prefix(2)))
-                        Task { try? await groups.rename(id, to: title, emoji: emoji) }
+                        performEdit { try await groups.rename(id, to: title, emoji: emoji) }
                         dismiss()
                     }
                 }
@@ -421,7 +421,7 @@ private struct PlanSheet: View {
                     Button("Save") {
                         let target: Date? = hasDate ? date : nil
                         let (groups, id, goal) = (services.groups, group.id, goal)
-                        Task { try? await groups.makePlan(id, goal: goal, targetDate: target) }
+                        performEdit { try await groups.makePlan(id, goal: goal, targetDate: target) }
                         dismiss()
                     }
                 }
@@ -452,7 +452,7 @@ struct SuggestionsView: View {
                 .swipeActions {
                     Button("Dismiss", systemImage: "xmark", role: .destructive) {
                         let (groups, id) = (services.groups, summary.id)
-                        Task { try? await groups.dismissSuggestion(id) }
+                        performEdit { try await groups.dismissSuggestion(id) }
                     }
                     Button("Keep", systemImage: "checkmark") {
                         let (groups, id) = (services.groups, summary.id)

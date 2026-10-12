@@ -207,7 +207,7 @@ public enum SchemaOrg {
 
     private static func zip2(_ a: Int?, _ b: Int?) -> Int? {
         switch (a, b) {
-        case let (a?, b?): a + b
+        case let (a?, b?): a.addingReportingOverflow(b).overflow ? nil : a + b
         case let (a?, nil): a
         case let (nil, b?): b
         default: nil
@@ -243,15 +243,20 @@ enum SchemaDate {
 enum SchemaDuration {
     static let pattern = HTMLText.regex(#"^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$"#)
 
+    static let maxMinutes: Double = 366 * 24 * 60
+
     /// ISO 8601 durations such as `PT1H15M` → minutes.
     static func minutes(_ text: String?) -> Int? {
         guard let text = text?.trimmingCharacters(in: .whitespaces).uppercased(), text.hasPrefix("P"),
               let groups = HTMLText.matches(pattern, in: text).first
         else { return nil }
-        let days = groups[1].flatMap { Int($0) } ?? 0
-        let hours = groups[2].flatMap { Int($0) } ?? 0
-        let minutes = groups[3].flatMap { Int($0) } ?? 0
+        // A page can claim any number of digits: parse as Double so nothing overflows,
+        // and ignore anything longer than a year.
+        let days = groups[1].flatMap { Double($0) } ?? 0
+        let hours = groups[2].flatMap { Double($0) } ?? 0
+        let minutes = groups[3].flatMap { Double($0) } ?? 0
         let total = days * 24 * 60 + hours * 60 + minutes
-        return total > 0 ? total : nil
+        guard total > 0, total <= maxMinutes else { return nil }
+        return Int(total)
     }
 }

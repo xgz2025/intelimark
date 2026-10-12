@@ -468,7 +468,8 @@ public struct GroupRepository: Sendable {
             try String.fetchAll(db, sql: """
                 SELECT id FROM itemGroup
                 WHERE state = 'accepted' AND status = 'active' AND brief IS NOT NULL AND briefVersion < ?
-                """, arguments: [version])
+                  AND \(LibraryDatabase.notSkipped(.brief, column: "itemGroup.id"))
+                """, arguments: [version, LibraryDatabase.osVersion])
         }
     }
 

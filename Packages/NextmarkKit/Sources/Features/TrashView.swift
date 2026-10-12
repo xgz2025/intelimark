@@ -53,10 +53,10 @@ struct TrashView: View {
                     .disabled(items.isEmpty)
             }
         }
-        .confirmationDialog("Delete \(items.count) items permanently?", isPresented: $confirmsEmpty, titleVisibility: .visible) {
+        .confirmationDialog("Delete ^[\(items.count) item](inflect: true) permanently?", isPresented: $confirmsEmpty, titleVisibility: .visible) {
             Button("Empty Trash", role: .destructive) {
                 let (repository, directory) = (services.items, services.itemsDirectory)
-                Task { try? await repository.emptyTrash(itemsDirectory: directory) }
+                performEdit { try await repository.emptyTrash(itemsDirectory: directory) }
             }
         } message: {
             Text("They're deleted from all your devices and iCloud, with their files. This can't be undone.")
@@ -69,7 +69,7 @@ struct TrashView: View {
         ) { item in
             Button("Delete", role: .destructive) {
                 let (repository, directory, id) = (services.items, services.itemsDirectory, item.id)
-                Task { try? await repository.deletePermanently([id], itemsDirectory: directory) }
+                performEdit { try await repository.deletePermanently([id], itemsDirectory: directory) }
             }
         } message: { item in
             Text("“\(item.displayTitle)” is deleted from all your devices and iCloud. This can't be undone.")
@@ -83,6 +83,6 @@ struct TrashView: View {
 
     private func restore(_ item: ItemRecord) {
         let (repository, id) = (services.items, item.id)
-        Task { try? await repository.restore([id]) }
+        performEdit { try await repository.restore([id]) }
     }
 }

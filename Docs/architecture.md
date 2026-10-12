@@ -61,6 +61,9 @@ The architecture rests on three ideas:
 1. **Capture is decoupled from processing.** Every capture surface writes an
    immutable *capture envelope* to the App Group container and exits. Only
    the main app (or its background tasks) touches the database and the AI.
+   The database lives in the app's own container, not the App Group's: iOS
+   terminates an app suspended while holding a SQLite lock in a shared
+   container (0xdead10cc).
 2. **Enrichment is a persistent, versioned job pipeline.** Each stage is
    idempotent and records the version that produced its output. That lets
    us re-run stages when a model or prompt improves, resume after the app is
@@ -270,6 +273,17 @@ erDiagram
     library is then sent again.
   - If the user deletes Nextmark's iCloud data in Settings (`purged`),
     sync turns off until they turn it back on.
+- **Failures never loop and never lose data.**
+  - Network loss, rate limits and a busy service are left to `CKSyncEngine`,
+    which waits and retries.
+  - iCloud full (`quotaExceeded`): refused saves stay pending locally, queued
+    saves are withdrawn and nothing new is offered (deletions still are, since
+    they free space) until an hour has passed, the user taps Sync Now, or the app
+    launches again. Any other refusal retrying won't fix holds that record the
+    same way. Settings says why, in plain words.
+  - Fetched changes that can't be written: the engine's state isn't saved past
+    them and the engine restarts from the last saved state, once; failing again,
+    sync stops until the next launch rather than skipping them.
 - Embeddings aren't synced. They are cheap to recompute, and the embedding
   model can differ between OS versions; `modelID` detects that. Items that
   arrive from another device are embedded on arrival.
@@ -312,10 +326,21 @@ enum Stage: Int, CaseIterable { case extract, prefilter, understand, digest, emb
   charging); `BGAppRefreshTask` (small batches); during
   `BGContinuedProcessingTask` for bulk imports. On the Mac it runs whenever
   the app or menu-bar agent is alive.
-- Backs off on `ProcessInfo.thermalState ≥ .serious` and Low Power Mode.
+- Backs off on `ProcessInfo.thermalState ≥ .serious` and Low Power Mode (5 jobs
+  a pass, passes ≥ 15 min apart) and pauses at `.critical`; it catches up when
+  conditions return to normal. Ingesting captures always runs.
+- A job is *claimed* before it runs: its attempt is counted and it's put off by
+  the backoff (1, 2, 4… min, capped at 6 h). A job that ends the app is then not
+  replayed at once, and is given up after its attempts (Extract 12 ≈ 2 days,
+  Understand 8, others 5). A queue that can't be written stops the pass.
+- A postponed job wakes the pipeline when it's due; the network coming back makes
+  postponed fetches due at once.
 - Each stage writes its outputs plus `derivedVersion`. Raising a stage's
   version in a release re-enqueues affected items lazily (visible items
   first).
+- Work a model declines for good (a guardrail, an unsupported language, text that
+  can't be embedded) is recorded in the local `modelSkip` table and left out of
+  the launch-time requeues until the OS version changes.
 
 ### 5.2 Stages
 
@@ -331,8 +356,12 @@ enum Stage: Int, CaseIterable { case extract, prefilter, understand, digest, emb
 Extract stage rules:
 - Network: only the saved URL is fetched, with an ephemeral session (no cookies),
   15 s request timeout and a 3 MB cap (25 MB for PDFs and images). Offline, timeouts
-  and 429/5xx are retried with backoff; other failures extract what they can. If
-  retries run out, Understand still runs on the captured facts.
+  and 429/5xx are retried with backoff (so are DNS, TLS and other failures a
+  network that isn't really online yet gives); other failures extract what they
+  can. If retries run out, Understand still runs on the captured facts, and links
+  given up on in the last two weeks are queued again at launch and when the
+  network comes back.
+- Image analysis has a 60 s limit; text files are read only as far as is kept.
 - Facts never overwrite captured data: a page title only fills a missing
   `sourceTitle`. A schema.org kind is stored as `structuredKind` and wins over the
   model's guess in Understand.
@@ -357,8 +386,12 @@ Embed stage rules:
 | Group naming / Brief | on-device; PCC for large groups | on-device, map-reduce | keyword-based names ("Kyoto · 9 items"); Brief deferred |
 | Embeddings / search | ✓ | ✓ | ✓ (`NLContextualEmbedding` doesn't need Apple Intelligence) |
 
-`SystemLanguageModel.default.availability` is checked on every launch.
-`modelNotReady` re-queues the work rather than failing it.
+`SystemLanguageModel.default.availability` is checked at launch and whenever the
+app becomes active; when the model becomes ready, provisional results are queued
+again. A model that is busy, rate-limited, still downloading or slower than its
+time limit (90 s; 120 s for a Brief) is tried again with backoff; its heuristic
+stand-in is kept only once the attempts run out. Search waits at most 1.5 s for
+the embedding model.
 
 ---
 

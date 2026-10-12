@@ -16,7 +16,14 @@ var NextmarkPageCapture = function () {};
 
 NextmarkPageCapture.prototype = {
   run: function (args) {
-    args.completionFunction(nextmarkCapturePage());
+    var result;
+    try {
+      result = nextmarkCapturePage();
+    } catch (error) {
+      // An unusual page must not leave the share sheet waiting: send what's certain.
+      result = { url: document.URL, title: document.title };
+    }
+    args.completionFunction(result);
   },
   finalize: function (args) {}
 };

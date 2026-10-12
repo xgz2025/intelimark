@@ -95,8 +95,13 @@ public struct ItemExtractor: Sendable {
         let resource: FetchedResource
         do {
             resource = try await fetcher.fetch(url)
+        } catch let error as URLError where error.code == .cancelled || Task.isCancelled {
+            // Stopped, not failed: the job runs again later.
+            throw CancellationError()
         } catch let error as URLError where Self.isTransient(error) {
             throw ExtractionError.temporarilyUnavailable(error.localizedDescription)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             return Extraction()
         }
@@ -110,7 +115,8 @@ public struct ItemExtractor: Sendable {
             return Extraction(contentText: Self.pdfText(data: resource.data))
         }
         if mimeType.hasPrefix("image/"), let analyzer = imageAnalyzer {
-            let analysis = try? await analyzer.analyze(imageData: resource.data)
+            let data = resource.data
+            let analysis = try await Self.analyzeWithinLimit { try await analyzer.analyze(imageData: data) }
             return Extraction(ocrText: analysis?.text, imageLabels: analysis?.labels ?? [], barcodes: analysis?.barcodes ?? [])
         }
         guard mimeType.contains("html") || mimeType.hasPrefix("text/"), let html = resource.text else {
@@ -135,7 +141,10 @@ public struct ItemExtractor: Sendable {
     static func isTransient(_ error: URLError) -> Bool {
         switch error.code {
         case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost,
-             .dnsLookupFailed, .internationalRoamingOff, .dataNotAllowed, .callIsActive:
+             .dnsLookupFailed, .internationalRoamingOff, .dataNotAllowed, .callIsActive,
+             // Also what a network that isn't really online yet (a hotel Wi-Fi login) gives.
+             .cannotFindHost, .secureConnectionFailed, .cannotLoadFromNetwork,
+             .serverCertificateUntrusted, .serverCertificateHasUnknownRoot:
             true
         default:
             false
@@ -150,18 +159,50 @@ public struct ItemExtractor: Sendable {
             return Extraction(contentText: Self.pdfText(url: file.url))
         }
         if type?.conforms(to: .image) == true {
-            guard let analyzer = imageAnalyzer, let analysis = try? await analyzer.analyze(imageAt: file.url) else {
+            let url = file.url
+            guard let analyzer = imageAnalyzer,
+                  let analysis = try await Self.analyzeWithinLimit({ try await analyzer.analyze(imageAt: url) })
+            else {
                 return Extraction()
             }
             return Extraction(ocrText: analysis.text, imageLabels: analysis.labels, barcodes: analysis.barcodes)
         }
         if type?.conforms(to: .plainText) == true || type?.conforms(to: .sourceCode) == true,
-           let data = try? Data(contentsOf: file.url),
-           let text = String(data: data, encoding: .utf8) {
+           let text = Self.textPrefix(of: file.url) {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             return Extraction(contentText: trimmed.isEmpty ? nil : HTMLText.truncate(trimmed, to: Self.maxPlainTextCharacters))
         }
         return Extraction()
+    }
+
+    /// The start of a text file: only what's kept is read, so a multi-gigabyte log
+    /// can't exhaust memory.
+    static func textPrefix(of url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        // UTF-8 takes at most four bytes a character.
+        guard var data = try? handle.read(upToCount: maxPlainTextCharacters * 4) else { return nil }
+        URLSessionPageFetcher.dropIncompleteUTF8Tail(&data)
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Reading text in an image normally takes a second or two.
+    static let analysisTimeLimit: TimeInterval = 60
+
+    /// Image analysis with a time limit. Too slow or cancelled: the job is tried again
+    /// later. Failed: nil, and the item goes on without the image's text.
+    static func analyzeWithinLimit(
+        _ analyze: @escaping @Sendable () async throws -> ImageAnalysis
+    ) async throws -> ImageAnalysis? {
+        do {
+            return try await withTimeLimit(analysisTimeLimit, operation: analyze)
+        } catch is TimeLimitExceeded {
+            throw ExtractionError.temporarilyUnavailable("Image analysis took too long")
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return nil
+        }
     }
 
     static func pdfText(url: URL) -> String? {

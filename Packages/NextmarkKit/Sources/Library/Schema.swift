@@ -215,6 +215,16 @@ extension LibraryDatabase {
                 t.primaryKey("assetID", .text)
             }
 
+            // Local only: items and groups the on-device model (or embedding model)
+            // can't handle, so they aren't tried again at every launch. Tried again
+            // after an OS update, which may bring a model that can.
+            try db.create(table: "modelSkip") { t in
+                t.column("subjectID", .text).notNull()
+                t.column("stage", .text).notNull()
+                t.column("osVersion", .text).notNull()
+                t.primaryKey(["subjectID", "stage"])
+            }
+
             // iCloud sync bookkeeping and change tracking (Docs/architecture.md §4.3).
             try SyncCatalog.createSchema(db)
         }

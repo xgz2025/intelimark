@@ -105,10 +105,31 @@ public protocol ItemUnderstander: Sendable {
     func understand(_ input: UnderstandingInput) async throws -> Understanding
 }
 
+/// The on-device model can't answer right now: busy, rate-limited, still downloading,
+/// or too slow this time. Worth trying again later.
+public struct ModelBusy: Error, Equatable {
+    public init() {}
+}
+
+/// How long one model answer may take before it's treated as `ModelBusy`.
+public enum ModelTimeLimit {
+    public static let understanding: TimeInterval = 90
+    public static let brief: TimeInterval = 120
+}
+
+/// The model didn't answer; `fallback` is the stand-in (the heuristic's result).
+public enum ModelFailure<Fallback: Sendable>: Error {
+    /// Try again later, with backoff; keep the stand-in if it never works out.
+    case temporary(fallback: Fallback)
+    /// It won't work for this input (a guardrail, an unsupported language, a context it
+    /// can't fit): keep the stand-in and don't try again until the OS changes.
+    case permanent(fallback: Fallback)
+}
+
 /// Uses `primary` (the on-device model) when it is available right now, and
-/// `fallback` otherwise or when it fails (guardrails, unsupported language, a
-/// context overflow it couldn't recover from). Checked per item, so a model that
-/// finishes downloading mid-session is picked up without a relaunch.
+/// `fallback` otherwise. When the model fails, the fallback's result comes with a
+/// `ModelFailure` saying whether to try the model again later. Checked per item, so
+/// a model that finishes downloading mid-session is picked up without a relaunch.
 public struct AdaptiveUnderstander: ItemUnderstander {
     let primary: any ItemUnderstander
     let fallback: any ItemUnderstander
@@ -130,8 +151,10 @@ public struct AdaptiveUnderstander: ItemUnderstander {
             return try await primary.understand(input)
         } catch is CancellationError {
             throw CancellationError()
+        } catch is ModelBusy {
+            throw ModelFailure.temporary(fallback: try await fallback.understand(input))
         } catch {
-            return try await fallback.understand(input)
+            throw ModelFailure.permanent(fallback: try await fallback.understand(input))
         }
     }
 }

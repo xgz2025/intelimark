@@ -10,6 +10,7 @@
 
 import Foundation
 import NaturalLanguage
+import Model
 
 /// Sentence vectors from `NLContextualEmbedding`, mean-pooled over its token vectors.
 /// Works without Apple Intelligence (Docs/architecture.md §5.3). There is one model
@@ -19,6 +20,8 @@ import NaturalLanguage
 public actor ContextualEmbeddingProvider: EmbeddingProvider {
     /// Loaded models by identifier. Loading takes a moment, so models stay loaded.
     private var models: [String: NLContextualEmbedding] = [:]
+
+    static let assetsTimeLimit: TimeInterval = 120
 
     public init() {}
 
@@ -61,12 +64,17 @@ public actor ContextualEmbeddingProvider: EmbeddingProvider {
         guard let candidate else { throw EmbeddingError.unsupportedLanguage }
         if let loaded = models[candidate.modelIdentifier] { return loaded }
         if !candidate.hasAvailableAssets {
-            // The completion arrives on a framework queue, hence @Sendable.
-            let available = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-                candidate.requestAssets { @Sendable result, _ in
-                    continuation.resume(returning: result == .available)
+            // A download on a slow network shouldn't hold up the queue: give up after a
+            // while (it carries on in the background) and let the job retry later.
+            nonisolated(unsafe) let model = candidate
+            let available = (try? await withTimeLimit(Self.assetsTimeLimit) {
+                // The completion arrives on a framework queue, hence @Sendable.
+                await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                    model.requestAssets { @Sendable result, _ in
+                        continuation.resume(returning: result == .available)
+                    }
                 }
-            }
+            }) ?? false
             guard available else { throw EmbeddingError.assetsUnavailable }
         }
         try candidate.load()

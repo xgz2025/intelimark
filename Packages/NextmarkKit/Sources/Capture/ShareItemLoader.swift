@@ -40,11 +40,11 @@ public enum ShareItemLoader {
                         loadURL(from: provider) { continuation.resume(returning: $0) }
                     }
                     if content.url == nil { content.url = url }
-                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier), !isFile(provider) {
                     let text = await withCheckedContinuation { continuation in
                         loadText(from: provider) { continuation.resume(returning: $0) }
                     }
-                    if let text { content.appendText(text) }
+                    if let text { content.appendText(String(text.prefix(maxInlineTextCharacters))) }
                 } else if let typeIdentifier = fileTypeIdentifier(of: provider) {
                     let index = fileIndex
                     let file = await withCheckedContinuation { continuation in
@@ -62,6 +62,19 @@ public enum ShareItemLoader {
         content.promoteLinkText()
         content.useFileNameAsTitle()
         return content
+    }
+
+    /// Shared text longer than this is cut; a text *file* is copied, never read into memory.
+    static let maxInlineTextCharacters = 100_000
+
+    /// A shared document (a .txt or source file from Files or Finder) rather than a
+    /// snippet of text: it has a file name.
+    static func isFile(_ provider: NSItemProvider) -> Bool {
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) { return true }
+        // A name like "notes.txt", not text that happens to contain a dot ("v1.2 notes").
+        guard let name = provider.suggestedName else { return false }
+        let pathExtension = (name as NSString).pathExtension
+        return !pathExtension.isEmpty && UTType(filenameExtension: pathExtension).map { !$0.isDynamic } == true
     }
 
     static func loadPage(from provider: NSItemProvider, completion: @escaping @Sendable (PageCapture?) -> Void) {

@@ -9,6 +9,7 @@
 //
 
 import BackgroundTasks
+import Foundation
 import Features
 import Integrations
 
@@ -49,25 +50,43 @@ final class ContinuedTaskRunner: LongTaskRunner {
 
     private func launch(_ handle: TaskHandle) {
         guard let work = pendingWork else {
-            handle.task.setTaskCompleted(success: false)
+            handle.complete(success: false)
             return
         }
         pendingWork = nil
         let job = Task {
             await work { progress in handle.report(progress) }
         }
-        handle.task.expirationHandler = { job.cancel() }
+        handle.task.expirationHandler = {
+            // The system wants the task finished now, not once the work winds down.
+            job.cancel()
+            handle.complete(success: false)
+        }
         Task {
             let success = await job.value
-            handle.task.setTaskCompleted(success: success)
+            handle.complete(success: success)
         }
     }
 }
 
 /// The system's task, handed between its queue and the main actor. Its progress
-/// object is thread-safe; nothing else is touched concurrently.
-private struct TaskHandle: @unchecked Sendable {
+/// object is thread-safe, and completion is guarded so it's reported once.
+private final class TaskHandle: @unchecked Sendable {
     let task: BGTask
+    private let lock = NSLock()
+    private var isCompleted = false
+
+    init(task: BGTask) {
+        self.task = task
+    }
+
+    func complete(success: Bool) {
+        let first = lock.withLock {
+            defer { isCompleted = true }
+            return !isCompleted
+        }
+        if first { task.setTaskCompleted(success: success) }
+    }
 
     func report(_ progress: RescueProgress) {
         guard let task = task as? BGContinuedProcessingTask else { return }

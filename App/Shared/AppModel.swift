@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import Network
 import Observation
 import Model
 import Capture
@@ -56,7 +57,15 @@ final class AppModel {
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
-    private static let drainBatch = 25
+    /// Wakes the pipeline when a postponed job (a fetch that failed offline) is due.
+    @ObservationIgnored private var wake: Task<Void, Never>?
+    @ObservationIgnored private var pathMonitor: NWPathMonitor?
+    @ObservationIgnored private var wasOnline: Bool?
+    @ObservationIgnored private var powerObservers: [any NSObjectProtocol] = []
+    @ObservationIgnored private var lastPowerBudget = PowerBudget.full
+    /// Whether Apple Intelligence was ready last time we looked, to catch it becoming
+    /// ready (its model finished downloading, it was turned on) while the app runs.
+    @ObservationIgnored private var wasIntelligenceAvailable = false
 
     init(database: LibraryDatabase, store: EnvelopeStore = EnvelopeStore()) {
         self.store = store
@@ -146,12 +155,16 @@ final class AppModel {
 
     static func live() -> AppModel {
         do {
-            return AppModel(database: try LibraryDatabase.onDisk(at: AppGroup.databaseURL))
+            let url = LibraryDatabase.moveLegacyDatabase(from: AppGroup.legacyDatabaseURL, to: LibraryDatabase.defaultURL)
+            return AppModel(database: try LibraryDatabase.onDisk(at: url))
         } catch {
             // Keep the UI usable and surface the problem instead of crashing at launch.
             // swiftlint:disable:next force_try
             let model = AppModel(database: try! LibraryDatabase.inMemory())
             model.startupError = error.localizedDescription
+            // Rescued screenshots would only reach the throwaway library, and "Clean Up
+            // Photos" could then delete originals the real one never got.
+            model.rescue = nil
             return model
         }
     }
@@ -166,14 +179,14 @@ final class AppModel {
         // Items in the Trash longer than 30 days are deleted for good.
         _ = try? await repository.purgeTrash(itemsDirectory: AppGroup.itemsURL)
         await updateSync()
-        if IntelligenceStatus.current == .available {
-            // Items understood without the model (or with an older prompt) get another pass.
-            await pipeline.requeueStaleUnderstanding()
-            await pipeline.requeueStaleBriefs()
-        }
+        await requeueForModelIfReady()
         // Items saved before the embedding model was on the device, or embedded by
         // a model an OS update replaced, get vectors for semantic search.
         await pipeline.requeueStaleEmbeddings()
+        // Links saved offline whose page never arrived get another try.
+        await pipeline.requeueMissingPages()
+        watchNetwork()
+        watchPower()
         feedWidget()
         if watcher == nil {
             let watcher = InboxWatcher(url: store.inboxURL) { [weak self] in
@@ -219,8 +232,23 @@ final class AppModel {
         // A subscription can lapse while the app runs; StoreKit sends no update for that.
         await pro.refresh()
         guard startupError == nil else { return }
+        await requeueForModelIfReady()
         await rescue?.importNew()
         await processInbox()
+    }
+
+    /// Items understood without the model (or with an older prompt), and Briefs written
+    /// without it, get another pass once the model is ready: at launch, or when it
+    /// becomes ready while the app runs.
+    private func requeueForModelIfReady() async {
+        let isAvailable = IntelligenceStatus.current == .available
+        let becameAvailable = isAvailable && !wasIntelligenceAvailable
+        // Before awaiting: launch calls this from start() and becameActive() at once,
+        // and only one of them should queue the work.
+        wasIntelligenceAvailable = isAvailable
+        guard becameAvailable else { return }
+        await pipeline.requeueStaleUnderstanding()
+        await pipeline.requeueStaleBriefs()
     }
 
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
@@ -231,22 +259,103 @@ final class AppModel {
             return
         }
         isProcessing = true
-        defer { isProcessing = false }
+        // Its own task: a caller being cancelled (an expiring background task) mustn't
+        // cut a pass short, drop the passes folded into it, or lose the next wake.
+        let run = Task {
+            await self.runPasses()
+            // Straight after the last check of `needsAnotherPass`, with no suspension in
+            // between, so a save that arrives now starts a new run rather than being missed.
+            self.isProcessing = false
+            await self.scheduleWake()
+        }
+        await run.value
+    }
+
+    private func runPasses() async {
         repeat {
             needsAnotherPass = false
             // Each stage runs even if the one before it failed.
             do {
-                try await ingestor.ingestPending()
+                let report = try await ingestor.ingestPendingReportingFailures()
+                lastError = report.lastFailure?.localizedDescription
             } catch {
                 lastError = error.localizedDescription
             }
-            // A full batch means more is waiting (e.g. a screenshot rescue): go round again.
-            if await pipeline.drain(limit: Self.drainBatch) == Self.drainBatch {
+            // What's still waiting couldn't be added; the Inbox says so, and why.
+            let waiting = ingestor.waitingCount()
+            CaptureStatus.shared.stuckCount = waiting
+            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+            // A full batch means more is waiting (e.g. a screenshot rescue): go round again,
+            // unless the device is hot or in Low Power Mode, when a few jobs at a time will do.
+            let budget = PowerBudget.current
+            if budget.batchSize > 0, await pipeline.drain(limit: budget.batchSize) == budget.batchSize, budget == .full {
                 needsAnotherPass = true
             }
-            // Suggested groups and Briefs follow the items they're built from.
-            await pipeline.maintainGroups(writesBriefs: pro.isPro)
+            // Suggested groups and Briefs follow the items they're built from. Not while the
+            // device is critically hot; no model-written Briefs while it's warm or saving power.
+            if budget != .paused {
+                await pipeline.maintainGroups(writesBriefs: pro.isPro && budget == .full)
+            }
             await rescheduleMoments()
         } while needsAnotherPass
+    }
+
+    /// Runs the pipeline again when the next postponed job is due, while the app runs
+    /// (the Mac app can run for weeks).
+    private func scheduleWake() async {
+        wake?.cancel()
+        guard let due = await pipeline.nextDueDate() else { return }
+        // At least a few seconds out, so a job due now can't make this spin; minutes
+        // out while the device is hot or in Low Power Mode.
+        let delay = min(max(due.timeIntervalSinceNow, PowerBudget.current.minimumWakeDelay), 6 * 60 * 60)
+        wake = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            // This task is done waiting: the run it starts must not cancel it as the
+            // previous wake (which would stop the chain of wakes).
+            self.wake = nil
+            await self.processInbox()
+        }
+    }
+
+    /// Cooler, or out of Low Power Mode: catch up on what waited.
+    private func watchPower() {
+        guard powerObservers.isEmpty else { return }
+        lastPowerBudget = PowerBudget.current
+        let names = [ProcessInfo.thermalStateDidChangeNotification, Notification.Name.NSProcessInfoPowerStateDidChange]
+        powerObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in await self.powerChanged() }
+            }
+        }
+    }
+
+    private func powerChanged() async {
+        let budget = PowerBudget.current
+        defer { lastPowerBudget = budget }
+        guard budget == .full, lastPowerBudget != .full else { return }
+        await processInbox()
+    }
+
+    /// Back online: links saved meanwhile get their pages now instead of after backoff.
+    private func watchNetwork() {
+        guard pathMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let online = path.status == .satisfied
+            Task { @MainActor in await self.networkChanged(online: online) }
+        }
+        monitor.start(queue: DispatchQueue(label: "com.nextmark.app.network"))
+        pathMonitor = monitor
+    }
+
+    private func networkChanged(online: Bool) async {
+        defer { wasOnline = online }
+        guard online, wasOnline == false else { return }
+        await pipeline.retryFetchesNow()
+        await pipeline.requeueMissingPages()
+        await processInbox()
     }
 }

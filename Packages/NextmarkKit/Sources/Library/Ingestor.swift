@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import os
 import GRDB
 import Model
 import Capture
@@ -26,10 +27,18 @@ public struct Ingestor: Sendable {
         self.itemsDirectory = itemsDirectory
     }
 
+    static let logger = Logger(subsystem: "com.nextmark.app", category: "ingest")
+
     /// Ingests every committed capture, oldest first. Returns the new item IDs.
     @discardableResult
     public func ingestPending(now: Date = Date()) async throws -> [String] {
+        try await ingestPendingReportingFailures(now: now).ingested
+    }
+
+    /// Like `ingestPending`, and says why the last capture that couldn't be added failed.
+    public func ingestPendingReportingFailures(now: Date = Date()) async throws -> (ingested: [String], lastFailure: (any Error)?) {
         var ingested: [String] = []
+        var lastFailure: (any Error)?
         for capture in try store.committedCaptures() {
             // One capture that fails (e.g. its files can't be moved) stays in the Inbox for
             // the next pass; it doesn't hold up the others.
@@ -37,11 +46,20 @@ public struct Ingestor: Sendable {
                 try await ingest(capture, now: now)
                 ingested.append(capture.envelope.id.rawValue)
             } catch {
-                continue
+                Self.logger.error("Couldn't add capture \(capture.envelope.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                lastFailure = error
             }
         }
         try store.collectGarbage(now: now)
-        return ingested
+        return (ingested, lastFailure)
+    }
+
+    /// Saves still waiting in the Inbox after a pass: the ones that couldn't be added.
+    /// Ones committed in the last minute are left out; they may simply have arrived
+    /// during the pass.
+    public func waitingCount(now: Date = Date()) -> Int {
+        let captures = (try? store.committedCaptures()) ?? []
+        return captures.filter { now.timeIntervalSince($0.envelope.id.date) > 60 }.count
     }
 
     func ingest(_ capture: CommittedCapture, now: Date) async throws {

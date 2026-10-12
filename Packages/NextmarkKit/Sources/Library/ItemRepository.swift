@@ -138,6 +138,24 @@ public struct ItemRepository: Sendable {
         }
     }
 
+    /// Links saved since `since` whose page never arrived (saved offline, say), with
+    /// nothing queued for them.
+    public func linkIDsNeedingExtraction(below version: Int, since: Date, limit: Int = 100) async throws -> [String] {
+        try await database.writer.read { db in
+            try String.fetchAll(
+                db,
+                sql: """
+                    SELECT id FROM item
+                    WHERE kind = ? AND extractVersion < ? AND status <> 'trashed' AND createdAt > ?
+                      AND NOT EXISTS (SELECT 1 FROM job WHERE job.itemID = item.id)
+                    ORDER BY createdAt DESC
+                    LIMIT ?
+                    """,
+                arguments: [ItemKind.link.rawValue, version, since, limit]
+            )
+        }
+    }
+
     /// Items whose understanding is older than `version` (or provisional, version 0)
     /// and that have no enrichment job pending — the backlog to re-run when the
     /// on-device model becomes available or the prompt changes.
@@ -149,10 +167,11 @@ public struct ItemRepository: Sendable {
                     SELECT id FROM item
                     WHERE derivedVersion < ? AND status <> 'trashed'
                       AND NOT EXISTS (SELECT 1 FROM job WHERE job.itemID = item.id)
+                      AND \(LibraryDatabase.notSkipped(.understand, column: "item.id"))
                     ORDER BY createdAt DESC
                     LIMIT ?
                     """,
-                arguments: [version, limit]
+                arguments: [version, LibraryDatabase.osVersion, limit]
             )
         }
     }
