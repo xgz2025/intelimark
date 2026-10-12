@@ -177,7 +177,7 @@ public struct SyncStore: Sendable {
     public func apply(_ records: [SyncRecord], deletions: [RecordKey] = []) async throws -> SyncApplyResult {
         guard !records.isEmpty || !deletions.isEmpty else { return SyncApplyResult() }
         let directory = itemsDirectory
-        return try await database.writer.write { db in
+        let applied = try await database.writer.write { db in
             try db.execute(sql: "UPDATE syncControl SET applying = 1")
             var result = SyncApplyResult()
             let order = Dictionary(uniqueKeysWithValues: SyncCatalog.tables.enumerated().map { ($1.recordType, $0) })
@@ -198,6 +198,12 @@ public struct SyncStore: Sendable {
             try db.execute(sql: "UPDATE syncControl SET applying = 0")
             return result
         }
+        // Items deleted for good on another device: their files go here too, once the
+        // deletion is committed.
+        for id in applied.deletedItemIDs {
+            ItemRepository.removeFiles(ofItem: id, in: directory)
+        }
+        return applied
     }
 
     static func apply(_ record: SyncRecord, in db: Database, result: inout SyncApplyResult) throws {

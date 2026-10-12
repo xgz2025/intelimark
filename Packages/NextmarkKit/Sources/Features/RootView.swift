@@ -14,7 +14,7 @@ import Moments
 import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, screenshots, settings
+    case inbox, nextActions, review, search, suggestions, screenshots, trash, settings
     case group(String)
 }
 
@@ -30,6 +30,7 @@ public struct RootView: View {
     @State private var groups: [GroupSummary] = []
     @State private var suggestionCount = 0
     @State private var openActionCount = 0
+    @State private var trashCount = 0
     @State private var showsNewGroup = false
 
     /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
@@ -85,6 +86,11 @@ public struct RootView: View {
                 openActionCount = actions.count
             }
         }
+        .task {
+            for await count in services.items.trashCount().ignoringErrors() {
+                trashCount = count
+            }
+        }
         .sheet(isPresented: $showsNewGroup) {
             NewGroupSheet(services: services) { id in
                 selection = .group(id)
@@ -131,12 +137,15 @@ public struct RootView: View {
                 }
                 .buttonStyle(.borderless)
             }
-            #if os(iOS)
             Section {
+                Label("Trash", systemImage: "trash")
+                    .badge(trashCount)
+                    .tag(SidebarSelection.trash)
+                #if os(iOS)
                 Label("Settings", systemImage: "gearshape")
                     .tag(SidebarSelection.settings)
+                #endif
             }
-            #endif
         }
         .navigationTitle("Nextmark")
     }
@@ -158,6 +167,8 @@ public struct RootView: View {
             if let rescue {
                 ScreenshotRescueView(services: services, controller: rescue)
             }
+        case .trash:
+            TrashView(services: services)
         case .settings:
             SettingsView(onChange: services.refresh, onSyncNow: services.syncNow)
         case .group(let id):

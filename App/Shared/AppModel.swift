@@ -163,6 +163,8 @@ final class AppModel {
         hasStarted = true
         await pro.start()
         guard startupError == nil else { return }
+        // Items in the Trash longer than 30 days are deleted for good.
+        _ = try? await repository.purgeTrash(itemsDirectory: AppGroup.itemsURL)
         await updateSync()
         if IntelligenceStatus.current == .available {
             // Items understood without the model (or with an older prompt) get another pass.

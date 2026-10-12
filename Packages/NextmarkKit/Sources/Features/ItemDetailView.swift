@@ -165,6 +165,13 @@ struct ItemDetailView: View {
                     Button("Mark as Done", systemImage: "checkmark.circle") { setStatus(.done) }
                 }
             }
+            ToolbarItem(placement: .secondaryAction) {
+                if item.status == .trashed {
+                    Button("Restore", systemImage: "arrow.uturn.backward") { setStatus(.active) }
+                } else {
+                    Button("Move to Trash", systemImage: "trash", role: .destructive) { setStatus(.trashed) }
+                }
+            }
         }
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)

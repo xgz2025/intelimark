@@ -209,6 +209,12 @@ extension LibraryDatabase {
                 t.column("notBefore", .datetime).notNull().indexed()
             }
 
+            // Local only: Photos screenshots deleted from the library for good, so Screenshot
+            // Rescue doesn't bring them back while they're still in Photos.
+            try db.create(table: "ignoredAsset") { t in
+                t.primaryKey("assetID", .text)
+            }
+
             // iCloud sync bookkeeping and change tracking (Docs/architecture.md §4.3).
             try SyncCatalog.createSchema(db)
         }
