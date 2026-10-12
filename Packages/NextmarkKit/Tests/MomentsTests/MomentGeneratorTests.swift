@@ -112,6 +112,15 @@ struct MomentGeneratorTests {
         #expect(moments(reviewCount: 6, settings: settings).isEmpty)
     }
 
+    @Test func withoutProOnlyTheWeeklyReviewComesBack() {
+        let sale = item("Aeron chair", dates: [ItemDate(date: clock.date(20), hasTime: false, role: .expiry, source: .structured)], createdAt: clock.now)
+        let due = ActionContext(action: ActionRecord(title: "Book a table", dueAt: clock.date(12, 15)))
+        var settings = MomentSettings()
+        settings.includesTimeMoments = false
+        let found = moments(items: [sale], actions: [due], reviewCount: 3, settings: settings)
+        #expect(found.map(\.reason) == [.weeklyReview])
+    }
+
     @Test func settingsAreReadFromDefaults() throws {
         let suite = "MomentSettingsTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

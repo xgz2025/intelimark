@@ -65,12 +65,15 @@ targets:
       - package: NextmarkKit
         product: Integrations
       - package: NextmarkKit
+        product: Store
+      - package: NextmarkKit
         product: Features
       - target: ShareExtension-iOS
       - target: SafariExtension-iOS
       - target: Widgets-iOS
     scheme:
       gatherCoverageData: false
+      storeKitConfiguration: App/Nextmark.storekit
 
   ShareExtension-iOS:
     type: app-extension
@@ -174,6 +177,8 @@ targets:
       - package: NextmarkKit
         product: Integrations
       - package: NextmarkKit
+        product: Store
+      - package: NextmarkKit
         product: Features
       - package: NextmarkKit
         product: CaptureUI
@@ -184,6 +189,7 @@ targets:
       - target: Widgets-macOS
     scheme:
       gatherCoverageData: false
+      storeKitConfiguration: App/Nextmark.storekit
 
   ShareExtension-macOS:
     type: app-extension

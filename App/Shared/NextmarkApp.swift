@@ -24,6 +24,7 @@ struct NextmarkApp: App {
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
             RootView(services: model.services, navigator: model.navigator, rescue: model.rescue)
+                .environment(model.pro)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
@@ -37,6 +38,7 @@ struct NextmarkApp: App {
         }
         Settings {
             MacSettingsView(onChange: model.services.refresh, onSyncNow: model.services.syncNow)
+                .environment(model.pro)
         }
         #endif
     }

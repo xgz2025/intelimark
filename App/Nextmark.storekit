@@ -1,0 +1,81 @@
+{
+  "identifier": "6C1F3A2E",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "79.99",
+      "familyShareable": false,
+      "internalID": "6740000003",
+      "localizations": [
+        {
+          "description": "Every Pro feature, for good.",
+          "displayName": "Nextmark Pro Lifetime",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.nextmark.app.pro.lifetime",
+      "referenceName": "Pro Lifetime",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA"
+  },
+  "subscriptionGroups": [
+    {
+      "id": "21500001",
+      "localizations": [],
+      "name": "Nextmark Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6740000002",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Moments, Briefs and unlimited smart groups.",
+              "displayName": "Nextmark Pro Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.nextmark.app.pro.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "Pro Yearly",
+          "subscriptionGroupID": "21500001",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "3.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6740000001",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Moments, Briefs and unlimited smart groups.",
+              "displayName": "Nextmark Pro Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "com.nextmark.app.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Pro Monthly",
+          "subscriptionGroupID": "21500001",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}

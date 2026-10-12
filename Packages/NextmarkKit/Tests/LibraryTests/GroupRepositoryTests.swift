@@ -121,6 +121,28 @@ struct GroupRepositoryTests {
         #expect(accepted.memberCount == 3)
     }
 
+    @Test func freeKeepsThreeSmartGroups() async throws {
+        let items = try await insertThree()
+        var ids: [String] = []
+        for title in ["Kyoto", "Desk", "Ramen", "Garden"] {
+            ids.append(try await groups.addSuggestedGroup(title: title, itemIDs: items, score: 0.7, now: now))
+        }
+        for id in ids.prefix(3) {
+            try await groups.acceptSuggestion(id, smartGroupLimit: 3, now: now)
+        }
+        await #expect(throws: GroupLimitReached(limit: 3)) {
+            try await groups.acceptSuggestion(ids[3], smartGroupLimit: 3, now: now)
+        }
+        #expect(try await summary(ids[3], states: [.suggested]) != nil)
+
+        // A finished group frees its place; Pro has no limit at all.
+        try await groups.setStatus(.done, forGroup: ids[0], now: now)
+        try await groups.acceptSuggestion(ids[3], smartGroupLimit: 3, now: now)
+        let more = try await groups.addSuggestedGroup(title: "Books", itemIDs: items, score: 0.7, now: now)
+        try await groups.acceptSuggestion(more, smartGroupLimit: nil, now: now)
+        #expect(try await summary(more, states: [.accepted]) != nil)
+    }
+
     @Test func dismissedSuggestionsAreRemembered() async throws {
         let items = try await insertThree()
         let id = try await groups.addSuggestedGroup(title: nil, itemIDs: items, now: now)

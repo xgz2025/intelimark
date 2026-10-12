@@ -65,13 +65,16 @@ extension PipelineRunner {
 
     /// Proposes new groups (at most every 30 minutes, or when forced) and writes the
     /// Briefs of groups whose members changed. Call after draining the queue.
-    public func maintainGroups(now: Date = Date(), force: Bool = false) async {
+    /// - Parameter writesBriefs: Briefs are a Pro feature (PRD P4); without Pro none are written.
+    public func maintainGroups(now: Date = Date(), force: Bool = false, writesBriefs: Bool = true) async {
         let due = lastDiscovery.map { now.timeIntervalSince($0) >= Self.discoveryInterval } ?? true
         if force || due {
             lastDiscovery = now
             await discoverGroups(now: now)
         }
-        await writeBriefs(now: now)
+        if writesBriefs {
+            await writeBriefs(now: now)
+        }
     }
 
     /// Queues Briefs written without the model (or with an older prompt) to be

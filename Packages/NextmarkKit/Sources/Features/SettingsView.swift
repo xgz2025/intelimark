@@ -12,6 +12,8 @@ import SwiftUI
 import Intelligence
 import Library
 import Moments
+import Store
+import StoreKit
 
 public struct SettingsView: View {
     /// Called when a setting that affects scheduling or sync changes.
@@ -30,6 +32,10 @@ public struct SettingsView: View {
     @AppStorage(SyncSettings.Key.lastSyncedAt) private var lastSyncedAt: Double = 0
     @AppStorage(SyncSettings.Key.status) private var syncStatus = ""
     @State private var isSyncing = false
+    @State private var showsPaywall = false
+    @State private var showsManageSubscriptions = false
+    @Environment(ProAccess.self) private var pro: ProAccess?
+    @Environment(\.openURL) private var openURL
 
     public init(onChange: @escaping @Sendable () async -> Void = {}, onSyncNow: @escaping @Sendable () async -> Void = {}) {
         self.onChange = onChange
@@ -39,6 +45,27 @@ public struct SettingsView: View {
     public var body: some View {
         Form {
             Section {
+                if pro?.isPro == true {
+                    LabeledContent("Nextmark Pro") { Text("Active") }
+                    Button("Manage Subscription") { showsManageSubscriptions = true }
+                } else {
+                    Button("Upgrade to Pro", systemImage: "sparkles") { showsPaywall = true }
+                    Button("Restore Purchases") {
+                        let pro = pro
+                        Task { try? await pro?.restore() }
+                    }
+                }
+            } header: {
+                Text("Nextmark Pro")
+            } footer: {
+                if pro?.isPro != true {
+                    Text("Pro adds Moments, Briefs and unlimited smart groups. Saving, search, sync and the Weekly Review are always free.")
+                }
+            }
+            Section {
+                if pro?.isPro != true {
+                    ProUpsellRow(text: "Date reminders come with Pro", reason: "Moments bring saves back when they matter.")
+                }
                 Toggle("Remind Me About Dates in My Saves", isOn: $momentsEnabled)
                 if momentsEnabled {
                     Stepper("At most \(maxPerDay) a day", value: $maxPerDay, in: 1...6)
@@ -100,6 +127,19 @@ public struct SettingsView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+        .sheet(isPresented: $showsPaywall) {
+            ProPaywallView()
+        }
+        #if os(iOS)
+        .manageSubscriptionsSheet(isPresented: $showsManageSubscriptions)
+        #else
+        .onChange(of: showsManageSubscriptions) {
+            if showsManageSubscriptions {
+                showsManageSubscriptions = false
+                openURL(URL(string: "https://apps.apple.com/account/subscriptions")!)
+            }
+        }
+        #endif
         .onChange(of: settingsFingerprint) {
             let onChange = onChange
             Task { await onChange() }
