@@ -25,6 +25,7 @@ public struct MomentSettings: Sendable, Equatable {
         public static let reviewHour = "moments.reviewHour"
     }
 
+    /// Date, plan and action reminders ("Remind Me About Dates in My Saves").
     public var isEnabled = true
     public var policy = MomentPolicy()
     public var isReviewEnabled = true
@@ -71,7 +72,7 @@ public struct MomentGenerator: Sendable {
         now: Date
     ) -> [MomentCandidate] {
         var candidates: [MomentCandidate] = []
-        if settings.includesTimeMoments {
+        if settings.isEnabled && settings.includesTimeMoments {
             for item in items where item.status == .inbox || item.status == .active {
                 candidates += itemMoments(item, now: now)
             }

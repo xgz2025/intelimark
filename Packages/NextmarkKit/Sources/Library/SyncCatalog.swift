@@ -132,7 +132,9 @@ public enum SyncCatalog {
             latestColumns: [],
             localColumns: [],
             sendCondition: "itemID IN (\(cloudItems))",
-            keepCondition: "locked = 1 OR excluded = 1",
+            // Memberships are only ever deleted with their group (delete or merge), which the
+            // user does; the AI never deletes one. So a deletion is always honoured.
+            keepCondition: nil,
             stampOnInsert: "NEW.locked = 1 OR NEW.excluded = 1"
         ),
         SyncTable(

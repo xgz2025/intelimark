@@ -96,10 +96,7 @@ public struct MomentsEngine: Sendable {
     /// at launch, and when settings change. Returns what was scheduled.
     @discardableResult
     public func reschedule(settings: MomentSettings, now: Date = Date()) async throws -> [MomentCandidate] {
-        guard settings.isEnabled else {
-            await scheduler.replaceMoments(with: [])
-            return []
-        }
+        // Date reminders off still leaves the Weekly Review, which has its own switch.
         let candidates = generator.candidates(
             items: try await items.itemsWithDates(),
             plans: try await groups.plans(),

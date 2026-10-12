@@ -81,7 +81,10 @@ public struct GroupDiscovery: Sendable {
         while true {
             var best: (i: Int, j: Int, value: Float)?
             for i in 0..<n where active[i] {
-                for j in (i + 1)..<n where active[j] && similarity[i][j] >= mergeThreshold {
+                // Never grow past the largest group worth suggesting: a big topic stays as
+                // several suggestions instead of one that's thrown away.
+                for j in (i + 1)..<n where active[j] && similarity[i][j] >= mergeThreshold
+                    && members[i].count + members[j].count <= maximumSize {
                     if similarity[i][j] > (best?.value ?? -.infinity) {
                         best = (i, j, similarity[i][j])
                     }

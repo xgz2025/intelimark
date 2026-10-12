@@ -61,6 +61,7 @@ struct ItemDetailView: View {
                         .frame(maxWidth: .infinity, maxHeight: 280)
                         .clipShape(.rect(cornerRadius: 8))
                         .accessibilityHidden(true)
+                        .id(item.updatedAt)
                     }
                     Text(item.displayTitle)
                         .font(.title2.bold())

@@ -48,10 +48,12 @@ struct MomentsEngineTests {
         #expect(await scheduler.plans.last == plan)
     }
 
-    @Test func turnedOffMeansNothingScheduled() async throws {
+    @Test func dateRemindersOffLeavesTheWeeklyReview() async throws {
         try await insert(item("Sale", dates: [ItemDate(date: clock.date(20), hasTime: false, role: .expiry, source: .structured)], createdAt: clock.now))
         var settings = MomentSettings()
         settings.isEnabled = false
+        #expect(try await engine.reschedule(settings: settings, now: clock.now).map(\.reason) == [.weeklyReview])
+        settings.isReviewEnabled = false
         #expect(try await engine.reschedule(settings: settings, now: clock.now).isEmpty)
         #expect(await scheduler.plans.last == [])
     }

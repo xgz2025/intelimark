@@ -33,6 +33,7 @@ public struct SettingsView: View {
     @AppStorage(SyncSettings.Key.status) private var syncStatus = ""
     @State private var isSyncing = false
     @State private var showsPaywall = false
+    @State private var showsAcknowledgements = false
     @State private var showsManageSubscriptions = false
     @Environment(ProAccess.self) private var pro: ProAccess?
     @Environment(\.openURL) private var openURL
@@ -113,7 +114,7 @@ public struct SettingsView: View {
             } header: {
                 Text("iCloud")
             } footer: {
-                Text("Your library syncs through your private iCloud database, end-to-end encrypted. Nextmark has no server. Without original files, titles, notes, text and AI results still sync, using little iCloud space.")
+                Text("Your library syncs through your private iCloud database; Nextmark has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
             }
             Section("Apple Intelligence") {
                 LabeledContent("On-device model", value: IntelligenceStatus.current.description)
@@ -123,12 +124,18 @@ public struct SettingsView: View {
                     "Version",
                     value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
                 )
+                Link("Support", destination: NextmarkLinks.support)
+                Link("Privacy Policy", destination: NextmarkLinks.privacy)
+                Button("Acknowledgements") { showsAcknowledgements = true }
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
         .sheet(isPresented: $showsPaywall) {
             ProPaywallView()
+        }
+        .sheet(isPresented: $showsAcknowledgements) {
+            AcknowledgementsView()
         }
         #if os(iOS)
         .manageSubscriptionsSheet(isPresented: $showsManageSubscriptions)

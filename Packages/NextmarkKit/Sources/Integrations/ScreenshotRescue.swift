@@ -104,13 +104,14 @@ public actor ScreenshotRescue {
         while start < pending.endIndex {
             try Task.checkCancellation()
             let batch = pending[start..<min(start + Self.batchSize, pending.endIndex)]
-            var screenshots: [ImportedScreenshot] = []
+            // One at a time: a batch of full-size iPad screenshots held in memory together
+            // could get the background task stopped.
             for ref in batch {
-                if let screenshot = await source.load(ref) { screenshots.append(screenshot) }
+                guard let screenshot = await source.load(ref) else { continue }
+                imported += try await importer.importScreenshots(
+                    [screenshot], recentSince: now.addingTimeInterval(-Self.recentInterval), now: now
+                ).count
             }
-            imported += try await importer.importScreenshots(
-                screenshots, recentSince: now.addingTimeInterval(-Self.recentInterval), now: now
-            ).count
             start = batch.endIndex
             progress.done = start - pending.startIndex
             await onBatch(progress)

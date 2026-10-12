@@ -69,7 +69,8 @@ public struct ProPaywallView: View {
                             }
                         }
                         Spacer()
-                        Link("Terms of Use", destination: Self.termsOfUse)
+                        Link("Privacy Policy", destination: NextmarkLinks.privacy)
+                        Link("Terms of Use", destination: NextmarkLinks.termsOfUse)
                     }
                     .font(.footnote)
                 }
@@ -101,8 +102,6 @@ public struct ProPaywallView: View {
         #endif
     }
 
-    /// Apple's standard licence agreement.
-    static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 }
 
 private struct ProFeatureRow<Detail: View>: View {

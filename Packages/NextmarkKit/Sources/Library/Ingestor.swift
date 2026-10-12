@@ -31,8 +31,14 @@ public struct Ingestor: Sendable {
     public func ingestPending(now: Date = Date()) async throws -> [String] {
         var ingested: [String] = []
         for capture in try store.committedCaptures() {
-            try await ingest(capture, now: now)
-            ingested.append(capture.envelope.id.rawValue)
+            // One capture that fails (e.g. its files can't be moved) stays in the Inbox for
+            // the next pass; it doesn't hold up the others.
+            do {
+                try await ingest(capture, now: now)
+                ingested.append(capture.envelope.id.rawValue)
+            } catch {
+                continue
+            }
         }
         try store.collectGarbage(now: now)
         return ingested

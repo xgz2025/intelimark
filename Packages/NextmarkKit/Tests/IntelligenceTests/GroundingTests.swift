@@ -111,6 +111,14 @@ struct GroundingTests {
         #expect(dates.isEmpty)
     }
 
+    @Test func theSameDayInAnotherMonthIsNotEvidence() {
+        let dates = Grounding.dates(
+            from: [DateCandidate(evidence: "Sat, Nov 21, 2026", isoDate: "2026-10-21", role: .eventStart)],
+            in: source
+        )
+        #expect(dates.isEmpty)
+    }
+
     @Test func dropsUnparseableDates() {
         let dates = Grounding.dates(
             from: [DateCandidate(evidence: "Nov 21, 2026", isoDate: "next Saturday", role: .eventStart)],

@@ -12,9 +12,21 @@
 import Darwin
 import Foundation
 
-/// Watches the Inbox directory and calls `onChange` when a capture surface adds
-/// an envelope, so a running app ingests immediately. Works across processes
-/// (share extension, Safari extension, Services) without Darwin notifications.
+/// Says across processes that a capture was committed (Docs/architecture.md §3.1). The
+/// name starts with the App Group, which sandboxed apps require for Darwin notifications.
+public enum InboxSignal {
+    static let name = "group.com.nextmark.app.inbox-changed" as CFString
+
+    public static func post() {
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(), CFNotificationName(name), nil, nil, true
+        )
+    }
+}
+
+/// Calls `onChange` when a capture surface commits an envelope, so a running app
+/// ingests immediately: on the Inbox directory's own changes, and on `InboxSignal`
+/// from the extensions (which commit inside a subdirectory).
 public final class InboxWatcher: @unchecked Sendable {
     private let url: URL
     private let onChange: @Sendable () -> Void
@@ -27,6 +39,10 @@ public final class InboxWatcher: @unchecked Sendable {
     }
 
     deinit {
+        CFNotificationCenterRemoveObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
+            CFNotificationName(InboxSignal.name), nil
+        )
         source?.cancel()
     }
 
@@ -45,13 +61,31 @@ public final class InboxWatcher: @unchecked Sendable {
             source.resume()
             self.source = source
         }
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            { _, observer, _, _, _ in
+                guard let observer else { return }
+                Unmanaged<InboxWatcher>.fromOpaque(observer).takeUnretainedValue().signalled()
+            },
+            InboxSignal.name, nil, .deliverImmediately
+        )
     }
 
     public func stop() {
+        CFNotificationCenterRemoveObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
+            CFNotificationName(InboxSignal.name), nil
+        )
         queue.sync {
             source?.cancel()
             source = nil
         }
+    }
+
+    private func signalled() {
+        let onChange = onChange
+        queue.async { onChange() }
     }
 }
 #endif

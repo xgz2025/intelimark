@@ -36,7 +36,11 @@
           "familyShareable": false,
           "groupNumber": 1,
           "internalID": "6740000002",
-          "introductoryOffer": null,
+          "introductoryOffer": {
+            "internalID": "6740000010",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
           "localizations": [
             {
               "description": "Moments, Briefs and unlimited smart groups.",
@@ -57,7 +61,11 @@
           "familyShareable": false,
           "groupNumber": 1,
           "internalID": "6740000001",
-          "introductoryOffer": null,
+          "introductoryOffer": {
+            "internalID": "6740000011",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P1W"
+          },
           "localizations": [
             {
               "description": "Moments, Briefs and unlimited smart groups.",

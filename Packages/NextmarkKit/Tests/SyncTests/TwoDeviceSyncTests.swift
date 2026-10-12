@@ -183,25 +183,30 @@ struct TwoDeviceSyncTests {
         #expect(try await mac.pending().isEmpty)
     }
 
-    @Test func anotherDevicesAICantRemoveWhatTheUserConfirmed() async throws {
+    @Test func membershipDeletionsArriveWithTheirGroup() async throws {
         let itemID = try await phone.addItem("Ichiran")
-        let groupID = try await phone.groups.createGroup(title: "Tokyo food")
-        try await phone.groups.suggestMembership(itemID: itemID, groupID: groupID, score: 0.7)
+        let groupID = try await phone.groups.createGroup(title: "Tokyo food", itemIDs: [itemID])
         try await settle()
 
-        try await mac.groups.confirmItem(itemID, in: groupID)
-        // The phone's AI dropped its suggestion before hearing about the confirmation.
+        // The membership's deletion arrives in a batch before its group's.
         let key = RecordKey("Membership", "\(groupID)/\(itemID)")
         try await mac.store.apply([], deletions: [key])
-        #expect(try await mac.pending().map(\.key).contains(key))
-        try await settle()
+        #expect(try await mac.database.writer.read { db in try MembershipRecord.fetchCount(db) } == 0)
+        #expect(try await mac.pending().isEmpty)
+        try await mac.store.apply([], deletions: [RecordKey("Group", groupID)])
+        #expect(try await mac.groups.group(id: groupID) == nil)
+    }
 
-        for device in [phone, mac] {
-            let membership = try await device.database.writer.read { db in
-                try MembershipRecord.fetchOne(db, key: ["groupID": groupID, "itemID": itemID])
-            }
-            #expect(membership?.locked == true)
-        }
+    @Test func bothDevicesSuggestingTheSameGroupMakesOne() async throws {
+        let a = try await phone.addItem("Ichiran")
+        let b = try await phone.addItem("Afuri")
+        try await settle()
+        let fromPhone = try await phone.groups.addSuggestedGroup(title: "Ramen", itemIDs: [a, b])
+        let fromMac = try await mac.groups.addSuggestedGroup(title: "Ramen in Tokyo", itemIDs: [b, a])
+        #expect(fromPhone == fromMac)
+        try await settle()
+        let groups = try await mac.database.writer.read { db in try GroupRecord.fetchCount(db) }
+        #expect(groups == 1)
     }
 
     @Test func aDeletionAfterAnotherDevicesEditWins() async throws {

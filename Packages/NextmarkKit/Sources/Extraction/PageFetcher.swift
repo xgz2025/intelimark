@@ -61,6 +61,25 @@ public struct URLSessionPageFetcher: PageFetcher {
         session = URLSession(configuration: configuration)
     }
 
+    /// A page cut off at the size limit can end inside a multi-byte character, which
+    /// makes the whole page fail UTF-8 decoding and come out garbled.
+    static func dropIncompleteUTF8Tail(_ data: inout Data) {
+        // Walk back over continuation bytes (10xxxxxx) to the last character's first byte.
+        var index = data.endIndex
+        var continuation = 0
+        while index > data.startIndex, continuation < 3, data[index - 1] & 0b1100_0000 == 0b1000_0000 {
+            index -= 1
+            continuation += 1
+        }
+        guard index > data.startIndex else { return }
+        let lead = data[index - 1]
+        guard lead >= 0b1100_0000 else { return }
+        let length = lead >= 0b1111_0000 ? 4 : lead >= 0b1110_0000 ? 3 : 2
+        if continuation + 1 < length {
+            data.removeSubrange((index - 1)...)
+        }
+    }
+
     public func fetch(_ url: URL) async throws -> FetchedResource {
         let (bytes, response) = try await session.bytes(from: url)
         let http = response as? HTTPURLResponse
@@ -75,6 +94,9 @@ public struct URLSessionPageFetcher: PageFetcher {
         for try await byte in bytes {
             data.append(byte)
             if data.count >= limit { break }
+        }
+        if !isDocument, data.count >= limit {
+            Self.dropIncompleteUTF8Tail(&data)
         }
         return FetchedResource(
             data: data,

@@ -55,7 +55,9 @@ public actor ContextualEmbeddingProvider: EmbeddingProvider {
     }
 
     private func loadedModel(for language: NLLanguage?) async throws -> NLContextualEmbedding {
-        let candidate = language.flatMap { NLContextualEmbedding(language: $0) } ?? NLContextualEmbedding(language: .english)
+        // English only when no language was detected: a language without a model is
+        // skipped (full-text search still finds it), not embedded with the wrong one.
+        let candidate = language.map { NLContextualEmbedding(language: $0) } ?? NLContextualEmbedding(language: .english)
         guard let candidate else { throw EmbeddingError.unsupportedLanguage }
         if let loaded = models[candidate.modelIdentifier] { return loaded }
         if !candidate.hasAvailableAssets {

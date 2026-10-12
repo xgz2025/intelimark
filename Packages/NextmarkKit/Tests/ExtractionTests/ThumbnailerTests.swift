@@ -53,3 +53,16 @@ struct ThumbnailerTests {
         #expect(Thumbnailer.write(from: LocalFile(url: original, contentType: "public.plain-text"), to: thumbnail) == nil)
     }
 }
+
+struct PageDecodingTests {
+    @Test func aCharacterCutAtTheSizeLimitIsDropped() {
+        var cut = Data("東京".utf8)          // 6 bytes: two 3-byte characters
+        cut.removeLast()                      // the limit fell inside "京"
+        URLSessionPageFetcher.dropIncompleteUTF8Tail(&cut)
+        #expect(String(data: cut, encoding: .utf8) == "東")
+
+        var whole = Data("東京".utf8)
+        URLSessionPageFetcher.dropIncompleteUTF8Tail(&whole)
+        #expect(String(data: whole, encoding: .utf8) == "東京")
+    }
+}

@@ -26,7 +26,8 @@ final class ContinuedTaskRunner: LongTaskRunner {
         work: @escaping @Sendable (@escaping @Sendable (RescueProgress) -> Void) async -> Bool
     ) -> Bool {
         if !isRegistered {
-            isRegistered = BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifier, using: nil) { task in
+            // The system calls this on its own queue: it must not inherit this class's main-actor isolation.
+            isRegistered = BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.identifier, using: nil) { @Sendable task in
                 let handle = TaskHandle(task: task)
                 Task { @MainActor in self.launch(handle) }
             }
