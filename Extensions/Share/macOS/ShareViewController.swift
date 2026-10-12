@@ -42,8 +42,13 @@ final class ShareViewController: NSViewController {
 
     private func loadContent() async {
         let inputItems = extensionContext?.inputItems ?? []
-        let payloadDirectory = (try? store.makePayloadDirectory(for: captureID)) ?? FileManager.default.temporaryDirectory
-        draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
+        do {
+            let payloadDirectory = try store.makePayloadDirectory(for: captureID)
+            draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
+        } catch {
+            // Without the shared folder nothing can reach the app; say so rather than pretend.
+            draft.error = String(localized: "Nextmark can't save right now: \(error.localizedDescription)")
+        }
         draft.isLoading = false
     }
 
@@ -56,7 +61,8 @@ final class ShareViewController: NSViewController {
             )
             extensionContext?.completeRequest(returningItems: nil)
         } catch {
-            extensionContext?.cancelRequest(withError: error)
+            // Closing the sheet would look like a successful save: keep it open and say why.
+            draft.error = String(localized: "Couldn't save: \(error.localizedDescription)")
         }
     }
 

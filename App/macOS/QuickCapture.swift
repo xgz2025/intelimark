@@ -9,6 +9,8 @@
 //
 
 import AppKit
+import ImageIO
+import UniformTypeIdentifiers
 import SwiftUI
 import Observation
 import Model
@@ -97,19 +99,25 @@ final class QuickCaptureController {
     /// Menu bar → Save Clipboard: saves at once, without the panel.
     func saveClipboard() {
         let id = ULID()
-        var content = PasteboardCapture.content(from: .general, id: id, store: store)
-        guard !content.isEmpty else {
-            try? store.discard(id)
-            SavedHUD.show(String(localized: "The clipboard is empty"), systemImage: "clipboard")
-            return
-        }
-        content.sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        do {
-            try CaptureWriter.commit(content, id: id, surface: .quickCapture, store: store)
-            SavedHUD.show(String(localized: "Saved to Nextmark"))
-        } catch {
-            try? store.discard(id)
-            SavedHUD.show(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+        let snapshot = PasteboardCapture.snapshot(of: .general)
+        let sourceApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let store = store
+        Task {
+            // Copying a large file mustn't stall the menu bar.
+            var content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
+            guard !content.isEmpty else {
+                try? store.discard(id)
+                SavedHUD.show(String(localized: "The clipboard is empty"), systemImage: "clipboard")
+                return
+            }
+            content.sourceApp = sourceApp
+            do {
+                try CaptureWriter.commit(content, id: id, surface: .quickCapture, store: store)
+                SavedHUD.show(String(localized: "Saved to Nextmark"))
+            } catch {
+                try? store.discard(id)
+                SavedHUD.show(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
+            }
         }
     }
 
@@ -149,7 +157,13 @@ final class QuickCaptureSession {
         startOver(with: source)
         switch source {
         case .clipboard:
-            show(PasteboardCapture.content(from: .general, id: id, store: store))
+            let snapshot = PasteboardCapture.snapshot(of: .general)
+            let (id, store) = (id, store)
+            loading = Task {
+                let content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
+                guard !Task.isCancelled else { return }
+                show(content)
+            }
         case .screenshot:
             let display = ScreenshotCapture.displayUnderPointer()
             let id = id
@@ -174,23 +188,33 @@ final class QuickCaptureSession {
 
     /// Links, files and images dragged onto the panel replace its content.
     func drop(_ urls: [URL]) -> Bool {
+        guard !urls.isEmpty else { return false }
         startOver(with: .dropped)
-        var content = SharedContent()
-        for url in urls {
-            if url.isFileURL {
-                if let file = try? store.addPayloadFile(copying: url, for: id, index: content.files.count) {
-                    content.files.append(file)
-                }
-            } else if content.url == nil {
-                content.url = url
-            }
+        let snapshot = PasteboardCapture.Snapshot(
+            fileURLs: urls.filter(\.isFileURL), url: urls.first { !$0.isFileURL }
+        )
+        let (id, store) = (id, store)
+        loading = Task {
+            let content = await PasteboardCapture.content(from: snapshot, id: id, store: store)
+            let thumbnail = content.files.count == 1 ? await Self.thumbnail(of: snapshot.fileURLs.first) : nil
+            guard !Task.isCancelled else { return }
+            draft.thumbnail = thumbnail.map { Image(decorative: $0, scale: 1) }
+            show(content)
         }
-        content.useFileNameAsTitle()
-        if content.files.count == 1, let url = urls.first(where: \.isFileURL), let image = NSImage(contentsOf: url) {
-            draft.thumbnail = Image(nsImage: image)
-        }
-        show(content)
-        return !content.isEmpty
+        return true
+    }
+
+    /// A small preview of a dropped image, made without reading the whole file.
+    private nonisolated static func thumbnail(of url: URL?) async -> sending CGImage? {
+        guard let url, UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true,
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil)
+        else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 480,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
     func save() {

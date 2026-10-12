@@ -22,6 +22,8 @@ public final class CaptureDraft {
     public var intent: Intent?
     public var note = ""
     public var isLoading = true
+    /// Why the last attempt to save failed; Save stays available to try again.
+    public var error: String?
     /// Shown above the details, e.g. a screenshot about to be saved.
     public var thumbnail: Image?
 
@@ -62,6 +64,12 @@ public struct CaptureSheet<Accessory: View>: View {
             Form {
                 if Accessory.self != EmptyView.self {
                     Section { accessory }
+                }
+                if let error = draft.error {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                    }
                 }
                 Section { preview }
                 Section("Why are you saving this?") {

@@ -40,11 +40,11 @@ public enum ShareItemLoader {
                         loadURL(from: provider) { continuation.resume(returning: $0) }
                     }
                     if content.url == nil { content.url = url }
-                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier), !isFile(provider) {
                     let text = await withCheckedContinuation { continuation in
                         loadText(from: provider) { continuation.resume(returning: $0) }
                     }
-                    if let text { content.appendText(text) }
+                    if let text { content.appendText(String(text.prefix(maxInlineTextCharacters))) }
                 } else if let typeIdentifier = fileTypeIdentifier(of: provider) {
                     let index = fileIndex
                     let file = await withCheckedContinuation { continuation in
@@ -62,6 +62,16 @@ public enum ShareItemLoader {
         content.promoteLinkText()
         content.useFileNameAsTitle()
         return content
+    }
+
+    /// Shared text longer than this is cut; a text *file* is copied, never read into memory.
+    static let maxInlineTextCharacters = 100_000
+
+    /// A shared document (a .txt or source file from Files or Finder) rather than a
+    /// snippet of text: it has a file name.
+    static func isFile(_ provider: NSItemProvider) -> Bool {
+        provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+            || !(provider.suggestedName.map { ($0 as NSString).pathExtension } ?? "").isEmpty
     }
 
     static func loadPage(from provider: NSItemProvider, completion: @escaping @Sendable (PageCapture?) -> Void) {
