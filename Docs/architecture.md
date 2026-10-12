@@ -140,7 +140,7 @@ foreground, or background task.
 | Mac quick capture | `MenuBarExtra` (Quick Capture…, Save Clipboard, Capture Screenshot…) and a global hotkey (⌥⌘S, can be turned off in Settings) via Carbon `RegisterEventHotKey`, which is sandbox-safe and needs no Accessibility permission. The hotkey opens a floating, non-activating panel that reuses the share sheet's `CaptureSheet` (intent chips, note) with a source picker: the **clipboard** (text, links, copied files and images) or a **screenshot** of the display under the pointer via `SCScreenshotManager`, with Nextmark's own windows excluded. Links, files and images can also be dropped on the panel. | Screen Recording permission is requested only when the user first takes a screenshot. Still to come: the frontmost Safari tab (asked from the Safari Web Extension over native messaging; Apple Events to Safari would need a temporary-exception entitlement that App Review resists) and drops onto the menu-bar icon or the Dock. |
 | Mail (Mac) | Dropping a message from Mail yields a `message://%3CMessage-ID%3E` URL plus a `.eml` file promise. | Reopens the exact message. |
 | App Intents | `SaveItemIntent(url:text:file:intent:)`, `SaveClipboardIntent`, `SaveLatestScreenshotIntent`; a Control Center `ControlWidgetButton`. | Same envelope path, so behaviour is identical everywhere. |
-| Screenshot Rescue | `PHAsset` fetch from `.smartAlbumScreenshots`; bulk import runs as a `BGContinuedProcessingTask` (iOS 26) with system progress UI. Stores `PHAsset.localIdentifier` to offer "delete from Photos" later. | Imports go straight to the ingestor (no envelope), in batches of 50. |
+| Screenshot Rescue | `PHAsset` fetch from `.smartAlbumScreenshots`, newest first; bulk import runs as a `BGContinuedProcessingTask` (iOS 26) with system progress UI. Stores `PHAsset.localIdentifier` (`item.sourceAssetID`, never synced) to dedupe and to offer "Clean Up Photos" later. Screenshots from the last 7 days land in the Inbox; older ones go straight to the library and the Screenshots screen, sorted by kind as they're understood. New screenshots are imported on each foreground once a rescue has run. | `ScreenshotImporter` writes items directly (no envelope), in batches of 50, each followed by an enrichment pass. |
 
 ### 3.3 Anchors: returning to the exact place (F5)
 
@@ -274,9 +274,10 @@ erDiagram
   with the device that has the files.
 - Attachments: the original file is a `CKAsset`. It travels unless the
   user turns off "Sync Original Files". Turning the setting back on sends
-  the files that were left behind. Thumbnails, and an always-synced
-  thumbnail asset, come with step 8. A web archive syncs only on Pro with
-  the setting on.
+  the files that were left behind. The Extract stage draws a 600-pixel
+  JPEG thumbnail of images and of a PDF's first page (`<itemID>-thumb`,
+  `syncPolicy = always`), so every device can show one. A web archive
+  syncs only on Pro with the setting on.
 - Items with `syncScope = local` (and their memberships, actions and
   attachments) never leave the device.
 - **Enrichment lease (not built yet):** today two devices with the model
@@ -600,13 +601,13 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ Grouping/            # GroupSpace (centering), assignment, discovery (clustering)
    │  ├─ Moments/             # MomentGenerator, MomentPlanner (budget, quiet hours), notifications
    │  ├─ Sync/                # SyncStore (records, merge, orphans), CloudSync (CKSyncEngine delegate)
+   │  ├─ Integrations/        # Photos (Screenshot Rescue); later EventKit, Spotlight, App Intents
    │  └─ Features/            # SwiftUI screens: sidebar, Inbox, Next Actions, groups, item, Search, Settings
    └─ Tests/                  # Swift Testing, one target per module
 ```
 
 Modules still to come, each added when its milestone starts (§14):
-`Integrations` (EventKit, Spotlight, App Intents, Photos),
-`Store` (StoreKit 2), and `Tests/PromptEvals`.
+`Store` (StoreKit 2) and `Tests/PromptEvals`.
 
 Dependency rule: `Model` ← `Capture` ← extensions. Extensions link only
 `Model`, `Capture`, `CaptureUI` and `DesignSystem`, and **never** import
@@ -674,7 +675,8 @@ Third-party dependencies: **GRDB** only. Everything else is first-party.
 5. `Grouping` + Briefs + Actions + Next Actions *(9–10)*
 6. `Moments` (time and review) + notifications *(11)*
 7. `Sync` (CKSyncEngine) *(12–13)*, built: records, merge, two-device tests
-8. Screenshot Rescue onboarding, StoreKit, polish, TestFlight *(14–16)*
+8. Screenshot Rescue onboarding, StoreKit, polish, TestFlight *(14–16)*;
+   built so far: onboarding, Screenshot Rescue, thumbnails
 
 Risks to spike in week 1: Foundation Models output quality on the golden
 set (go/no-go for AI-first UX); the share extension's memory with large

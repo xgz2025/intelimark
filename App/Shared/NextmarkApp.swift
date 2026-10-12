@@ -13,11 +13,11 @@ struct NextmarkApp: App {
 
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
-            RootView(services: model.services, navigator: model.navigator)
+            RootView(services: model.services, navigator: model.navigator, rescue: model.rescue)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
-                        Task { await model.processInbox() }
+                        Task { await model.becameActive() }
                     }
                 }
         }

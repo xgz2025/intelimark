@@ -1,9 +1,10 @@
 import SwiftUI
 import Library
 import Moments
+import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, settings
+    case inbox, nextActions, review, search, suggestions, screenshots, settings
     case group(String)
 }
 
@@ -12,6 +13,8 @@ enum SidebarSelection: Hashable {
 public struct RootView: View {
     private let services: LibraryServices
     private let navigator: AppNavigator
+    private let rescue: RescueController?
+    @AppStorage(OnboardingView.completedKey) private var onboarded = false
     @State private var selection: SidebarSelection? = .inbox
     @State private var path = NavigationPath()
     @State private var groups: [GroupSummary] = []
@@ -19,9 +22,11 @@ public struct RootView: View {
     @State private var openActionCount = 0
     @State private var showsNewGroup = false
 
-    public init(services: LibraryServices, navigator: AppNavigator = AppNavigator()) {
+    /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
+    public init(services: LibraryServices, navigator: AppNavigator = AppNavigator(), rescue: RescueController? = nil) {
         self.services = services
         self.navigator = navigator
+        self.rescue = rescue
     }
 
     public var body: some View {
@@ -38,8 +43,16 @@ public struct RootView: View {
                     }
             }
         }
+        .environment(\.itemsDirectory, services.itemsDirectory)
         .onChange(of: selection) {
             path = NavigationPath()
+        }
+        .sheet(isPresented: Binding(get: { !onboarded }, set: { if !$0 { onboarded = true } })) {
+            OnboardingView(rescue: rescue) { startedRescue in
+                onboarded = true
+                if startedRescue { selection = .screenshots }
+            }
+            .interactiveDismissDisabled()
         }
         .onChange(of: navigator.destination) {
             guard let destination = navigator.destination else { return }
@@ -76,6 +89,10 @@ public struct RootView: View {
                     .tag(SidebarSelection.review)
                 Label("Search", systemImage: "magnifyingglass")
                     .tag(SidebarSelection.search)
+                if rescue != nil {
+                    Label("Screenshots", systemImage: "camera.viewfinder")
+                        .tag(SidebarSelection.screenshots)
+                }
             }
             Section("Groups") {
                 if suggestionCount > 0 {
@@ -122,6 +139,10 @@ public struct RootView: View {
             SearchView(services: services)
         case .suggestions:
             SuggestionsView(services: services)
+        case .screenshots:
+            if let rescue {
+                ScreenshotRescueView(services: services, controller: rescue)
+            }
         case .settings:
             SettingsView(onChange: services.refresh, onSyncNow: services.syncNow)
         case .group(let id):

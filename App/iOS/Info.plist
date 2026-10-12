@@ -41,6 +41,7 @@
 	<array>
 		<string>com.nextmark.app.refresh</string>
 		<string>com.nextmark.app.enrich</string>
+		<string>com.nextmark.app.rescue</string>
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Nextmark imports your screenshots so you can find them by what's in them.</string>

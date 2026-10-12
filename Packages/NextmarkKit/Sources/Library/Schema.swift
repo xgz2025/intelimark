@@ -56,6 +56,8 @@ extension LibraryDatabase {
                 t.column("pinned", .boolean).notNull().defaults(to: false)
                 t.column("lastOpenedAt", .datetime)
                 t.column("syncScope", .text).notNull().defaults(to: "cloud")
+                // Screenshot Rescue: the Photos asset it came from, while it's still there (local only).
+                t.column("sourceAssetID", .text).indexed()
             }
 
             try db.create(virtualTable: "item_fts", using: FTS5()) { t in

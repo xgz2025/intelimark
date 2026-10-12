@@ -4,12 +4,18 @@ import DesignSystem
 
 struct ItemRow: View {
     let item: ItemRecord
+    @Environment(\.itemsDirectory) private var itemsDirectory
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: item.kind.symbolName)
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
+            if let thumbnail = item.thumbnailURL(in: itemsDirectory) {
+                ItemThumbnail(url: thumbnail, symbolName: item.kind.symbolName)
+                    .frame(width: 44, height: 44)
+            } else {
+                Image(systemName: item.kind.symbolName)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.displayTitle)
                     .lineLimit(2)
@@ -28,5 +34,24 @@ struct ItemRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// A rounded preview; the kind's symbol until the thumbnail exists.
+struct ItemThumbnail: View {
+    let url: URL?
+    let symbolName: String
+
+    var body: some View {
+        AsyncImage(url: url) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Image(systemName: symbolName)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.quaternary)
+        }
+        .clipShape(.rect(cornerRadius: 6))
+        .accessibilityHidden(true)
     }
 }
