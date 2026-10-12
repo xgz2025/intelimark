@@ -1,9 +1,24 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import Foundation
 import CryptoKit
 import GRDB
 import Model
 
 /// A group with its counts, for lists and the sidebar.
+/// Keeping another smart group needs Pro (PRD P4).
+public struct GroupLimitReached: Error, Equatable {
+    public let limit: Int
+}
+
 public struct GroupSummary: Sendable, Identifiable, Hashable {
     public var group: GroupRecord
     /// Members the user added or confirmed.
@@ -234,9 +249,14 @@ public struct GroupRepository: Sendable {
     }
 
     /// Accepts a suggested group (PRD G2): it becomes a smart group with its members confirmed.
-    public func acceptSuggestion(_ id: String, title: String? = nil, now: Date = Date()) async throws {
+    /// - Parameter smartGroupLimit: how many active smart groups may be kept (Free keeps
+    ///   3, PRD P4); nil for no limit. Throws `GroupLimitReached` beyond it.
+    public func acceptSuggestion(_ id: String, title: String? = nil, smartGroupLimit: Int? = nil, now: Date = Date()) async throws {
         try await database.writer.write { db in
             guard var group = try GroupRecord.fetchOne(db, key: id), group.state == .suggested else { return }
+            if let smartGroupLimit, try Self.activeSmartGroupCount(db) >= smartGroupLimit {
+                throw GroupLimitReached(limit: smartGroupLimit)
+            }
             group.state = .accepted
             group.kind = .smart
             if let title, !title.isEmpty { group.userTitle = title }
@@ -247,6 +267,14 @@ public struct GroupRepository: Sendable {
                 arguments: [id]
             )
         }
+    }
+
+    static func activeSmartGroupCount(_ db: Database) throws -> Int {
+        try GroupRecord
+            .filter(Column("kind") == GroupKind.smart.rawValue)
+            .filter(Column("state") == GroupState.accepted.rawValue)
+            .filter(Column("status") == GroupStatus.active.rawValue)
+            .fetchCount(db)
     }
 
     /// Dismisses a suggested group. Its member set is kept so the same cluster

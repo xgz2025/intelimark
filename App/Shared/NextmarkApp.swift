@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import SwiftUI
 import Features
 
@@ -14,6 +24,7 @@ struct NextmarkApp: App {
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
             RootView(services: model.services, navigator: model.navigator, rescue: model.rescue)
+                .environment(model.pro)
                 .task { await model.start() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
@@ -27,6 +38,7 @@ struct NextmarkApp: App {
         }
         Settings {
             MacSettingsView(onChange: model.services.refresh, onSyncNow: model.services.syncNow)
+                .environment(model.pro)
         }
         #endif
     }

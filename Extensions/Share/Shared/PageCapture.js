@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 // Runs inside Safari when a page is shared to Nextmark
 // (NSExtensionJavaScriptPreprocessingFile). The result arrives in the share
 // extension under NSExtensionJavaScriptPreprocessingResultsKey and is parsed by

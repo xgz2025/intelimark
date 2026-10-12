@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import Foundation
 import Observation
 import Model
@@ -10,6 +20,7 @@ import Features
 import Moments
 import Sync
 import Integrations
+import Store
 import UserNotifications
 
 /// Composition root: owns the database and wires capture → ingest → pipeline.
@@ -22,6 +33,8 @@ final class AppModel {
     @ObservationIgnored private(set) var services: LibraryServices!
     /// Where notification taps lead; RootView follows it.
     let navigator = AppNavigator()
+    /// Nextmark Pro (PRD P4): Moments, Briefs and unlimited smart groups.
+    let pro = ProAccess()
     private(set) var lastError: String?
 
     private let ingestor: Ingestor
@@ -83,6 +96,11 @@ final class AppModel {
         }
         UNUserNotificationCenter.current().delegate = router
         notificationRouter = router
+        // Buying or losing Pro changes which Moments are scheduled and whether Briefs are written.
+        pro.onChange = { [weak self] _ in
+            guard let self else { return }
+            Task { await self.processInbox() }
+        }
     }
 
     /// A notification answer: record it, carry it out, and go where Open leads.
@@ -113,7 +131,9 @@ final class AppModel {
 
     /// Plans notifications from the library's dates and the user's settings (PRD M1, M2, M5).
     func rescheduleMoments() async {
-        _ = try? await moments.reschedule(settings: MomentSettings(defaults: .standard))
+        var settings = MomentSettings(defaults: .standard)
+        settings.includesTimeMoments = pro.isPro
+        _ = try? await moments.reschedule(settings: settings)
     }
 
     static func live() -> AppModel {
@@ -129,6 +149,7 @@ final class AppModel {
     }
 
     func start() async {
+        await pro.start()
         await updateSync()
         if IntelligenceStatus.current == .available {
             // Items understood without the model (or with an older prompt) get another pass.
@@ -172,7 +193,7 @@ final class AppModel {
                     needsAnotherPass = true
                 }
                 // Suggested groups and Briefs follow the items they're built from.
-                await pipeline.maintainGroups()
+                await pipeline.maintainGroups(writesBriefs: pro.isPro)
                 await rescheduleMoments()
             } catch {
                 lastError = error.localizedDescription

@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import Foundation
 import Testing
 import GRDB
@@ -100,6 +110,15 @@ struct MomentGeneratorTests {
         #expect(moments(reviewCount: 0).isEmpty)
         settings.isReviewEnabled = false
         #expect(moments(reviewCount: 6, settings: settings).isEmpty)
+    }
+
+    @Test func withoutProOnlyTheWeeklyReviewComesBack() {
+        let sale = item("Aeron chair", dates: [ItemDate(date: clock.date(20), hasTime: false, role: .expiry, source: .structured)], createdAt: clock.now)
+        let due = ActionContext(action: ActionRecord(title: "Book a table", dueAt: clock.date(12, 15)))
+        var settings = MomentSettings()
+        settings.includesTimeMoments = false
+        let found = moments(items: [sale], actions: [due], reviewCount: 3, settings: settings)
+        #expect(found.map(\.reason) == [.weeklyReview])
     }
 
     @Test func settingsAreReadFromDefaults() throws {

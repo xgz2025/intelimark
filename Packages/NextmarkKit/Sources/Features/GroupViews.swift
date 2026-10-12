@@ -1,6 +1,17 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import SwiftUI
 import Model
 import Library
+import Store
 import DesignSystem
 
 /// A group: its Brief, next steps, actions and items (PRD G1–G3, G6, A1, A2, A5).
@@ -14,7 +25,9 @@ struct GroupDetailView: View {
     @State private var showsDeleteConfirmation = false
     @State private var showsDonePrompt = false
     @State private var outcome = ""
+    @State private var showsPaywall = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(ProAccess.self) private var pro: ProAccess?
 
     var body: some View {
         Group {
@@ -35,7 +48,9 @@ struct GroupDetailView: View {
         let group = detail.group
         let confirmed = detail.members.filter { $0.membership.locked }
         let suggested = detail.members.filter { $0.membership.isSuggested }
-        let suggestions = (group.brief?.suggestedActions ?? [])
+        let isPro = pro?.isPro ?? false
+        // Next steps come from the Brief, a Pro feature.
+        let suggestions = (isPro ? group.brief?.suggestedActions ?? [] : [])
             .filter { !detail.knownActionTitles.contains($0.title.lowercased()) }
         return List {
             Section {
@@ -47,7 +62,7 @@ struct GroupDetailView: View {
                     Text("Nextmark found \(suggested.count) saves that seem to belong together.")
                         .foregroundStyle(.secondary)
                     HStack {
-                        Button("Keep Group", systemImage: "checkmark") { run { try await services.groups.acceptSuggestion(groupID) } }
+                        Button("Keep Group", systemImage: "checkmark") { keep() }
                             .buttonStyle(.borderedProminent)
                         Button("Dismiss", systemImage: "xmark") {
                             run { try await services.groups.dismissSuggestion(groupID) }
@@ -58,7 +73,7 @@ struct GroupDetailView: View {
                 }
             }
 
-            BriefSection(group: group, hasMembers: !confirmed.isEmpty) {
+            BriefSection(group: group, hasMembers: !confirmed.isEmpty, isPro: isPro) {
                 run {
                     try await services.groups.requestBrief(groupID)
                     await services.refresh()
@@ -168,6 +183,9 @@ struct GroupDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $showsPaywall) {
+            ProPaywallView(reason: "Free keeps \(FreeTier.smartGroups) smart groups. Pro keeps as many as you like.")
+        }
         .sheet(isPresented: $showsRename) {
             RenameGroupSheet(group: group, services: services)
         }
@@ -218,6 +236,17 @@ struct GroupDetailView: View {
     private func run(_ work: @escaping () async throws -> Void) {
         Task { try? await work() }
     }
+
+    private func keep() {
+        let (groups, limit) = (services.groups, pro?.smartGroupLimit ?? FreeTier.smartGroups)
+        Task {
+            do {
+                try await groups.acceptSuggestion(groupID, smartGroupLimit: limit)
+            } catch is GroupLimitReached {
+                showsPaywall = true
+            } catch {}
+        }
+    }
 }
 
 private struct GroupHeader: View {
@@ -261,11 +290,16 @@ private struct GroupHeader: View {
 private struct BriefSection: View {
     let group: GroupRecord
     let hasMembers: Bool
+    let isPro: Bool
     let onWriteNow: () -> Void
 
     var body: some View {
         Section {
-            if let brief = group.brief {
+            if !isPro {
+                Text("An overview of this group, its key points, open questions and next steps.")
+                    .foregroundStyle(.secondary)
+                ProUpsellRow(text: "Get Briefs with Pro", reason: "Briefs sum up each group for you.")
+            } else if let brief = group.brief {
                 Text(brief.overview)
                 if !brief.keyPoints.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -294,7 +328,7 @@ private struct BriefSection: View {
         } header: {
             Text("Brief")
         } footer: {
-            if let brief = group.brief {
+            if isPro, let brief = group.brief {
                 if brief.isProvisional {
                     Text("A quick summary. It's rewritten with Apple Intelligence when available.")
                 } else if let updated = group.briefUpdatedAt {
@@ -399,6 +433,8 @@ private struct PlanSheet: View {
 struct SuggestionsView: View {
     let services: LibraryServices
     @State private var suggestions: [GroupSummary] = []
+    @State private var showsPaywall = false
+    @Environment(ProAccess.self) private var pro: ProAccess?
 
     var body: some View {
         List {
@@ -413,7 +449,14 @@ struct SuggestionsView: View {
                     }
                     Button("Keep", systemImage: "checkmark") {
                         let (groups, id) = (services.groups, summary.id)
-                        Task { try? await groups.acceptSuggestion(id) }
+                        let limit = pro?.smartGroupLimit ?? FreeTier.smartGroups
+                        Task {
+                            do {
+                                try await groups.acceptSuggestion(id, smartGroupLimit: limit)
+                            } catch is GroupLimitReached {
+                                showsPaywall = true
+                            } catch {}
+                        }
                     }
                     .tint(.green)
                 }
@@ -428,6 +471,9 @@ struct SuggestionsView: View {
             }
         }
         .navigationTitle("Suggested Groups")
+        .sheet(isPresented: $showsPaywall) {
+            ProPaywallView(reason: "Free keeps \(FreeTier.smartGroups) smart groups. Pro keeps as many as you like.")
+        }
         .task {
             for await summaries in services.groups.summaries(states: [.suggested]).ignoringErrors() {
                 suggestions = summaries

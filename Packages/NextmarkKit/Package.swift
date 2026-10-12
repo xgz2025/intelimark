@@ -1,4 +1,14 @@
 // swift-tools-version: 6.2
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import PackageDescription
 
 // Shared code for the Nextmark app and its extensions.
@@ -21,6 +31,7 @@ let package = Package(
         .library(name: "Moments", targets: ["Moments"]),
         .library(name: "Sync", targets: ["Sync"]),
         .library(name: "Integrations", targets: ["Integrations"]),
+        .library(name: "Store", targets: ["Store"]),
         .library(name: "Features", targets: ["Features"]),
     ],
     dependencies: [
@@ -46,9 +57,10 @@ let package = Package(
         .target(name: "Moments", dependencies: ["Model", "Library"]),
         .target(name: "Sync", dependencies: ["Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]),
         .target(name: "Integrations", dependencies: ["Model", "Library"]),
+        .target(name: "Store"),
         .target(
             name: "Features",
-            dependencies: ["Model", "Library", "Intelligence", "Search", "Moments", "Integrations", "DesignSystem"]
+            dependencies: ["Model", "Library", "Intelligence", "Search", "Moments", "Integrations", "Store", "DesignSystem"]
         ),
 
         .testTarget(name: "ModelTests", dependencies: ["Model"]),
@@ -73,6 +85,7 @@ let package = Package(
             name: "IntegrationsTests",
             dependencies: ["Integrations", "Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]
         ),
+        .testTarget(name: "StoreTests", dependencies: ["Store"]),
         .testTarget(
             name: "SyncTests",
             dependencies: ["Sync", "Model", "Library", .product(name: "GRDB", package: "GRDB.swift")]

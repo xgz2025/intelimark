@@ -16,6 +16,7 @@ decisions live in `Docs/` — read `Docs/architecture.md` before structural chan
 - Tests must not touch `AppGroup` locations; inject temporary directories.
 - Keep the build warning-free: CI fails on any compiler warning in our code (`scripts/check-warnings.sh`; third-party packages are ignored).
 - Never put model identifiers in commits, code or docs.
+- Every source file (`.swift`, `.js`, `.sh`, `.py`) starts with the proprietary copyright header used across the repo (Copyright © 2026 Gaoliang Luo. All rights reserved.); copy it from any existing file. `Package.swift` keeps `// swift-tools-version` and scripts keep `#!` as their first line.
 
 ## Commands (macOS with Xcode 26)
 - `make test` — package tests

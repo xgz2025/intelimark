@@ -602,12 +602,32 @@ app, Share, Safari and Widgets × iOS/macOS) and is not committed.
    │  ├─ Moments/             # MomentGenerator, MomentPlanner (budget, quiet hours), notifications
    │  ├─ Sync/                # SyncStore (records, merge, orphans), CloudSync (CKSyncEngine delegate)
    │  ├─ Integrations/        # Photos (Screenshot Rescue); later EventKit, Spotlight, App Intents
+   │  ├─ Store/               # StoreKit 2: Pro products, entitlements (ProAccess), Free tier limits
    │  └─ Features/            # SwiftUI screens: sidebar, Inbox, Next Actions, groups, item, Search, Settings
    └─ Tests/                  # Swift Testing, one target per module
 ```
 
-Modules still to come, each added when its milestone starts (§14):
-`Store` (StoreKit 2) and `Tests/PromptEvals`.
+Still to come: `Tests/PromptEvals`.
+
+**Pro (PRD P4).** `ProAccess` reads `Transaction.currentEntitlements` at launch
+and listens to `Transaction.updates`. A current entitlement means Pro: one of
+our products, not revoked, not upgraded away, and (for a subscription) not
+expired. The answer is cached in `UserDefaults` so the app opens with the
+right features before StoreKit replies. Products: `com.nextmark.app.pro.monthly`
+and `.yearly` (one subscription group) and `.lifetime` (non-consumable). They
+are universal purchases. `App/Nextmark.storekit` tests them locally from the
+generated schemes.
+
+Free never limits capture, search, the library, sync or the Weekly Review.
+Pro adds:
+- **Moments:** date, plan and due-action reminders. Without Pro,
+  `MomentSettings.includesTimeMoments` is off and only the review is scheduled.
+- **Briefs:** the pipeline writes none without Pro, and the group screen
+  explains what they are.
+- **Unlimited smart groups:** `acceptSuggestion(smartGroupLimit:)` throws
+  `GroupLimitReached` past 3 active smart groups. Manual groups are never
+  limited.
+- **Later:** Compare, Ask, Reminders sync and archiving, each gated as it ships.
 
 Dependency rule: `Model` ← `Capture` ← extensions. Extensions link only
 `Model`, `Capture`, `CaptureUI` and `DesignSystem`, and **never** import
@@ -676,7 +696,7 @@ Third-party dependencies: **GRDB** only. Everything else is first-party.
 6. `Moments` (time and review) + notifications *(11)*
 7. `Sync` (CKSyncEngine) *(12–13)*, built: records, merge, two-device tests
 8. Screenshot Rescue onboarding, StoreKit, polish, TestFlight *(14–16)*;
-   built so far: onboarding, Screenshot Rescue, thumbnails
+   built so far: onboarding, Screenshot Rescue, thumbnails, Pro (StoreKit 2)
 
 Risks to spike in week 1: Foundation Models output quality on the golden
 set (go/no-go for AI-first UX); the share extension's memory with large

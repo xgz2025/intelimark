@@ -1,3 +1,13 @@
+//
+//  Copyright © 2026 Gaoliang Luo. All rights reserved.
+//
+//  This software and associated documentation are proprietary
+//  and confidential. Unauthorized copying, modification,
+//  distribution, or use of this software is strictly prohibited.
+//
+//  Created by Gaoliang Luo.
+//
+
 import Foundation
 import Model
 import Library
@@ -21,6 +31,9 @@ public struct MomentSettings: Sendable, Equatable {
     /// `Calendar` weekday: 1 is Sunday.
     public var reviewWeekday = 1
     public var reviewHour = 18
+    /// Date, plan and action reminders are Pro; the Weekly Review stays free (PRD P4).
+    /// Set from the purchase, not from Settings.
+    public var includesTimeMoments = true
 
     public init() {}
 
@@ -58,14 +71,16 @@ public struct MomentGenerator: Sendable {
         now: Date
     ) -> [MomentCandidate] {
         var candidates: [MomentCandidate] = []
-        for item in items where item.status == .inbox || item.status == .active {
-            candidates += itemMoments(item, now: now)
-        }
-        for plan in plans {
-            if let moment = planMoment(plan, now: now) { candidates.append(moment) }
-        }
-        for context in actions {
-            if let moment = actionMoment(context, now: now) { candidates.append(moment) }
+        if settings.includesTimeMoments {
+            for item in items where item.status == .inbox || item.status == .active {
+                candidates += itemMoments(item, now: now)
+            }
+            for plan in plans {
+                if let moment = planMoment(plan, now: now) { candidates.append(moment) }
+            }
+            for context in actions {
+                if let moment = actionMoment(context, now: now) { candidates.append(moment) }
+            }
         }
         if settings.isReviewEnabled, reviewCount > 0, let moment = reviewMoment(count: reviewCount, settings: settings, now: now) {
             candidates.append(moment)
