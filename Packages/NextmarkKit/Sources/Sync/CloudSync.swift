@@ -36,6 +36,12 @@ public actor CloudSync: CKSyncEngineDelegate {
     /// The change each record in flight carries, so a save only clears that change.
     private var inFlight: [RecordKey: Int64] = [:]
     private var syncedOriginals: Bool?
+    /// Fetched changes couldn't be written. The engine's state isn't saved past them,
+    /// and once the fetch ends the engine restarts from the last saved state, which
+    /// fetches them again. Once per launch, so a change that can never be written
+    /// doesn't loop.
+    private var failedApply = false
+    private var hasRefetched = false
 
     /// - Parameter onChange: called after records from other devices were written.
     public init(
@@ -110,6 +116,17 @@ public actor CloudSync: CKSyncEngineDelegate {
         }
     }
 
+    /// Starts a new engine from the last saved state, so changes fetched since then
+    /// arrive again. Local changes are handed to it from the database as at launch.
+    private func refetch() async {
+        guard failedApply else { return }
+        failedApply = false
+        hasRefetched = true
+        logger.notice("Fetching again from the last saved sync state")
+        stop()
+        await start()
+    }
+
     func stop() {
         observation?.cancel()
         observation = nil
@@ -149,6 +166,8 @@ public actor CloudSync: CKSyncEngineDelegate {
     public func nextRecordZoneChangeBatch(
         _ context: CKSyncEngine.SendChangesContext, syncEngine: CKSyncEngine
     ) async -> CKSyncEngine.RecordZoneChangeBatch? {
+        // An engine replaced by a restart may still ask; only the current one sends.
+        guard syncEngine === engine else { return nil }
         let scope = context.options.scope
         let pending = Array(syncEngine.state.pendingRecordZoneChanges.filter { scope.contains($0) }.prefix(Self.batchSize))
         guard !pending.isEmpty else { return nil }
@@ -208,9 +227,11 @@ public actor CloudSync: CKSyncEngineDelegate {
     }
 
     public func handleEvent(_ event: CKSyncEngine.Event, syncEngine: CKSyncEngine) async {
+        // Events from an engine that was stopped or replaced would save stale state.
+        guard syncEngine === engine else { return }
         switch event {
         case .stateUpdate(let update):
-            if let data = try? JSONEncoder().encode(update.stateSerialization) {
+            if !failedApply, let data = try? JSONEncoder().encode(update.stateSerialization) {
                 try? await store.saveEngineState(data)
             }
 
@@ -230,6 +251,7 @@ public actor CloudSync: CKSyncEngineDelegate {
                 if !result.isEmpty { notify(result) }
             } catch {
                 logger.error("Couldn't apply fetched changes: \(error.localizedDescription, privacy: .public)")
+                if !hasRefetched { failedApply = true }
             }
 
         case .sentRecordZoneChanges(let sent):
@@ -240,7 +262,15 @@ public actor CloudSync: CKSyncEngineDelegate {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
             }
 
-        case .didFetchChanges, .didSendChanges:
+        case .didFetchChanges:
+            if failedApply {
+                // Not from inside this engine's own event: restart once it's handled.
+                Task { await self.refetch() }
+            } else {
+                markSynced()
+            }
+
+        case .didSendChanges:
             markSynced()
 
         case .willFetchChanges, .willFetchRecordZoneChanges, .didFetchRecordZoneChanges, .willSendChanges:
