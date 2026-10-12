@@ -196,6 +196,7 @@ erDiagram
 - **Source facts:** `sourceTitle`, `text`, `anchor`, `pageContextJSON`
 - **Derived** (AI and extractors, each with `derivedVersion`): `aiTitle`, `summary`, `imageDescription`, `ocrText`, `kindGuess`, `entitiesJSON`, `typedFieldsJSON` (product/place/event/recipe…), `datesJSON`, `placesJSON`, `suggestedIntent`, `language`
 - **User layer:** `userTitle`, `note`, `intent`, `status` (`inbox · active · done · faded · trashed`), `pinned`, `editedFields` (bitset), `lastOpenedAt`
+- **Trash:** a trashed item stays restorable for 30 days (counted from its last change), then is deleted at launch; "Delete Permanently" and "Empty Trash" do it at once. Deleting removes the row (attachments, memberships, actions and vectors cascade), its jobs and its files, and syncs as a deletion. A Photos screenshot deleted this way goes into the local `ignoredAsset` table so Screenshot Rescue doesn't import it again.
 
 **Highlight**: `itemID`, `anchor`, `quote`, `color`, `note`
 

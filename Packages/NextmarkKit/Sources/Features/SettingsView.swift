@@ -47,20 +47,23 @@ public struct SettingsView: View {
         Form {
             Section {
                 if pro?.isPro == true {
-                    LabeledContent("Nextmark Pro") { Text("Active") }
-                    Button("Manage Subscription") { showsManageSubscriptions = true }
+                    LabeledContent("Nextmark Pro") {
+                        if pro?.hasLifetime == true { Text("Lifetime") } else { Text("Active") }
+                    }
+                    if pro?.hasSubscription == true {
+                        Button("Manage Subscription") { showsManageSubscriptions = true }
+                    }
                 } else {
                     Button("Upgrade to Pro", systemImage: "sparkles") { showsPaywall = true }
-                    Button("Restore Purchases") {
-                        let pro = pro
-                        Task { try? await pro?.restore() }
-                    }
+                    RestorePurchasesButton()
                 }
             } header: {
                 Text("Nextmark Pro")
             } footer: {
                 if pro?.isPro != true {
                     Text("Pro adds Moments, Briefs and unlimited smart groups. Saving, search, sync and the Weekly Review are always free.")
+                } else if pro?.hasLifetime == true, pro?.hasSubscription == true {
+                    Text("You own Pro for life, so you can cancel your subscription in Manage Subscription.")
                 }
             }
             Section {
