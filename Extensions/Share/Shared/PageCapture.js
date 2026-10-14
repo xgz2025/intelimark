@@ -8,7 +8,7 @@
 //  Created by Gaoliang Luo.
 //
 
-// Runs inside Safari when a page is shared to Nextmark
+// Runs inside Safari when a page is shared to Laterwise
 // (NSExtensionJavaScriptPreprocessingFile). The result arrives in the share
 // extension under NSExtensionJavaScriptPreprocessingResultsKey and is parsed by
 // `PageCapture(dictionary:)` — keep the keys in sync with Safari/Resources/content.js.

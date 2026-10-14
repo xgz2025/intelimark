@@ -42,7 +42,7 @@ public protocol PageFetcher: Sendable {
     func fetch(_ url: URL) async throws -> FetchedResource
 }
 
-/// Fetches the saved URL directly — the only page Nextmark ever requests
+/// Fetches the saved URL directly — the only page Laterwise ever requests
 /// (Docs/architecture.md §12). Ephemeral session: no cookies, no cache.
 public struct URLSessionPageFetcher: PageFetcher {
     static let maxHTMLBytes = 3_000_000
@@ -56,7 +56,7 @@ public struct URLSessionPageFetcher: PageFetcher {
         configuration.timeoutIntervalForResource = 60
         configuration.httpAdditionalHeaders = [
             "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,image/*;q=0.8,*/*;q=0.5",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15 Nextmark/0.1",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15 Laterwise/1.0",
         ]
         session = URLSession(configuration: configuration)
     }

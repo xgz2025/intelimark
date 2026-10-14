@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Nextmark",
+  "name": "Laterwise",
   "description": "Save pages and highlights to Nextmark.",
   "version": "0.1.0",
   "background": {

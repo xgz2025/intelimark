@@ -1,7 +1,12 @@
-# Nextmark
+# Laterwise
 
 Apple-native "save with purpose" app for iPhone, iPad and Mac. Product and design
 decisions live in `Docs/` — read `Docs/architecture.md` before structural changes.
+
+The product was renamed from Nextmark. Everything users see says Laterwise; the code
+name stays Nextmark (targets, schemes, `NextmarkKit`, bundle IDs `com.veloworkspaces.nextmark…`,
+the App Group and file names), since users never see it and changing it would break
+App Store Connect records and existing data.
 
 ## Layout
 - `project.yml` — XcodeGen spec (8 targets: app, Share, Safari and Widgets extensions, × iOS/macOS). The `.xcodeproj` is generated and git-ignored; never hand-edit one.

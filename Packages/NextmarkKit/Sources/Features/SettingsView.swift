@@ -47,7 +47,7 @@ public struct SettingsView: View {
         Form {
             Section {
                 if pro?.isPro == true {
-                    LabeledContent("Nextmark Pro") {
+                    LabeledContent("Laterwise Pro") {
                         if pro?.hasLifetime == true { Text("Lifetime") } else { Text("Active") }
                     }
                     if pro?.hasSubscription == true {
@@ -58,7 +58,7 @@ public struct SettingsView: View {
                     RestorePurchasesButton()
                 }
             } header: {
-                Text("Nextmark Pro")
+                Text("Laterwise Pro")
             } footer: {
                 if pro?.isPro != true {
                     Text("Pro adds Moments, Briefs and unlimited smart groups. Saving, search, sync and the Weekly Review are always free.")
@@ -117,7 +117,7 @@ public struct SettingsView: View {
             } header: {
                 Text("iCloud")
             } footer: {
-                Text("Your library syncs through your private iCloud database; Nextmark has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
+                Text("Your library syncs through your private iCloud database; Laterwise has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
             }
             Section {
                 let status = IntelligenceStatus.current
@@ -138,14 +138,14 @@ public struct SettingsView: View {
                 LabeledContent("Version", value: NextmarkLinks.versionDescription)
                 if let review = NextmarkLinks.writeReview {
                     Link(destination: review) {
-                        Label("Rate Nextmark on the App Store", systemImage: "star")
+                        Label("Rate Laterwise on the App Store", systemImage: "star")
                     }
                 }
                 Link(destination: NextmarkLinks.feedbackMail) {
                     Label("Send Feedback", systemImage: "envelope")
                 }
                 ShareLink(item: NextmarkLinks.appStore ?? NextmarkLinks.website) {
-                    Label("Share Nextmark", systemImage: "square.and.arrow.up")
+                    Label("Share Laterwise", systemImage: "square.and.arrow.up")
                 }
                 Link("Support", destination: NextmarkLinks.support)
                 Link("Privacy Policy", destination: NextmarkLinks.privacy)

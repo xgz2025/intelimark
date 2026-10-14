@@ -1,4 +1,4 @@
-# Nextmark — Product Strategy
+# Laterwise — Product Strategy
 
 *Formerly "Intelimark"; §6 explains the rename.*
 
@@ -135,7 +135,7 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 
 | Name | Story | Notes |
 |---|---|---|
-| **Nextmark** ★ | A bookmark that knows its *next* step. Continuity with "Intelimark". | Recommended. Quick App Store search found no app with this name. Clear, easy to spell, and the subtitle can carry the meaning: *Nextmark — From saved to done.* |
+| **Laterwise** ★ | A bookmark that knows its *next* step. Continuity with "Intelimark". | Recommended. Quick App Store search found no app with this name. Clear, easy to spell, and the subtitle can carry the meaning: *Laterwise — From saved to done.* |
 | **Ripen** | Saves ripen into plans; they come back when they're ready. | Distinctive, one word, warm brand (fruit icon). No link-saving app found by that name. Less self-explanatory. |
 | **Tuck** | *Tuck it away. It comes back when you need it.* | Short and friendly; likely crowded for trademarks and domains. |
 | **Boomerang-style** (e.g. *Comeback*, *Returnly*) | Saves come back to you. | Strong match to Moments, weaker on "plans". *Boomerang* itself is taken (email). |
@@ -145,7 +145,7 @@ and press pitch around. Each is demonstrable in under 10 seconds.
 - [ ] USPTO search (classes 9 and 42) plus EUIPO and CNIPA if launching in China
 - [ ] App Store Connect: reserve the name (create the app record)
 - [ ] `.app` / `.com` domain and social handles
-- [ ] Say it out loud: Siri must transcribe it correctly ("Hey Siri, save to Nextmark")
+- [ ] Say it out loud: Siri must transcribe it correctly ("Hey Siri, save to Laterwise")
 
 The code modules use neutral names with no product name (`Capture`,
 `Library`, `Intelligence`…; see `architecture.md` §10), so a future rename only

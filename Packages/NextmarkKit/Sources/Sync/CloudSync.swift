@@ -136,7 +136,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         stop()
         if hasRefetched {
             let reason = applyError?.localizedDescription ?? ""
-            setStatus(String(localized: "Couldn't save changes from iCloud on this device. Nextmark will try again the next time it opens. \(reason)"))
+            setStatus(String(localized: "Couldn't save changes from iCloud on this device. Laterwise will try again the next time it opens. \(reason)"))
             return
         }
         failedApply = false
@@ -480,7 +480,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         try? await store.resetServerState()
         switch reason {
         case .purged:
-            // The user deleted Nextmark's iCloud data in Settings: stop until they turn sync back on.
+            // The user deleted Laterwise's iCloud data in Settings: stop until they turn sync back on.
             UserDefaults.standard.set(false, forKey: SyncSettings.Key.enabled)
             setStatus(String(localized: "Your iCloud data was deleted. Turn sync on to upload your library again."))
             stop()
@@ -508,7 +508,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         guard let error = error as? CKError else { return error.localizedDescription }
         switch error.code {
         case .networkUnavailable, .networkFailure:
-            return String(localized: "You're offline. Nextmark syncs when you're back online.")
+            return String(localized: "You're offline. Laterwise syncs when you're back online.")
         case .quotaExceeded:
             return String(localized: "iCloud storage is full. Your changes are kept on this device and will sync when there's space.")
         case .notAuthenticated:
@@ -516,7 +516,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         case .accountTemporarilyUnavailable:
             return String(localized: "Your iCloud account needs attention. Check Settings › Apple Account.")
         case .serviceUnavailable, .requestRateLimited, .zoneBusy:
-            return String(localized: "iCloud is busy. Nextmark will try again shortly.")
+            return String(localized: "iCloud is busy. Laterwise will try again shortly.")
         default:
             return error.localizedDescription
         }

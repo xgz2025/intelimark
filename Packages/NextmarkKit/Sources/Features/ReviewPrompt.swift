@@ -14,7 +14,7 @@ import SwiftUI
 
 /// Asks for an App Store rating at a good moment: right after something went well
 /// (a Weekly Review finished, every action on a save done), once the person has used
-/// Nextmark on a few days, and at most once a version and every four months. The
+/// Laterwise on a few days, and at most once a version and every four months. The
 /// system decides whether to show it, and shows it at most three times a year.
 public enum ReviewPrompt {
     static let activeDaysKey = "review.activeDays"
@@ -27,7 +27,7 @@ public enum ReviewPrompt {
     static let minimumSuccesses = 2
     static let minimumInterval: TimeInterval = 120 * 86_400
 
-    /// Counts the days Nextmark is used. Call when it comes to the foreground.
+    /// Counts the days Laterwise is used. Call when it comes to the foreground.
     public static func noteActiveDay(now: Date = Date(), defaults: UserDefaults = .standard, calendar: Calendar = .current) {
         let today = calendar.startOfDay(for: now)
         if let last = defaults.object(forKey: lastActiveDayKey) as? Date, calendar.isDate(last, inSameDayAs: today) { return }

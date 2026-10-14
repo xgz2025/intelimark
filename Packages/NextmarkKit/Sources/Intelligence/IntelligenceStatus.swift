@@ -13,7 +13,7 @@ import Foundation
 import FoundationModels
 #endif
 
-/// Whether Apple Intelligence's on-device model can be used right now. Nextmark works
+/// Whether Apple Intelligence's on-device model can be used right now. Laterwise works
 /// without it everywhere (Docs/architecture.md §5.3): its built-in rules write titles,
 /// summaries and Briefs, and the model improves them once it's there.
 public enum IntelligenceStatus: Sendable, Equatable, CustomStringConvertible {
@@ -54,17 +54,17 @@ public enum IntelligenceStatus: Sendable, Equatable, CustomStringConvertible {
         }
     }
 
-    /// What it means for Nextmark, and what the person can do about it.
+    /// What it means for Laterwise, and what the person can do about it.
     public var explanation: String {
         switch self {
         case .available:
             String(localized: "Titles, summaries, photo descriptions and Briefs are written on this device by Apple Intelligence.")
         case .notEnabled:
-            String(localized: "Turn on Apple Intelligence in Settings › Apple Intelligence & Siri for richer summaries and Briefs. Where it isn't offered in your country or region, Nextmark's built-in rules write them instead, and everything else works the same.")
+            String(localized: "Turn on Apple Intelligence in Settings › Apple Intelligence & Siri for richer summaries and Briefs. Where it isn't offered in your country or region, Laterwise's built-in rules write them instead, and everything else works the same.")
         case .deviceNotEligible, .unsupported:
-            String(localized: "Nextmark's built-in rules write titles, summaries and Briefs on this device. Saving, search, groups, reminders and sync work the same.")
+            String(localized: "Laterwise's built-in rules write titles, summaries and Briefs on this device. Saving, search, groups, reminders and sync work the same.")
         case .preparing:
-            String(localized: "Apple Intelligence is downloading its model. Until it's ready, Nextmark's built-in rules write summaries, and they're improved automatically afterwards.")
+            String(localized: "Apple Intelligence is downloading its model. Until it's ready, Laterwise's built-in rules write summaries, and they're improved automatically afterwards.")
         }
     }
 }

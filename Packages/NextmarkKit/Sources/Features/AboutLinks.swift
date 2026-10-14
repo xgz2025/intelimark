@@ -10,18 +10,18 @@
 
 import SwiftUI
 
-/// Nextmark's pages on the web.
+/// Laterwise's pages on the web.
 enum NextmarkLinks {
-    static let website = URL(string: "https://www.veloworkspaces.com/nextmark/")!
-    static let support = URL(string: "https://www.veloworkspaces.com/nextmark/support/")!
-    static let privacy = URL(string: "https://www.veloworkspaces.com/nextmark/privacy/")!
-    /// Apple's standard licence agreement, which Nextmark uses.
+    static let website = URL(string: "https://www.veloworkspaces.com/laterwise/")!
+    static let support = URL(string: "https://www.veloworkspaces.com/laterwise/support/")!
+    static let privacy = URL(string: "https://www.veloworkspaces.com/laterwise/privacy/")!
+    /// Apple's standard licence agreement, which Laterwise uses.
     static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     static let feedbackAddress = "nextmark@veloworkspaces.com"
 
-    /// Nextmark's App Store ID (the number in its App Store link), once App Store
-    /// Connect has given it one. Until then the rating link is hidden.
-    static let appStoreID: String? = nil
+    /// Laterwise's App Store ID: the number in its App Store link (App Store Connect ›
+    /// App Information › Apple ID).
+    static let appStoreID: String? = "6822739724"
 
     static var appStore: URL? {
         appStoreID.flatMap { URL(string: "https://apps.apple.com/app/id\($0)") }
@@ -46,14 +46,14 @@ enum NextmarkLinks {
         components.scheme = "mailto"
         components.path = feedbackAddress
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Nextmark \(versionDescription)"),
+            URLQueryItem(name: "subject", value: "Laterwise \(versionDescription)"),
             URLQueryItem(name: "body", value: "\n\n—\nNextmark \(versionDescription), \(system)"),
         ]
         return components.url ?? URL(string: "mailto:\(feedbackAddress)")!
     }
 }
 
-/// Open-source software in Nextmark and its licence, as the licence asks.
+/// Open-source software in Laterwise and its licence, as the licence asks.
 struct AcknowledgementsView: View {
     @Environment(\.dismiss) private var dismiss
 

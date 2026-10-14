@@ -11,7 +11,7 @@
 import SwiftUI
 import Integrations
 
-/// First launch: what Nextmark does, then (on iPhone and iPad) Screenshot Rescue,
+/// First launch: what Laterwise does, then (on iPhone and iPad) Screenshot Rescue,
 /// so the library isn't empty on day one (Docs/product_strategy.md §4).
 public struct OnboardingView: View {
     public static let completedKey = "onboarding.completed"
@@ -52,12 +52,12 @@ public struct OnboardingView: View {
                 .font(.largeTitle.bold())
             Feature(symbol: "square.and.arrow.up", title: "Save from anywhere") {
                 #if os(macOS)
-                Text("Press ⌥⌘S in any app, choose Services › Save to Nextmark, or use Share. Say why: to read, buy, try or go.")
+                Text("Press ⌥⌘S in any app, choose Services › Save to Laterwise, or use Share. Say why: to read, buy, try or go.")
                 #else
                 Text("Tap Share in any app and choose Nextmark. Say why: to read, buy, try or go.")
                 #endif
             }
-            Feature(symbol: "sparkles", title: "Nextmark does the sorting") {
+            Feature(symbol: "sparkles", title: "Laterwise does the sorting") {
                 Text("It reads what you saved, finds dates and places, and groups related saves, on your device.")
             }
             Feature(symbol: "bell.badge", title: "Back when it matters") {

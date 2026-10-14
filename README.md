@@ -1,4 +1,4 @@
-# Nextmark
+# Laterwise
 
 **Save with purpose.** Save anything from any app on iPhone, iPad and Mac,
 remember *why* you saved it, get it back at the right moment, and turn piles
@@ -42,7 +42,7 @@ targets and settings there. Before running on a device:
 2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.nextmark.app`
    (CloudKit container) for the team; automatic signing does the rest.
 3. Run the **Nextmark-iOS** or **Nextmark-macOS** scheme. To try capture, share a
-   Safari page to Nextmark; it appears in the Inbox.
+   Safari page to Laterwise; it appears in the Inbox.
 
 | Target | iOS | macOS |
 |---|---|---|

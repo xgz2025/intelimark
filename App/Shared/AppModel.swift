@@ -35,7 +35,7 @@ final class AppModel {
     @ObservationIgnored private(set) var services: LibraryServices!
     /// Where notification taps lead; RootView follows it.
     let navigator = AppNavigator()
-    /// Nextmark Pro (PRD P4): Moments, Briefs and unlimited smart groups.
+    /// Laterwise Pro (PRD P4): Moments, Briefs and unlimited smart groups.
     let pro = ProAccess()
     private(set) var lastError: String?
     /// The library couldn't be opened. Captures then stay in the Inbox untouched (an

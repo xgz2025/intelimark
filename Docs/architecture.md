@@ -1,4 +1,4 @@
-# Nextmark — Architecture
+# Laterwise — Architecture
 
 Requirement IDs (C1, U2, M3…)
 refer to `prd.md`.
@@ -140,7 +140,7 @@ foreground, or background task.
 | Safari via share sheet | `NSExtensionJavaScriptPreprocessingFile`: `run()` returns the URL, title, `getSelection()` with prefix/suffix, `lang`, `<script type="application/ld+json">` blobs, and a readable excerpt. | Safari only. Other browsers only provide a URL, and enrichment fetches the page later. |
 | Safari Web Extension | Content script for selection UI and highlight re-render; `browser.runtime.sendNativeMessage` → `SafariWebExtensionHandler` writes the envelope. A `contextMenus` item gives a top-level right-click entry on Mac. | The highlight list for a page is read from a per-domain JSON index the app writes into the App Group. |
 | macOS Services | `NSServices` entry in Info.plist (`NSSendTypes: public.utf8-plain-text, public.url`; `NSSendFileTypes: public.content` for files in Finder), handled by `NSApp.servicesProvider`. Text arriving with a page URL is stored as a highlight (text-fragment anchor). | Launches the app if needed. A small HUD confirms the save; nothing takes focus. |
-| Mac quick capture | `MenuBarExtra` (Quick Capture…, Save Clipboard, Capture Screenshot…) and a global hotkey (⌥⌘S, can be turned off in Settings) via Carbon `RegisterEventHotKey`, which is sandbox-safe and needs no Accessibility permission. The hotkey opens a floating, non-activating panel that reuses the share sheet's `CaptureSheet` (intent chips, note) with a source picker: the **clipboard** (text, links, copied files and images) or a **screenshot** of the display under the pointer via `SCScreenshotManager`, with Nextmark's own windows excluded. Links, files and images can also be dropped on the panel. | Screen Recording permission is requested only when the user first takes a screenshot. Still to come: the frontmost Safari tab (asked from the Safari Web Extension over native messaging; Apple Events to Safari would need a temporary-exception entitlement that App Review resists) and drops onto the menu-bar icon or the Dock. |
+| Mac quick capture | `MenuBarExtra` (Quick Capture…, Save Clipboard, Capture Screenshot…) and a global hotkey (⌥⌘S, can be turned off in Settings) via Carbon `RegisterEventHotKey`, which is sandbox-safe and needs no Accessibility permission. The hotkey opens a floating, non-activating panel that reuses the share sheet's `CaptureSheet` (intent chips, note) with a source picker: the **clipboard** (text, links, copied files and images) or a **screenshot** of the display under the pointer via `SCScreenshotManager`, with Laterwise's own windows excluded. Links, files and images can also be dropped on the panel. | Screen Recording permission is requested only when the user first takes a screenshot. Still to come: the frontmost Safari tab (asked from the Safari Web Extension over native messaging; Apple Events to Safari would need a temporary-exception entitlement that App Review resists) and drops onto the menu-bar icon or the Dock. |
 | Mail (Mac) | Dropping a message from Mail yields a `message://%3CMessage-ID%3E` URL plus a `.eml` file promise. | Reopens the exact message. |
 | App Intents | `SaveItemIntent(url:text:file:intent:)`, `SaveClipboardIntent`, `SaveLatestScreenshotIntent`; a Control Center `ControlWidgetButton`. | Same envelope path, so behaviour is identical everywhere. |
 | Screenshot Rescue | `PHAsset` fetch from `.smartAlbumScreenshots`, newest first; bulk import runs as a `BGContinuedProcessingTask` (iOS 26) with system progress UI. Stores `PHAsset.localIdentifier` (`item.sourceAssetID`, never synced) to dedupe and to offer "Clean Up Photos" later. Screenshots from the last 7 days land in the Inbox; older ones go straight to the library and the Screenshots screen, sorted by kind as they're understood. New screenshots are imported on each foreground once a rescue has run. | `ScreenshotImporter` writes items directly (no envelope), in batches of 50, each followed by an enrichment pass. |
@@ -271,7 +271,7 @@ erDiagram
   - Sign-in, a switch of account, or a zone that was deleted or reset
     (encrypted data reset) clears the server state we keep. The whole
     library is then sent again.
-  - If the user deletes Nextmark's iCloud data in Settings (`purged`),
+  - If the user deletes Laterwise's iCloud data in Settings (`purged`),
     sync turns off until they turn it back on.
 - **Failures never loop and never lose data.**
   - Network loss, rate limits and a busy service are left to `CKSyncEngine`,

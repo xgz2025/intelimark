@@ -12,7 +12,7 @@ import AppKit
 import Model
 import Capture
 
-/// Handles right-click → Services → Save to Nextmark (PRD C4), declared under
+/// Handles right-click → Services → Save to Laterwise (PRD C4), declared under
 /// NSServices in Info.plist: selected text and links in any app, and files in
 /// Finder. The selector name must match NSMessage (`saveSelection`).
 @MainActor
@@ -51,7 +51,7 @@ final class ServicesProvider: NSObject {
             }
             do {
                 try CaptureWriter.commit(content, id: id, surface: .services, store: store)
-                SavedHUD.show(String(localized: "Saved to Nextmark"))
+                SavedHUD.show(String(localized: "Saved to Laterwise"))
             } catch {
                 try? store.discard(id)
                 SavedHUD.show(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")

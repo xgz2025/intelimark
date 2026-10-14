@@ -45,7 +45,7 @@ final class ShareViewController: UIViewController {
             draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
         } catch {
             // Without the shared folder nothing can reach the app; say so rather than pretend.
-            draft.error = String(localized: "Nextmark can't save right now: \(error.localizedDescription)")
+            draft.error = String(localized: "Laterwise can't save right now: \(error.localizedDescription)")
         }
         draft.isLoading = false
     }

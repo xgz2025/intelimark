@@ -1,4 +1,4 @@
-# Nextmark — Product Requirements (v1)
+# Laterwise — Product Requirements (v1)
 
 ## 1. Product summary
 
@@ -50,13 +50,13 @@ Priority: **P0** = MVP (1.0) · **P1** = 1.1–1.2 · **P2** = later / validate 
 | C1 | **Share extension (iOS/iPadOS)** for URLs, images, text, PDFs and files. Shows the intent chips, an optional note, and a group picker (suggested group pre-selected when known). Saves in < 1 s; no AI in the extension. | P0 |
 | C2 | **Safari page capture:** JavaScript preprocessing reads the title, canonical URL, **selected text with surrounding context**, page language and schema.org JSON-LD. Builds a **text-fragment URL** so opening the item scrolls to the highlight. | P0 |
 | C3 | **Share extension (macOS)** in the right-click → *Share* menu in Safari, Finder, Photos, Preview, Notes and Mail attachments. | P0 |
-| C4 | **macOS Services menu:** right-click → *Services → Save to Nextmark* for selected text in any Cocoa app (with source app name and, when available, its URL). | P0 |
+| C4 | **macOS Services menu:** right-click → *Services → Save to Laterwise* for selected text in any Cocoa app (with source app name and, when available, its URL). | P0 |
 | C5 | **Mac quick capture:** menu-bar icon and global hotkey (default ⌥⌘S) opens a capture panel for the clipboard, the frontmost Safari tab, or a new screenshot (ScreenCaptureKit). Drag and drop onto the menu-bar icon or the Dock. | P0 |
 | C6 | **Mail on Mac:** dragging a message in stores a `message://` link (reopens the exact email), subject, sender, date and body excerpt. | P1 |
-| C7 | **Safari Web Extension (iOS + macOS):** top-level *Save to Nextmark* right-click item; a floating *Mark* button on text selection; **saved highlights re-render on the page** on revisit. | P1 |
+| C7 | **Safari Web Extension (iOS + macOS):** top-level *Save to Laterwise* right-click item; a floating *Mark* button on text selection; **saved highlights re-render on the page** on revisit. | P1 |
 | C8 | **In-app add:** paste, photo picker, document picker, camera scan (VisionKit document scanner), quick note. | P0 |
 | C9 | **Screenshot Rescue:** opt-in Photos access; bulk-import existing screenshots with progress (continued background processing); afterwards, import new screenshots when the app runs. Offers to delete imported screenshots from Photos. | P0 |
-| C10 | **Shortcuts / App Intents** (*Save to Nextmark*, *Save clipboard*), Action button and a **Control Center control** for "save last screenshot". | P1 |
+| C10 | **Shortcuts / App Intents** (*Save to Laterwise*, *Save clipboard*), Action button and a **Control Center control** for "save last screenshot". | P1 |
 | C11 | **Import:** Pocket CSV, Raindrop CSV/HTML, Netscape bookmarks HTML, Safari Reading List (exported). | P1 |
 | C12 | **Duplicate detection:** same canonical URL or image hash merges into the existing item and adds the new highlight or note. | P0 |
 

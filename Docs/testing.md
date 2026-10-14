@@ -1,4 +1,4 @@
-# Testing Nextmark
+# Testing Laterwise
 
 ## Package tests
 
@@ -7,7 +7,7 @@ together with unsigned iOS and macOS builds and a check that our code has no war
 
 ## In-app purchases (StoreKit Testing)
 
-Nextmark Pro's products live in `App/Nextmark.storekit`: monthly and yearly
+Laterwise Pro's products live in `App/Nextmark.storekit`: monthly and yearly
 subscriptions with a one-week free trial, and a lifetime unlock. Both app schemes
 use this file when you run from Xcode, so purchases work without an App Store
 account or network.

@@ -22,7 +22,7 @@ struct QuickCaptureMenu: View {
         Button("Save Clipboard") { QuickCaptureController.shared.saveClipboard() }
         Button("Capture Screenshot…") { QuickCaptureController.shared.show(source: .screenshot) }
         Divider()
-        Button("Open Nextmark") {
+        Button("Open Laterwise") {
             openWindow(id: NextmarkApp.mainWindowID)
             NSApp.activate()
         }
@@ -31,7 +31,7 @@ struct QuickCaptureMenu: View {
         }
         .keyboardShortcut(",")
         Divider()
-        Button("Quit Nextmark") { NSApplication.shared.terminate(nil) }
+        Button("Quit Laterwise") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 

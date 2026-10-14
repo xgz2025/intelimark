@@ -50,7 +50,7 @@ private struct CaptureSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Section("Screenshots") {
-                Text("Nextmark asks for Screen Recording permission the first time you capture a screenshot. Its own windows are never included.")
+                Text("Laterwise asks for Screen Recording permission the first time you capture a screenshot. Its own windows are never included.")
                     .foregroundStyle(.secondary)
                 if let url = ScreenshotCapture.privacySettingsURL {
                     Button("Open Privacy Settings…") { NSWorkspace.shared.open(url) }

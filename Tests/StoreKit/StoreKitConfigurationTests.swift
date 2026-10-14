@@ -12,7 +12,7 @@ import XCTest
 import StoreKit
 import StoreKitTest
 
-/// Nextmark Pro's in-app purchases against `App/Nextmark.storekit`, with StoreKit
+/// Laterwise Pro's in-app purchases against `App/Nextmark.storekit`, with StoreKit
 /// Testing: no App Store account, no network. Runs in the iOS app (Docs/testing.md).
 @MainActor
 final class StoreKitConfigurationTests: XCTestCase {

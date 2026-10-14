@@ -88,7 +88,7 @@ public struct CaptureSheet<Accessory: View>: View {
         HStack {
             Button("Cancel", role: .cancel, action: onCancel)
             Spacer()
-            Text("Save to Nextmark").font(.headline)
+            Text("Save to Laterwise").font(.headline)
             Spacer()
             Button("Save", action: onSave)
                 .bold()

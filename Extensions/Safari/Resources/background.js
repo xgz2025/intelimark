@@ -8,7 +8,7 @@
 //  Created by Gaoliang Luo.
 //
 
-// Adds "Save to Nextmark" to Safari's right-click menu (macOS) and forwards the
+// Adds "Save to Laterwise" to Safari's right-click menu (macOS) and forwards the
 // page capture from content.js to the native handler.
 const MENU_ID = "nextmark-save";
 
@@ -37,7 +37,7 @@ browser.runtime.onInstalled.addListener(() => {
   if (!browser.contextMenus) return; // iOS Safari has no context menus API
   browser.contextMenus.create({
     id: MENU_ID,
-    title: "Save to Nextmark",
+    title: "Save to Laterwise",
     contexts: ["page", "selection", "link", "image"]
   });
 });

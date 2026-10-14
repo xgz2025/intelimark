@@ -12,7 +12,7 @@ import Foundation
 import Observation
 import StoreKit
 
-/// Nextmark Pro's products (PRD P4): one subscription group, plus a lifetime unlock.
+/// Laterwise Pro's products (PRD P4): one subscription group, plus a lifetime unlock.
 /// Universal purchase: the same products on iPhone, iPad and Mac.
 public enum ProProduct {
     public static let monthly = "com.veloworkspaces.nextmark.pro.monthly"

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nextmark</string>
+	<string>Laterwise</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,12 +32,12 @@
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Save to Nextmark</string>
+				<string>Save to Laterwise</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>saveSelection</string>
 			<key>NSPortName</key>
-			<string>Nextmark</string>
+			<string>Laterwise</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendFileTypes</key>

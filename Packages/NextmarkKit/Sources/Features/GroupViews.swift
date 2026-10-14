@@ -64,7 +64,7 @@ struct GroupDetailView: View {
 
             if group.state == .suggested {
                 Section {
-                    Text("Nextmark found \(suggested.count) saves that seem to belong together.")
+                    Text("Laterwise found \(suggested.count) saves that seem to belong together.")
                         .foregroundStyle(.secondary)
                     HStack {
                         Button("Keep Group", systemImage: "checkmark") { keep() }
@@ -436,7 +436,7 @@ private struct PlanSheet: View {
     }
 }
 
-/// Groups Nextmark proposes (PRD G2): keep, open, or dismiss each.
+/// Groups Laterwise proposes (PRD G2): keep, open, or dismiss each.
 struct SuggestionsView: View {
     let services: LibraryServices
     @State private var suggestions: [GroupSummary] = []
@@ -473,7 +473,7 @@ struct SuggestionsView: View {
             if suggestions.isEmpty {
                 ContentUnavailableView(
                     "No Suggestions", systemImage: "sparkles",
-                    description: Text("As you save more, Nextmark proposes groups of related items here.")
+                    description: Text("As you save more, Laterwise proposes groups of related items here.")
                 )
             }
         }

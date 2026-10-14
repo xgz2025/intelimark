@@ -154,7 +154,7 @@ public struct RootView: View {
                 #endif
             }
         }
-        .navigationTitle("Nextmark")
+        .navigationTitle("Laterwise")
     }
 
     @ViewBuilder
