@@ -44,10 +44,11 @@ public struct LibraryServices: Sendable {
 }
 
 extension ItemRecord {
-    /// The preview of an image or PDF item, drawn by the Extract stage.
+    /// The preview of an image or PDF item, drawn by the Extract stage; nil until it is.
     func thumbnailURL(in itemsDirectory: URL?) -> URL? {
         guard let itemsDirectory, [.image, .pdf].contains(kind) else { return nil }
-        return itemsDirectory.appending(path: id).appending(path: "thumbnail.jpg")
+        let url = itemsDirectory.appending(path: id).appending(path: "thumbnail.jpg")
+        return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
     }
 }
 

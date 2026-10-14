@@ -51,10 +51,24 @@ public struct ItemExtractor: Sendable {
 
     private let fetcher: any PageFetcher
     private let imageAnalyzer: (any ImageAnalyzing)?
+    private let placeNamer: (any PlaceNaming)?
 
-    public init(fetcher: any PageFetcher = URLSessionPageFetcher(), imageAnalyzer: (any ImageAnalyzing)? = ItemExtractor.defaultImageAnalyzer) {
+    public init(
+        fetcher: any PageFetcher = URLSessionPageFetcher(),
+        imageAnalyzer: (any ImageAnalyzing)? = ItemExtractor.defaultImageAnalyzer,
+        placeNamer: (any PlaceNaming)? = ItemExtractor.defaultPlaceNamer
+    ) {
         self.fetcher = fetcher
         self.imageAnalyzer = imageAnalyzer
+        self.placeNamer = placeNamer
+    }
+
+    public static var defaultPlaceNamer: (any PlaceNaming)? {
+        #if canImport(MapKit)
+        return MapKitPlaceNamer()
+        #else
+        return nil
+        #endif
     }
 
     public static var defaultImageAnalyzer: (any ImageAnalyzing)? {
@@ -156,16 +170,26 @@ public struct ItemExtractor: Sendable {
     private func extractFile(_ file: LocalFile) async throws -> Extraction {
         let type = UTType(file.contentType)
         if type?.conforms(to: .pdf) == true {
-            return Extraction(contentText: Self.pdfText(url: file.url))
+            return Extraction(
+                contentText: Self.pdfText(url: file.url),
+                fileFields: Self.pdfFields(url: file.url).map { TypedFields(article: $0) }
+            )
         }
         if type?.conforms(to: .image) == true {
             let url = file.url
+            let photo = await photoFields(at: url)
             guard let analyzer = imageAnalyzer,
                   let analysis = try await Self.analyzeWithinLimit({ try await analyzer.analyze(imageAt: url) })
             else {
-                return Extraction()
+                return Extraction(fileFields: photo.map { TypedFields(photo: $0) })
             }
-            return Extraction(ocrText: analysis.text, imageLabels: analysis.labels, barcodes: analysis.barcodes)
+            // A photo or screenshot of a receipt says what it is: merchant and total.
+            let receipt = ReceiptParser.parse(analysis.text)
+            return Extraction(
+                ocrText: analysis.text, imageLabels: analysis.labels, barcodes: analysis.barcodes,
+                structured: receipt.map { StructuredData(kind: .receipt, fields: TypedFields(receipt: $0)) },
+                fileFields: photo.map { TypedFields(photo: $0) }
+            )
         }
         if type?.conforms(to: .plainText) == true || type?.conforms(to: .sourceCode) == true,
            let text = Self.textPrefix(of: file.url) {
@@ -203,6 +227,23 @@ public struct ItemExtractor: Sendable {
         } catch {
             return nil
         }
+    }
+
+    /// A photo's time and place, with the place named when it can be.
+    func photoFields(at url: URL) async -> PhotoFields? {
+        guard var photo = PhotoMetadata.read(from: url) else { return nil }
+        if let latitude = photo.latitude, let longitude = photo.longitude, let placeNamer {
+            photo.placeName = await placeNamer.name(latitude: latitude, longitude: longitude)
+        }
+        return photo
+    }
+
+    static func pdfFields(url: URL) -> ArticleFields? {
+        #if canImport(PDFKit)
+        return PDFMetadata.read(from: url)
+        #else
+        return nil
+        #endif
     }
 
     static func pdfText(url: URL) -> String? {

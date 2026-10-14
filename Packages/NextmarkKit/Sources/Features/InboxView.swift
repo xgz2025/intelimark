@@ -41,8 +41,12 @@ struct InboxView: View {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.secondary)
             }
-            ForEach(items) { item in
-                ItemLinkRow(item: item, services: services)
+            ForEach(DaySection.sections(of: items, date: \.createdAt)) { section in
+                Section(section.title) {
+                    ForEach(section.items) { item in
+                        ItemLinkRow(item: item, services: services)
+                    }
+                }
             }
         }
         .overlay {
@@ -63,5 +67,30 @@ struct InboxView: View {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+}
+
+/// Items by when they were saved: Today, Yesterday, This Week, Earlier.
+struct DaySection<Element: Identifiable>: Identifiable {
+    let id: Int
+    let title: LocalizedStringKey
+    let items: [Element]
+
+    static func sections(
+        of items: [Element], date: (Element) -> Date, now: Date = Date(), calendar: Calendar = .current
+    ) -> [DaySection] {
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: today) ?? today
+        var buckets: [[Element]] = [[], [], [], []]
+        for item in items {
+            let day = date(item)
+            let index = day >= today ? 0 : day >= yesterday ? 1 : day >= weekAgo ? 2 : 3
+            buckets[index].append(item)
+        }
+        let titles: [LocalizedStringKey] = ["Today", "Yesterday", "This Week", "Earlier"]
+        return buckets.indices
+            .filter { !buckets[$0].isEmpty }
+            .map { DaySection(id: $0, title: titles[$0], items: buckets[$0]) }
     }
 }

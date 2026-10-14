@@ -18,19 +18,55 @@ public struct TypedFields: Codable, Sendable, Hashable {
     public var event: EventFields?
     public var recipe: RecipeFields?
     public var article: ArticleFields?
+    /// Read from a receipt's text (a photo or screenshot of one).
+    public var receipt: ReceiptFields?
+    /// A photo's own metadata: when and where it was taken.
+    public var photo: PhotoFields?
 
     public init(
         product: ProductFields? = nil,
         place: PlaceFields? = nil,
         event: EventFields? = nil,
         recipe: RecipeFields? = nil,
-        article: ArticleFields? = nil
+        article: ArticleFields? = nil,
+        receipt: ReceiptFields? = nil,
+        photo: PhotoFields? = nil
     ) {
         self.product = product
         self.place = place
         self.event = event
         self.recipe = recipe
         self.article = article
+        self.receipt = receipt
+        self.photo = photo
+    }
+}
+
+public struct ReceiptFields: Codable, Sendable, Hashable {
+    public var merchant: String?
+    public var total: Double?
+    /// ISO 4217 code when the receipt makes it clear ("USD", "EUR"…).
+    public var currency: String?
+
+    public init(merchant: String? = nil, total: Double? = nil, currency: String? = nil) {
+        self.merchant = merchant
+        self.total = total
+        self.currency = currency
+    }
+}
+
+public struct PhotoFields: Codable, Sendable, Hashable {
+    public var takenAt: Date?
+    public var latitude: Double?
+    public var longitude: Double?
+    /// "Shibuya, Tokyo": named from the coordinates, when that was possible.
+    public var placeName: String?
+
+    public init(takenAt: Date? = nil, latitude: Double? = nil, longitude: Double? = nil, placeName: String? = nil) {
+        self.takenAt = takenAt
+        self.latitude = latitude
+        self.longitude = longitude
+        self.placeName = placeName
     }
 }
 
@@ -134,6 +170,9 @@ public struct Extraction: Sendable, Hashable {
     public var imageLabels: [String]
     public var barcodes: [String]
     public var structured: StructuredData?
+    /// Facts about a file that don't say what kind of thing it is: a photo's time and
+    /// place, a document's title and author. Kept in `typedFields` alongside `structured`.
+    public var fileFields: TypedFields?
 
     public init(
         title: String? = nil,
@@ -145,7 +184,8 @@ public struct Extraction: Sendable, Hashable {
         ocrText: String? = nil,
         imageLabels: [String] = [],
         barcodes: [String] = [],
-        structured: StructuredData? = nil
+        structured: StructuredData? = nil,
+        fileFields: TypedFields? = nil
     ) {
         self.title = title
         self.siteName = siteName
@@ -157,5 +197,16 @@ public struct Extraction: Sendable, Hashable {
         self.imageLabels = imageLabels
         self.barcodes = barcodes
         self.structured = structured
+        self.fileFields = fileFields
+    }
+
+    /// What goes in the item's `typedFields`: the declared fields, with the file's own added.
+    public var typedFields: TypedFields? {
+        guard var fields = structured?.fields ?? fileFields else { return nil }
+        if let fileFields {
+            fields.photo = fields.photo ?? fileFields.photo
+            fields.article = fields.article ?? fileFields.article
+        }
+        return fields
     }
 }

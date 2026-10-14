@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import QuickLook
 import Model
 import Library
 import Intelligence
@@ -24,6 +25,9 @@ struct ItemDetailView: View {
     @State private var showsAddToGroup = false
     @State private var showsDonePrompt = false
     @State private var showsFullText = false
+    /// The saved photo, PDF or file itself, when it's on this device.
+    @State private var original: URL?
+    @State private var previewedFile: URL?
     /// Laying out a very long text at once stalls the screen; longer text is shown on request.
     static let previewCharacters = 4_000
 
@@ -43,6 +47,10 @@ struct ItemDetailView: View {
             }
         }
         .task(id: itemID) {
+            original = await originalFile()
+        }
+        .quickLookPreview($previewedFile)
+        .task(id: itemID) {
             for await value in services.groups.context(forItem: itemID).ignoringErrors() {
                 context = value
             }
@@ -54,34 +62,7 @@ struct ItemDetailView: View {
             .filter { !context.knownActionTitles.contains($0.title.lowercased()) }
         return List {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    if let preview = item.thumbnailURL(in: services.itemsDirectory) {
-                        AsyncImage(url: preview) { image in
-                            image.resizable().scaledToFit()
-                        } placeholder: {
-                            EmptyView()
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: 280)
-                        .clipShape(.rect(cornerRadius: 8))
-                        .accessibilityHidden(true)
-                        .id(item.updatedAt)
-                    }
-                    Text(item.displayTitle)
-                        .font(.title2.bold())
-                    if let subtitle = item.subtitle, subtitle != item.summary {
-                        Text(subtitle).foregroundStyle(.secondary)
-                    }
-                    if let summary = item.summary, !summary.isEmpty {
-                        Text(summary)
-                    }
-                    if let link = item.anchorURL ?? item.canonicalURL.flatMap({ URL(string: $0) }) {
-                        Link(destination: link) {
-                            Label("Open", systemImage: "arrow.up.right.square")
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-                .padding(.vertical, 4)
+                header(item)
             }
 
             if let quote = item.text, !quote.isEmpty {
@@ -196,6 +177,106 @@ struct ItemDetailView: View {
         } message: {
             Text("Mark “\(item.displayTitle)” as done too?")
         }
+    }
+
+    private func header(_ item: ItemRecord) -> some View {
+        let card = item.card
+        return VStack(alignment: .leading, spacing: 8) {
+            if let preview = item.thumbnailURL(in: services.itemsDirectory) {
+                Button {
+                    previewedFile = original
+                } label: {
+                    AsyncImage(url: preview) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: {
+                        EmptyView()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: 280)
+                    .clipShape(.rect(cornerRadius: 12, style: .continuous))
+                    .id(item.updatedAt)
+                }
+                .buttonStyle(.plain)
+                .disabled(original == nil)
+                .accessibilityLabel(Text("Open"))
+            }
+            if let source = card.source {
+                Text(source)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(card.title)
+                    .font(.title2.bold())
+                    .textSelection(.enabled)
+                Spacer(minLength: 0)
+                if let figure = card.figure {
+                    Text(figure)
+                        .font(.title2.bold().monospacedDigit())
+                        .foregroundStyle(card.style.tint)
+                }
+            }
+            if let byline = card.byline {
+                Text(byline)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let summary = item.summary, !summary.isEmpty, summary != card.title {
+                Text(summary)
+            } else if let description = item.imageDescription, !description.isEmpty, description != card.title {
+                Text(description)
+            }
+            openButtons(item)
+                .padding(.top, 4)
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Back to the thing itself: the page (at the highlight), or the saved file.
+    @ViewBuilder
+    private func openButtons(_ item: ItemRecord) -> some View {
+        let link = item.anchorURL ?? item.canonicalURL.flatMap { URL(string: $0) }
+        if link != nil || original != nil {
+            HStack(spacing: 10) {
+                if let link {
+                    Link(destination: link) {
+                        Label("Open", systemImage: "safari")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                if let original {
+                    Button {
+                        previewedFile = original
+                    } label: {
+                        Label(Self.openTitle(for: item.kind), systemImage: "eye")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    ShareLink(item: original) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .controlSize(.small)
+        }
+    }
+
+    static func openTitle(for kind: ItemKind) -> LocalizedStringKey {
+        switch kind {
+        case .image: "View Photo"
+        case .pdf: "View PDF"
+        default: "View File"
+        }
+    }
+
+    /// The original file, if it's on this device (originals may not sync).
+    private func originalFile() async -> URL? {
+        guard let directory = services.itemsDirectory,
+              let attachment = try? await services.items.attachments(forItem: itemID).first(where: { $0.role == .original })
+        else { return nil }
+        let url = directory.appending(path: itemID).appending(path: attachment.fileName)
+        return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
     }
 
     private func addAction() {

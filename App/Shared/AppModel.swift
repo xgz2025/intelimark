@@ -57,6 +57,8 @@ final class AppModel {
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
+    @ObservationIgnored private var isIngesting = false
+    @ObservationIgnored private var needsAnotherIngest = false
     /// Wakes the pipeline when a postponed job (a fetch that failed offline) is due.
     @ObservationIgnored private var wake: Task<Void, Never>?
     @ObservationIgnored private var pathMonitor: NWPathMonitor?
@@ -254,6 +256,9 @@ final class AppModel {
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
     func processInbox() async {
         guard startupError == nil else { return }
+        // New saves appear in the Inbox at once, even while enrichment is busy with
+        // earlier ones (a slow page, image analysis, a model download).
+        await ingestNow()
         guard !isProcessing else {
             needsAnotherPass = true
             return
@@ -275,16 +280,7 @@ final class AppModel {
         repeat {
             needsAnotherPass = false
             // Each stage runs even if the one before it failed.
-            do {
-                let report = try await ingestor.ingestPendingReportingFailures()
-                lastError = report.lastFailure?.localizedDescription
-            } catch {
-                lastError = error.localizedDescription
-            }
-            // What's still waiting couldn't be added; the Inbox says so, and why.
-            let waiting = ingestor.waitingCount()
-            CaptureStatus.shared.stuckCount = waiting
-            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+            await ingestNow()
             // A full batch means more is waiting (e.g. a screenshot rescue): go round again,
             // unless the device is hot or in Low Power Mode, when a few jobs at a time will do.
             let budget = PowerBudget.current
@@ -298,6 +294,30 @@ final class AppModel {
             }
             await rescheduleMoments()
         } while needsAnotherPass
+    }
+
+    /// Moves committed captures into the library. Quick, and kept apart from enrichment
+    /// so a save never waits behind it. Coalesces overlapping calls.
+    private func ingestNow() async {
+        guard !isIngesting else {
+            needsAnotherIngest = true
+            return
+        }
+        isIngesting = true
+        defer { isIngesting = false }
+        repeat {
+            needsAnotherIngest = false
+            do {
+                let report = try await ingestor.ingestPendingReportingFailures()
+                lastError = report.lastFailure?.localizedDescription
+            } catch {
+                lastError = error.localizedDescription
+            }
+            // What's still waiting couldn't be added; the Inbox says so, and why.
+            let waiting = ingestor.waitingCount()
+            CaptureStatus.shared.stuckCount = waiting
+            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+        } while needsAnotherIngest
     }
 
     /// Runs the pipeline again when the next postponed job is due, while the app runs

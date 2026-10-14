@@ -104,7 +104,7 @@ public struct ItemRepository: Sendable {
             item.imageLabels = extraction.imageLabels
             item.barcodes = extraction.barcodes
             item.structuredKind = extraction.structured?.kind
-            item.typedFields = extraction.structured?.fields
+            item.typedFields = extraction.typedFields
             if let kind = extraction.structured?.kind {
                 item.semanticKind = kind
             }

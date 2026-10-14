@@ -77,6 +77,9 @@ extension TypedFields {
         if let event, let venue = event.venue {
             return [ItemPlace(name: venue, address: event.address, source: .structured)]
         }
+        if let photo, let name = photo.placeName {
+            return [ItemPlace(name: name, latitude: photo.latitude, longitude: photo.longitude, source: .structured)]
+        }
         return []
     }
 }
