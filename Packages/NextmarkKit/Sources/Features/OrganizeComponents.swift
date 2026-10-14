@@ -27,6 +27,13 @@ struct ItemLinkRow: View {
         }
         .draggable(item.id)
         .contextMenu {
+            if let link = item.anchorURL ?? item.canonicalURL.flatMap({ URL(string: $0) }) {
+                Link(destination: link) {
+                    Label("Open", systemImage: "safari")
+                }
+                ShareLink(item: link)
+                Divider()
+            }
             Button("Add to Group…", systemImage: "square.stack") { showsAddToGroup = true }
             Button("Add Action…", systemImage: "checklist") { showsAddAction = true }
             Divider()

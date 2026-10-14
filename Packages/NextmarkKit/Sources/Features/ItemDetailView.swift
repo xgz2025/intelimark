@@ -119,7 +119,15 @@ struct ItemDetailView: View {
                         )
                     }
                     ForEach(item.places, id: \.self) { place in
-                        Label([place.name, place.address].compactMap { $0 }.joined(separator: " · "), systemImage: "mappin.and.ellipse")
+                        let label = Label(
+                            [place.name, place.address].compactMap { $0 }.joined(separator: " · "),
+                            systemImage: "mappin.and.ellipse"
+                        )
+                        if let maps = place.mapsURL {
+                            Link(destination: maps) { label }
+                        } else {
+                            label
+                        }
                     }
                 }
             }
@@ -298,6 +306,19 @@ struct ItemDetailView: View {
     private func setStatus(_ status: ItemStatus) {
         let (items, id) = (services.items, itemID)
         performEdit { try await items.setStatus(status, forItem: id) }
+    }
+}
+
+extension ItemPlace {
+    /// Opens the place in Apple Maps: at its coordinates when known, else by name.
+    var mapsURL: URL? {
+        var components = URLComponents(string: "https://maps.apple.com/")
+        var query = [URLQueryItem(name: "q", value: [name, address].compactMap { $0 }.joined(separator: ", "))]
+        if let latitude, let longitude {
+            query.append(URLQueryItem(name: "ll", value: "\(latitude),\(longitude)"))
+        }
+        components?.queryItems = query
+        return components?.url
     }
 }
 
