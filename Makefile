@@ -1,7 +1,7 @@
 # Nextmark developer tasks. The Xcode project is generated from project.yml.
 PROJECT = Nextmark.xcodeproj
 
-.PHONY: bootstrap generate open test build-ios build-macos clean
+.PHONY: bootstrap generate open test test-storekit build-ios build-macos clean
 
 bootstrap:
 	@command -v xcodegen >/dev/null || brew install xcodegen
@@ -16,6 +16,10 @@ open: generate
 
 test:
 	swift test --package-path Packages/NextmarkKit
+
+# In-app purchases against App/Nextmark.storekit (StoreKit Testing, iOS Simulator).
+test-storekit: generate
+	xcodebuild test -project $(PROJECT) -scheme Nextmark-iOS -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:StoreKitTests-iOS
 
 build-ios: generate
 	xcodebuild build -project $(PROJECT) -scheme Nextmark-iOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO

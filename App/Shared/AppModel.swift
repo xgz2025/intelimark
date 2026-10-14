@@ -155,6 +155,11 @@ final class AppModel {
         _ = try? await moments.reschedule(settings: settings)
     }
 
+    /// The app is running only to host unit tests (StoreKit Testing).
+    static var isHostingTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
     static func live() -> AppModel {
         do {
             let url = LibraryDatabase.moveLegacyDatabase(from: AppGroup.legacyDatabaseURL, to: LibraryDatabase.defaultURL)

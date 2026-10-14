@@ -87,6 +87,25 @@ targets:
     scheme:
       gatherCoverageData: false
       storeKitConfiguration: App/Nextmark.storekit
+      testTargets:
+        - StoreKitTests-iOS
+
+  # In-app purchases against App/Nextmark.storekit with StoreKit Testing (Docs/testing.md).
+  StoreKitTests-iOS:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests/StoreKit
+      - path: App/Nextmark.storekit
+        buildPhase: resources
+    dependencies:
+      - target: Nextmark-iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.storekit-tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Nextmark.app/Nextmark
+        BUNDLE_LOADER: $(TEST_HOST)
 
   ShareExtension-iOS:
     type: app-extension

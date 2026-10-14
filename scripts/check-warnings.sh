@@ -16,7 +16,7 @@ set -euo pipefail
 
 log="$1"
 root="${GITHUB_WORKSPACE:-$PWD}"
-pattern='^(/[^:]*/(Packages/NextmarkKit/(Sources|Tests)|App|Extensions)/[^:]+\.swift):([0-9]+):([0-9]+): warning: (.*)$'
+pattern='^(/[^:]*/(Packages/NextmarkKit/(Sources|Tests)|App|Extensions|Tests)/[^:]+\.swift):([0-9]+):([0-9]+): warning: (.*)$'
 
 warnings=$(grep -E "$pattern" "$log" | sort -u || true)
 if [[ -z "$warnings" ]]; then

@@ -26,8 +26,11 @@ struct NextmarkApp: App {
         let model = AppModel.live()
         _model = State(initialValue: model)
         // From launch, not from a window: on the Mac, captures from the menu bar, hotkey
-        // and Services arrive with no window open.
-        Task { await model.start() }
+        // and Services arrive with no window open. Not while hosting tests: an unsigned
+        // test build has no iCloud entitlement, and the tests need none of it.
+        if !AppModel.isHostingTests {
+            Task { await model.start() }
+        }
     }
 
     var body: some Scene {
