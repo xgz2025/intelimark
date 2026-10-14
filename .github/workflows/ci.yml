@@ -120,6 +120,9 @@ jobs:
                     for d in list_ if d["name"].startswith("iPhone")]
           print(sorted(phones)[-1][1])')
           echo "Simulator: $udid"
+          # StoreKit's test store runs in the simulator: let it finish booting first.
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
           xcodebuild test \
             -project Nextmark.xcodeproj \
             -scheme Nextmark-iOS \

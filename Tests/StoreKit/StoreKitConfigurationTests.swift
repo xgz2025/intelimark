@@ -20,17 +20,23 @@ final class StoreKitConfigurationTests: XCTestCase {
     static let yearly = "com.nextmark.app.pro.yearly"
     static let lifetime = "com.nextmark.app.pro.lifetime"
 
-    /// A fresh store: no purchases, no dialogs.
-    private func makeSession() throws -> SKTestSession {
-        let session = try SKTestSession(configurationFileNamed: "Nextmark")
+    /// A fresh store: no purchases, no dialogs. Loaded from this test bundle's copy of
+    /// the configuration, and given a moment to start serving it.
+    private func makeSession() async throws -> SKTestSession {
+        let url = try XCTUnwrap(
+            Bundle(for: Self.self).url(forResource: "Nextmark", withExtension: "storekit"),
+            "Nextmark.storekit isn't in the test bundle"
+        )
+        let session = try SKTestSession(contentsOf: url)
         session.resetToDefaultState()
         session.clearTransactions()
         session.disableDialogs = true
+        try await Task.sleep(for: .milliseconds(500))
         return session
     }
 
     func testProductsLoadWithAOneWeekTrialOnSubscriptions() async throws {
-        let session = try makeSession()
+        let session = try await makeSession()
         let products = try await Product.products(for: [Self.monthly, Self.yearly, Self.lifetime])
         XCTAssertEqual(Set(products.map(\.id)), [Self.monthly, Self.yearly, Self.lifetime])
         for id in [Self.monthly, Self.yearly] {
@@ -46,7 +52,7 @@ final class StoreKitConfigurationTests: XCTestCase {
     }
 
     func testASubscriptionUnlocksProUntilItExpires() async throws {
-        let session = try makeSession()
+        let session = try await makeSession()
         _ = try await session.buyProduct(identifier: Self.yearly, options: [])
         let entitled = await entitlements(eventually: { $0.contains(Self.yearly) })
         XCTAssertTrue(entitled.contains(Self.yearly))
@@ -57,7 +63,7 @@ final class StoreKitConfigurationTests: XCTestCase {
     }
 
     func testARefundedLifetimeUnlockNoLongerCounts() async throws {
-        let session = try makeSession()
+        let session = try await makeSession()
         let transaction = try await session.buyProduct(identifier: Self.lifetime, options: [])
         let entitled = await entitlements(eventually: { $0.contains(Self.lifetime) })
         XCTAssertTrue(entitled.contains(Self.lifetime))
