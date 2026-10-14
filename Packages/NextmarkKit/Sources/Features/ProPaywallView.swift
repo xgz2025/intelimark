@@ -11,6 +11,7 @@
 import SwiftUI
 import StoreKit
 import Store
+import Intelligence
 
 /// Nextmark Pro (PRD P4): what it adds, the three ways to get it, and Restore.
 /// Capture, search and the library are never behind it.
@@ -55,6 +56,15 @@ public struct ProPaywallView: View {
                                 .padding(12)
                                 .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
                         }
+                    }
+                    if !IntelligenceStatus.current.isAvailable {
+                        // Said before buying, where Apple Intelligence is off or not offered.
+                        Label(
+                            "Apple Intelligence isn't on for this device, so Nextmark's built-in rules write Briefs. They're improved automatically if it's turned on later.",
+                            systemImage: "info.circle"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     }
                     Text("Free always keeps unlimited saving, search, sync and the Weekly Review. Subscriptions renew until cancelled in your Apple Account settings.")
                         .font(.footnote)

@@ -17,6 +17,40 @@ enum NextmarkLinks {
     static let privacy = URL(string: "https://www.veloworkspaces.com/nextmark/privacy/")!
     /// Apple's standard licence agreement, which Nextmark uses.
     static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    static let feedbackAddress = "nextmark@veloworkspaces.com"
+
+    /// Nextmark's App Store ID (the number in its App Store link), once App Store
+    /// Connect has given it one. Until then the rating link is hidden.
+    static let appStoreID: String? = nil
+
+    static var appStore: URL? {
+        appStoreID.flatMap { URL(string: "https://apps.apple.com/app/id\($0)") }
+    }
+
+    /// Opens the App Store straight at "Write a Review".
+    static var writeReview: URL? {
+        appStoreID.flatMap { URL(string: "https://apps.apple.com/app/id\($0)?action=write-review") }
+    }
+
+    static var versionDescription: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "–"
+        let build = info?["CFBundleVersion"] as? String
+        return build.map { "\(version) (\($0))" } ?? version
+    }
+
+    /// An email to us, with what helps answer it already filled in.
+    static var feedbackMail: URL {
+        let system = ProcessInfo.processInfo.operatingSystemVersionString
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = feedbackAddress
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "Nextmark \(versionDescription)"),
+            URLQueryItem(name: "body", value: "\n\n—\nNextmark \(versionDescription), \(system)"),
+        ]
+        return components.url ?? URL(string: "mailto:\(feedbackAddress)")!
+    }
 }
 
 /// Open-source software in Nextmark and its licence, as the licence asks.

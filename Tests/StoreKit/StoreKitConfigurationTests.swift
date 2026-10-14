@@ -16,9 +16,9 @@ import StoreKitTest
 /// Testing: no App Store account, no network. Runs in the iOS app (Docs/testing.md).
 @MainActor
 final class StoreKitConfigurationTests: XCTestCase {
-    static let monthly = "com.nextmark.app.pro.monthly"
-    static let yearly = "com.nextmark.app.pro.yearly"
-    static let lifetime = "com.nextmark.app.pro.lifetime"
+    static let monthly = "com.veloworkspaces.nextmark.pro.monthly"
+    static let yearly = "com.veloworkspaces.nextmark.pro.yearly"
+    static let lifetime = "com.veloworkspaces.nextmark.pro.lifetime"
 
     /// A fresh store: no purchases, no dialogs. Loaded from this test bundle's copy of
     /// the configuration, and given a moment to start serving it.

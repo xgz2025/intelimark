@@ -154,6 +154,8 @@ struct WeeklyReviewView: View {
                 Task { await load() }
             }
         }
+        // A review worked through to the end is a good moment to ask for a rating.
+        .requestsReview(after: !cards.isEmpty && index >= cards.count)
     }
 
     private func decide(_ decision: Decision) {

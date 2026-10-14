@@ -119,14 +119,34 @@ public struct SettingsView: View {
             } footer: {
                 Text("Your library syncs through your private iCloud database; Nextmark has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
             }
-            Section("Apple Intelligence") {
-                LabeledContent("On-device model", value: IntelligenceStatus.current.description)
+            Section {
+                let status = IntelligenceStatus.current
+                LabeledContent("Apple Intelligence") {
+                    Label {
+                        Text(status.description)
+                    } icon: {
+                        Image(systemName: status.isAvailable ? "checkmark.circle.fill" : "circle.dashed")
+                            .foregroundStyle(status.isAvailable ? Color.green : Color.secondary)
+                    }
+                }
+            } header: {
+                Text("Apple Intelligence")
+            } footer: {
+                Text(IntelligenceStatus.current.explanation)
             }
             Section("About") {
-                LabeledContent(
-                    "Version",
-                    value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
-                )
+                LabeledContent("Version", value: NextmarkLinks.versionDescription)
+                if let review = NextmarkLinks.writeReview {
+                    Link(destination: review) {
+                        Label("Rate Nextmark on the App Store", systemImage: "star")
+                    }
+                }
+                Link(destination: NextmarkLinks.feedbackMail) {
+                    Label("Send Feedback", systemImage: "envelope")
+                }
+                ShareLink(item: NextmarkLinks.appStore ?? NextmarkLinks.website) {
+                    Label("Share Nextmark", systemImage: "square.and.arrow.up")
+                }
                 Link("Support", destination: NextmarkLinks.support)
                 Link("Privacy Policy", destination: NextmarkLinks.privacy)
                 Button("Acknowledgements") { showsAcknowledgements = true }

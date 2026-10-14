@@ -236,6 +236,7 @@ final class AppModel {
 
     /// Back in the foreground: new screenshots (once a rescue has run), new captures.
     func becameActive() async {
+        ReviewPrompt.noteActiveDay()
         // A subscription can lapse while the app runs; StoreKit sends no update for that.
         await pro.refresh()
         guard startupError == nil else { return }

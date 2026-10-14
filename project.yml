@@ -102,7 +102,7 @@ targets:
       - target: Nextmark-iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.storekit-tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.storekit-tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Nextmark.app/Nextmark
         BUNDLE_LOADER: $(TEST_HOST)

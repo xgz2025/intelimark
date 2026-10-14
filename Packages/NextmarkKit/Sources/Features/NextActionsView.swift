@@ -104,6 +104,8 @@ struct NextActionsView: View {
                 await loadSuggestions()
             }
         }
+        // Every action on a save done is a good moment to ask for a rating.
+        .requestsReview(after: showsFinishedPrompt)
         .alert("All Actions Done", isPresented: $showsFinishedPrompt, presenting: finishedItem) { item in
             Button("Mark as Done") {
                 let (items, id) = (services.items, item.id)
