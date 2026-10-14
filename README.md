@@ -39,7 +39,7 @@ The `.xcodeproj` is generated from `project.yml` and git-ignored; change
 targets and settings there. Before running on a device:
 
 1. Set your team in `project.yml` (`DEVELOPMENT_TEAM`) if it isn't `DMY7T44MNF`.
-2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.nextmark.app`
+2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.veloworkspaces.nextmark`
    (CloudKit container) for the team; automatic signing does the rest.
 3. Run the **Nextmark-iOS** or **Nextmark-macOS** scheme. To try capture, share a
    Safari page to Laterwise; it appears in the Inbox.

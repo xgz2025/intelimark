@@ -18,7 +18,7 @@ import Library
 /// engine schedules sends and fetches, listens for pushes and retries; this actor
 /// hands it records from `SyncStore` and writes what it fetches back.
 public actor CloudSync: CKSyncEngineDelegate {
-    public static let containerIdentifier = "iCloud.com.nextmark.app"
+    public static let containerIdentifier = "iCloud.com.veloworkspaces.nextmark"
     static let batchSize = 200
 
     private let store: SyncStore

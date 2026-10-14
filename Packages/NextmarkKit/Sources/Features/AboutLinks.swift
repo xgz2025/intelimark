@@ -17,7 +17,7 @@ enum NextmarkLinks {
     static let privacy = URL(string: "https://www.veloworkspaces.com/laterwise/privacy/")!
     /// Apple's standard licence agreement, which Laterwise uses.
     static let termsOfUse = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-    static let feedbackAddress = "nextmark@veloworkspaces.com"
+    static let feedbackAddress = "laterwise@veloworkspaces.com"
 
     /// Laterwise's App Store ID: the number in its App Store link (App Store Connect ›
     /// App Information › Apple ID).
