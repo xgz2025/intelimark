@@ -58,7 +58,7 @@ final class StoreKitConfigurationTests: XCTestCase {
 
     func testARefundedLifetimeUnlockNoLongerCounts() async throws {
         let session = try makeSession()
-        let transaction = try await session.buyProduct(identifier: Self.lifetime, options: []).payloadValue
+        let transaction = try await session.buyProduct(identifier: Self.lifetime, options: [])
         let entitled = await entitlements(eventually: { $0.contains(Self.lifetime) })
         XCTAssertTrue(entitled.contains(Self.lifetime))
 
