@@ -13,7 +13,7 @@
           "locale": "en_US"
         }
       ],
-      "productID": "com.nextmark.app.pro.lifetime",
+      "productID": "com.veloworkspaces.nextmark.pro.lifetime",
       "referenceName": "Pro Lifetime",
       "type": "NonConsumable"
     }
@@ -48,7 +48,7 @@
               "locale": "en_US"
             }
           ],
-          "productID": "com.nextmark.app.pro.yearly",
+          "productID": "com.veloworkspaces.nextmark.pro.yearly",
           "recurringSubscriptionPeriod": "P1Y",
           "referenceName": "Pro Yearly",
           "subscriptionGroupID": "21500001",
@@ -73,7 +73,7 @@
               "locale": "en_US"
             }
           ],
-          "productID": "com.nextmark.app.pro.monthly",
+          "productID": "com.veloworkspaces.nextmark.pro.monthly",
           "recurringSubscriptionPeriod": "P1M",
           "referenceName": "Pro Monthly",
           "subscriptionGroupID": "21500001",

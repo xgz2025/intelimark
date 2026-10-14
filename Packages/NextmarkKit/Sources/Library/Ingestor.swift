@@ -27,7 +27,7 @@ public struct Ingestor: Sendable {
         self.itemsDirectory = itemsDirectory
     }
 
-    static let logger = Logger(subsystem: "com.nextmark.app", category: "ingest")
+    static let logger = Logger(subsystem: "com.veloworkspaces.nextmark", category: "ingest")
 
     /// Ingests every committed capture, oldest first. Returns the new item IDs.
     @discardableResult

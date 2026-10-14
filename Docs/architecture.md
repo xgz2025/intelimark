@@ -651,7 +651,7 @@ Still to come: `Tests/PromptEvals`.
 and listens to `Transaction.updates`. A current entitlement means Pro: one of
 our products, not revoked, not upgraded away, and (for a subscription) not
 expired. The answer is cached in `UserDefaults` so the app opens with the
-right features before StoreKit replies. Products: `com.nextmark.app.pro.monthly`
+right features before StoreKit replies. Products: `com.veloworkspaces.nextmark.pro.monthly`
 and `.yearly` (one subscription group) and `.lifetime` (non-consumable). They
 are universal purchases. `App/Nextmark.storekit` tests them locally from the
 generated schemes.

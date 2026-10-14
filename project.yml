@@ -4,7 +4,7 @@
 name: Nextmark
 
 options:
-  bundleIdPrefix: com.nextmark
+  bundleIdPrefix: com.veloworkspaces
   developmentLanguage: en
   createIntermediateGroups: true
   groupSortPosition: top
@@ -39,7 +39,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Nextmark
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark
         INFOPLIST_FILE: App/iOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/iOS/Nextmark.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -100,7 +100,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.share
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.share
         INFOPLIST_FILE: Extensions/Share/iOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Share/iOS/Share.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -126,7 +126,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.safari
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.safari
         INFOPLIST_FILE: Extensions/Safari/iOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Safari/iOS/Safari.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -148,7 +148,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkWidgets
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.widgets
         INFOPLIST_FILE: Extensions/Widgets/iOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/iOS/Widgets.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -170,7 +170,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Nextmark
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark
         INFOPLIST_FILE: App/macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/macOS/Nextmark.entitlements
         ENABLE_HARDENED_RUNTIME: YES
@@ -235,7 +235,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.share
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.share
         INFOPLIST_FILE: Extensions/Share/macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Share/macOS/Share.entitlements
         ENABLE_HARDENED_RUNTIME: YES
@@ -261,7 +261,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.safari
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.safari
         INFOPLIST_FILE: Extensions/Safari/macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Safari/macOS/Safari.entitlements
         ENABLE_HARDENED_RUNTIME: YES
@@ -283,7 +283,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: NextmarkWidgets
-        PRODUCT_BUNDLE_IDENTIFIER: com.nextmark.app.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.veloworkspaces.nextmark.widgets
         INFOPLIST_FILE: Extensions/Widgets/macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/macOS/Widgets.entitlements
         ENABLE_HARDENED_RUNTIME: YES

@@ -24,7 +24,7 @@ public actor CloudSync: CKSyncEngineDelegate {
     private let store: SyncStore
     private let containerIdentifier: String
     private let onChange: @Sendable (SyncApplyResult) async -> Void
-    private let logger = Logger(subsystem: "com.nextmark.app", category: "sync")
+    private let logger = Logger(subsystem: "com.veloworkspaces.nextmark", category: "sync")
 
     private var engine: CKSyncEngine?
     private var isStarting = false
