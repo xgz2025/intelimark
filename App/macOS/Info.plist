@@ -40,14 +40,14 @@
 			<string>Nextmark</string>
 			<key>NSRequiredContext</key>
 			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.content</string>
+			</array>
 			<key>NSSendTypes</key>
 			<array>
 				<string>public.utf8-plain-text</string>
 				<string>public.url</string>
-			</array>
-			<key>NSSendFileTypes</key>
-			<array>
-				<string>public.content</string>
 			</array>
 		</dict>
 	</array>

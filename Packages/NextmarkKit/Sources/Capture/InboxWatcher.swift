@@ -15,7 +15,7 @@ import Foundation
 /// Says across processes that a capture was committed (Docs/architecture.md §3.1). The
 /// name starts with the App Group, which sandboxed apps require for Darwin notifications.
 public enum InboxSignal {
-    static let name = "group.com.nextmark.app.inbox-changed"
+    static let name = "group.com.veloworkspaces.nextmark.inbox-changed"
 
     public static func post() {
         CFNotificationCenterPostNotification(
