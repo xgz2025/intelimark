@@ -33,8 +33,11 @@ account or network.
 
 `make test-storekit` runs `Tests/StoreKit` in the iOS Simulator against the same
 file: products load with a one-week trial on the subscriptions, a subscription
-unlocks Pro until it expires, and a refunded lifetime unlock no longer counts. CI
-runs them too (the "StoreKit tests" job).
+unlocks Pro until it expires, and a refunded lifetime unlock no longer counts. In
+Xcode, choose the Nextmark-iOS scheme and Product › Test (⌘U).
+
+They run on a Mac, not in CI: on GitHub's macOS runners the simulator's test
+store returns no products, whatever the signing.
 
 ### Before release
 
