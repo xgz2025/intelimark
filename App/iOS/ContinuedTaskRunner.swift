@@ -17,7 +17,7 @@ import Integrations
 /// with the system's progress UI when the user leaves the app (Docs/architecture.md §3.2).
 @MainActor
 final class ContinuedTaskRunner: LongTaskRunner {
-    static let identifier = "com.nextmark.app.rescue"
+    static let identifier = "com.veloworkspaces.nextmark.rescue"
 
     private var isRegistered = false
     private var pendingWork: (@Sendable (@escaping @Sendable (RescueProgress) -> Void) async -> Bool)?

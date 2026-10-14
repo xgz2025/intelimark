@@ -347,7 +347,7 @@ final class AppModel {
             let online = path.status == .satisfied
             Task { @MainActor in await self.networkChanged(online: online) }
         }
-        monitor.start(queue: DispatchQueue(label: "com.nextmark.app.network"))
+        monitor.start(queue: DispatchQueue(label: "com.veloworkspaces.nextmark.network"))
         pathMonitor = monitor
     }
 

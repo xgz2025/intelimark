@@ -15,9 +15,9 @@ import StoreKit
 /// Nextmark Pro's products (PRD P4): one subscription group, plus a lifetime unlock.
 /// Universal purchase: the same products on iPhone, iPad and Mac.
 public enum ProProduct {
-    public static let monthly = "com.nextmark.app.pro.monthly"
-    public static let yearly = "com.nextmark.app.pro.yearly"
-    public static let lifetime = "com.nextmark.app.pro.lifetime"
+    public static let monthly = "com.veloworkspaces.nextmark.pro.monthly"
+    public static let yearly = "com.veloworkspaces.nextmark.pro.yearly"
+    public static let lifetime = "com.veloworkspaces.nextmark.pro.lifetime"
     /// In the order the paywall offers them.
     public static let all = [yearly, monthly, lifetime]
 }

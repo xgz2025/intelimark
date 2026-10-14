@@ -30,7 +30,7 @@ public enum InboxSignal {
 public final class InboxWatcher: @unchecked Sendable {
     private let url: URL
     private let onChange: @Sendable () -> Void
-    private let queue = DispatchQueue(label: "com.nextmark.inbox-watcher")
+    private let queue = DispatchQueue(label: "com.veloworkspaces.nextmark.inbox-watcher")
     private var source: DispatchSourceFileSystemObject?   // guarded by `queue`
 
     public init(url: URL, onChange: @escaping @Sendable () -> Void) {
