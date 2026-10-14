@@ -15,7 +15,7 @@ import Foundation
 /// Tests must not touch these: on macOS, reading another app group's container
 /// can trigger a privacy prompt. Inject explicit URLs instead.
 public enum AppGroup {
-    public static let identifier = "group.com.nextmark.app"
+    public static let identifier = "group.com.veloworkspaces.nextmark"
 
     public static var containerURL: URL {
         #if canImport(Darwin)
