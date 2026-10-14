@@ -106,6 +106,8 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      # StoreKit needs to know which app is asking: the simulator build is signed to
+      # run locally (no account or profile), not left unsigned as in the build jobs.
       - name: Test in-app purchases
         shell: bash
         run: |
@@ -124,7 +126,7 @@ jobs:
             -destination "id=$udid" \
             -only-testing:StoreKitTests-iOS \
             -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
             2>&1 | tee storekit.log | grep -E "^(\*\*|Test Case|.*error:)"
 
       - name: Check for warnings
