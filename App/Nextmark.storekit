@@ -1,89 +1,172 @@
 {
-  "identifier": "6C1F3A2E",
-  "nonRenewingSubscriptions": [],
-  "products": [
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "6C1F3A2E",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
     {
-      "displayPrice": "79.99",
-      "familyShareable": false,
-      "internalID": "6740000003",
-      "localizations": [
+      "displayPrice" : "79.99",
+      "familyShareable" : false,
+      "internalID" : "6740000003",
+      "localizations" : [
         {
-          "description": "Every Pro feature, for good.",
-          "displayName": "Laterwise Pro Lifetime",
-          "locale": "en_US"
+          "description" : "Every Pro feature, for good.",
+          "displayName" : "Laterwise Pro Lifetime",
+          "locale" : "en_US"
         }
       ],
-      "productID": "com.veloworkspaces.nextmark.pro.lifetime",
-      "referenceName": "Pro Lifetime",
-      "type": "NonConsumable"
+      "productID" : "com.veloworkspaces.nextmark.pro.lifetime",
+      "referenceName" : "Pro Lifetime",
+      "type" : "NonConsumable"
     }
   ],
-  "settings": {
-    "_failTransactionsEnabled": false,
-    "_locale": "en_US",
-    "_storefront": "USA"
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
   },
-  "subscriptionGroups": [
+  "subscriptionBundleGroups" : [
+
+  ],
+  "subscriptionGroups" : [
     {
-      "id": "21500001",
-      "localizations": [],
-      "name": "Laterwise Pro",
-      "subscriptions": [
+      "id" : "21500001",
+      "localizations" : [
+
+      ],
+      "name" : "Laterwise Pro",
+      "subscriptions" : [
         {
-          "adHocOffers": [],
-          "codeOffers": [],
-          "displayPrice": "29.99",
-          "familyShareable": false,
-          "groupNumber": 1,
-          "internalID": "6740000002",
-          "introductoryOffer": {
-            "internalID": "6740000010",
-            "paymentMode": "free",
-            "subscriptionPeriod": "P1W"
-          },
-          "localizations": [
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
             {
-              "description": "Moments, Briefs and unlimited smart groups.",
-              "displayName": "Laterwise Pro Yearly",
-              "locale": "en_US"
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "29.99",
+              "displayPrice" : "29.99",
+              "internalID" : "326D92E8",
+              "isEnabled" : true
             }
           ],
-          "productID": "com.veloworkspaces.nextmark.pro.yearly",
-          "recurringSubscriptionPeriod": "P1Y",
-          "referenceName": "Pro Yearly",
-          "subscriptionGroupID": "21500001",
-          "type": "RecurringSubscription"
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "29.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6740000002",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "6740000010",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "introductoryOffers" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "6740000010",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P1W"
+            }
+          ],
+          "localizations" : [
+            {
+              "description" : "Moments, Briefs and unlimited smart groups.",
+              "displayName" : "Laterwise Pro Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.veloworkspaces.nextmark.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Yearly",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         },
         {
-          "adHocOffers": [],
-          "codeOffers": [],
-          "displayPrice": "3.99",
-          "familyShareable": false,
-          "groupNumber": 1,
-          "internalID": "6740000001",
-          "introductoryOffer": {
-            "internalID": "6740000011",
-            "paymentMode": "free",
-            "subscriptionPeriod": "P1W"
-          },
-          "localizations": [
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
             {
-              "description": "Moments, Briefs and unlimited smart groups.",
-              "displayName": "Laterwise Pro Monthly",
-              "locale": "en_US"
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "3.99",
+              "displayPrice" : "3.99",
+              "internalID" : "A65E44BD",
+              "isEnabled" : true
             }
           ],
-          "productID": "com.veloworkspaces.nextmark.pro.monthly",
-          "recurringSubscriptionPeriod": "P1M",
-          "referenceName": "Pro Monthly",
-          "subscriptionGroupID": "21500001",
-          "type": "RecurringSubscription"
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "3.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6740000001",
+          "introductoryOffer" : {
+            "billingPlanType" : "BILLED_UPFRONT",
+            "internalID" : "6740000011",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "introductoryOffers" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "internalID" : "6740000011",
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "subscriptionPeriod" : "P1W"
+            }
+          ],
+          "localizations" : [
+            {
+              "description" : "Moments, Briefs and unlimited smart groups.",
+              "displayName" : "Laterwise Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.veloworkspaces.nextmark.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
   ],
-  "version": {
-    "major": 4,
-    "minor": 0
+  "subscriptionSuiteGroups" : [
+
+  ],
+  "version" : {
+    "major" : 6,
+    "minor" : 3
   }
 }
