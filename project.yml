@@ -119,6 +119,9 @@ targets:
         buildPhase: resources
       - path: Extensions/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
@@ -145,6 +148,9 @@ targets:
         buildPhase: resources
       - path: Extensions/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
@@ -166,6 +172,9 @@ targets:
       - Extensions/Widgets/Shared
       - Extensions/Widgets/iOS
       - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
         buildPhase: resources
     settings:
       base:
@@ -254,6 +263,9 @@ targets:
         buildPhase: resources
       - path: Extensions/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkShare
@@ -280,6 +292,9 @@ targets:
         buildPhase: resources
       - path: Extensions/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: NextmarkSafari
@@ -301,6 +316,9 @@ targets:
       - Extensions/Widgets/Shared
       - Extensions/Widgets/macOS
       - path: Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      # The app's String Catalog: extensions show the same words (CaptureUI, widgets).
+      - path: App/Shared/Localizable.xcstrings
         buildPhase: resources
     settings:
       base:

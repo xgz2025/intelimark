@@ -40,9 +40,7 @@ public struct VisionImageAnalyzer: ImageAnalyzing {
     public init() {}
 
     public func analyze(imageAt url: URL) async throws -> ImageAnalysis {
-        var textRequest = RecognizeTextRequest()
-        textRequest.recognitionLevel = .accurate
-        textRequest.usesLanguageCorrection = true
+        let textRequest = Self.textRequest()
         let text = try await textRequest.perform(on: url)
         let labels = (try? await ClassifyImageRequest().perform(on: url)) ?? []
         let barcodes = (try? await DetectBarcodesRequest().perform(on: url)) ?? []
@@ -50,13 +48,32 @@ public struct VisionImageAnalyzer: ImageAnalyzing {
     }
 
     public func analyze(imageData data: Data) async throws -> ImageAnalysis {
-        var textRequest = RecognizeTextRequest()
-        textRequest.recognitionLevel = .accurate
-        textRequest.usesLanguageCorrection = true
+        let textRequest = Self.textRequest()
         let text = try await textRequest.perform(on: data)
         let labels = (try? await ClassifyImageRequest().perform(on: data)) ?? []
         let barcodes = (try? await DetectBarcodesRequest().perform(on: data)) ?? []
         return Self.analysis(text: text, labels: labels, barcodes: barcodes)
+    }
+
+    /// Reads text in the person's languages as well as English: a Chinese receipt,
+    /// a Japanese menu. Vision otherwise reads English only.
+    static func textRequest(preferred: [String] = Locale.preferredLanguages) -> RecognizeTextRequest {
+        var request = RecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.automaticallyDetectsLanguage = true
+        let supported = request.supportedRecognitionLanguages
+        var languages: [Locale.Language] = []
+        for identifier in preferred + ["en-US"] {
+            let wanted = Locale.Language(identifier: identifier)
+            let match = supported.first { candidate in
+                candidate.languageCode == wanted.languageCode
+                    && (candidate.script == nil || wanted.script == nil || candidate.script == wanted.script)
+            }
+            if let match, !languages.contains(match) { languages.append(match) }
+        }
+        if !languages.isEmpty { request.recognitionLanguages = languages }
+        return request
     }
 
     static func analysis(

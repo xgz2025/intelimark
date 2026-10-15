@@ -63,3 +63,13 @@ Shared code lives in `Packages/NextmarkKit` (`Model`, `Capture`, `CaptureUI`,
 iOS / iPadOS / macOS 26+ (OS 27 features behind `#available`), Swift 6,
 SwiftUI, GRDB + CloudKit (`CKSyncEngine`), Foundation Models, Vision,
 NaturalLanguage, App Intents, WidgetKit.
+
+## Languages
+
+English and Simplified Chinese. Every user-facing string, including those in
+`NextmarkKit` (looked up in the app's main bundle), is in
+`App/Shared/Localizable.xcstrings`, which the extensions share. Its entries are
+marked manual so Xcode never treats package strings as stale. Info.plist strings
+live in `App/iOS/zh-Hans.lproj` and `App/macOS/zh-Hans.lproj`. A new string needs
+its key (the English text, with `%@`/`%lld` for interpolations) and a translation
+added to the catalog, in Xcode's editor.
