@@ -10,7 +10,9 @@ together with unsigned iOS and macOS builds and a check that our code has no war
 Laterwise Pro's products live in `App/Nextmark.storekit`: monthly and yearly
 subscriptions with a one-week free trial, and a lifetime unlock. Both app schemes
 use this file when you run from Xcode, so purchases work without an App Store
-account or network.
+account or network. Edit it only in Xcode's StoreKit editor: StoreKit loads no
+products from a file it didn't write (it then shows an empty paywall, and the
+`make test-storekit` purchases fail).
 
 ### Try it by hand
 
