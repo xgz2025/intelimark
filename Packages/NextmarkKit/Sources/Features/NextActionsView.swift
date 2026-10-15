@@ -64,15 +64,13 @@ struct NextActionsView: View {
                 if let contexts = buckets[bucket], !contexts.isEmpty {
                     Section(bucket.title) {
                         ForEach(contexts) { context in
-                            ActionRow(action: context.action, context: contextLabel(context)) {
-                                complete(context.action)
-                            }
-                            .swipeActions {
-                                Button("Delete", systemImage: "trash", role: .destructive) {
-                                    let (repository, id) = (services.actions, context.action.id)
-                                    performEdit { try await repository.delete(id) }
+                            actionRow(context)
+                                .swipeActions {
+                                    Button("Delete", systemImage: "trash", role: .destructive) { delete(context) }
                                 }
-                            }
+                                .contextMenu {
+                                    Button("Delete Action", systemImage: "trash", role: .destructive) { delete(context) }
+                                }
                         }
                     }
                 }
@@ -119,6 +117,26 @@ struct NextActionsView: View {
         } message: { item in
             Text("You've finished every action for “\(item.title)”. Mark the item as done too? It moves from the Inbox to Done.")
         }
+    }
+
+    /// Leads to what the action is for: its group, or the item it was added to.
+    @ViewBuilder
+    private func actionRow(_ context: ActionContext) -> some View {
+        let row = ActionRow(action: context.action, context: contextLabel(context)) {
+            complete(context.action)
+        }
+        if let groupID = context.action.groupID {
+            NavigationLink(value: GroupLink(id: groupID)) { row }
+        } else if let itemID = context.action.itemID {
+            NavigationLink(value: ItemLink(id: itemID)) { row }
+        } else {
+            row
+        }
+    }
+
+    private func delete(_ context: ActionContext) {
+        let (repository, id) = (services.actions, context.action.id)
+        performEdit { try await repository.delete(id) }
     }
 
     private func contextLabel(_ context: ActionContext) -> String? {

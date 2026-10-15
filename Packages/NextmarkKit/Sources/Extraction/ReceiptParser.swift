@@ -64,9 +64,12 @@ public enum ReceiptParser {
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         for match in detector.matches(in: text, range: range) {
+            // Only a date that prints its year ("Oct 3, 2026"), and that year: the
+            // detector also reads bare numbers and words like "today" as dates.
             guard let date = match.date, date >= earliest, date <= latest,
                   let swiftRange = Range(match.range, in: text),
-                  text[swiftRange].contains(where: \.isNumber), text[swiftRange].count >= 6
+                  let year = text[swiftRange].firstMatch(of: #/\b(19|20)\d{2}\b/#).flatMap({ Int($0.output.0) }),
+                  calendar.component(.year, from: date) == year
             else { continue }
             return date
         }

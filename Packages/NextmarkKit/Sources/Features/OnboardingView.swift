@@ -54,7 +54,7 @@ public struct OnboardingView: View {
                 #if os(macOS)
                 Text("Press ⌥⌘S in any app, choose Services › Save to Laterwise, or use Share. Say why: to read, buy, try or go.")
                 #else
-                Text("Tap Share in any app and choose Laterwise, or tap + in the Inbox. Say why: to read, buy, try or go.")
+                Text("Tap Share in any app and choose Laterwise, or tap + in the Inbox. In Safari, turn on Laterwise in the extensions menu (the puzzle piece) to save highlights. Say why: to read, buy, try or go.")
                 #endif
             }
             Feature(symbol: "sparkles", title: "Laterwise does the sorting") {

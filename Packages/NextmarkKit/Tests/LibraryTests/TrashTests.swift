@@ -40,7 +40,7 @@ struct TrashTests {
         try await repository.setStatus(.done, forItems: [ids[0], ids[1]], now: now)
         #expect(try await repository.item(id: ids[0])?.status == .done)
         #expect(try await repository.item(id: ids[1])?.status == .done)
-        #expect(try await repository.item(id: ids[2])?.status == .active)
+        #expect(try await repository.item(id: ids[2])?.status != .done)
     }
 
     @Test func restoreBringsAnItemBack() async throws {

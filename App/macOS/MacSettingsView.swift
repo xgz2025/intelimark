@@ -9,6 +9,7 @@
 //
 
 import AppKit
+import SafariServices
 import ServiceManagement
 import SwiftUI
 import Features
@@ -59,6 +60,14 @@ private struct CaptureSettingsView: View {
                 if hotKeyTaken {
                     Label("Another app is already using this shortcut.", systemImage: "exclamationmark.triangle.fill")
                         .symbolRenderingMode(.multicolor)
+                }
+            }
+            Section("Safari") {
+                Text("Save pages and highlights with the Laterwise button in Safari's toolbar, or Control-click a page and choose Save to Laterwise.")
+                    .foregroundStyle(.secondary)
+                Button("Turn On the Safari Extension…") {
+                    let identifier = (Bundle.main.bundleIdentifier ?? "com.veloworkspaces.nextmark") + ".safari"
+                    SFSafariApplication.showPreferencesForExtension(withIdentifier: identifier) { _ in }
                 }
             }
             Section("Services") {

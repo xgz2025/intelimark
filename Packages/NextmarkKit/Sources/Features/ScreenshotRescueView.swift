@@ -10,6 +10,9 @@
 
 import SwiftUI
 import Photos
+#if os(iOS)
+import UIKit
+#endif
 import Model
 import Library
 import Integrations
@@ -113,6 +116,11 @@ struct ScreenshotRescueView: View {
             Section {
                 Label("Laterwise can't see your photos. Allow access in Settings › Privacy › Photos.", systemImage: "lock")
                     .foregroundStyle(.secondary)
+                #if os(iOS)
+                if let settings = URL(string: UIApplication.openSettingsURLString) {
+                    Link("Open Settings", destination: settings)
+                }
+                #endif
             }
         case .granted:
             switch controller.phase {

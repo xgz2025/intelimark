@@ -33,6 +33,8 @@ public struct RootView: View {
     @State private var trashCount = 0
     @State private var showsNewGroup = false
     @State private var showsNewNote = false
+    @State private var renamingGroup: GroupRecord?
+    @State private var deletingGroup: GroupRecord?
 
     /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
     public init(services: LibraryServices, navigator: AppNavigator = AppNavigator(), rescue: RescueController? = nil) {
@@ -77,6 +79,22 @@ public struct RootView: View {
         }
         .sheet(isPresented: $showsNewNote) {
             NewNoteSheet(services: services)
+        }
+        .sheet(item: $renamingGroup) { group in
+            RenameGroupSheet(group: group, services: services)
+        }
+        .confirmationDialog(
+            "Delete “\(deletingGroup?.displayTitle ?? "")”?",
+            isPresented: Binding(get: { deletingGroup != nil }, set: { if !$0 { deletingGroup = nil } }),
+            titleVisibility: .visible,
+            presenting: deletingGroup
+        ) { group in
+            Button("Delete Group", role: .destructive) {
+                let (groups, id) = (services.groups, group.id)
+                performEdit { try await groups.delete(id) }
+            }
+        } message: { _ in
+            Text("Its items stay in your library. The group's own actions are deleted with it.")
         }
         .onChange(of: navigator.destination, initial: true) {
             // `initial`: a notification tap that launched the app arrives before this view.
@@ -149,6 +167,11 @@ public struct RootView: View {
                                 }
                             }
                             return true
+                        }
+                        .contextMenu {
+                            Button("Rename…", systemImage: "pencil") { renamingGroup = summary.group }
+                            Divider()
+                            Button("Delete Group…", systemImage: "trash", role: .destructive) { deletingGroup = summary.group }
                         }
                 }
                 Button {

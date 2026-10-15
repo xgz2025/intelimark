@@ -47,7 +47,7 @@ enum NextmarkLinks {
         components.path = feedbackAddress
         components.queryItems = [
             URLQueryItem(name: "subject", value: "Laterwise \(versionDescription)"),
-            URLQueryItem(name: "body", value: "\n\n—\nNextmark \(versionDescription), \(system)"),
+            URLQueryItem(name: "body", value: "\n\n—\nLaterwise \(versionDescription), \(system)"),
         ]
         return components.url ?? URL(string: "mailto:\(feedbackAddress)")!
     }

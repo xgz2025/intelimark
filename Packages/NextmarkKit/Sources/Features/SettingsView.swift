@@ -72,6 +72,7 @@ public struct SettingsView: View {
                 }
                 NotificationAccessRow(isNeeded: momentsEnabled || reviewEnabled)
                 Toggle("Remind Me About Dates in My Saves", isOn: $momentsEnabled)
+                    .disabled(pro?.isPro != true)
                 if momentsEnabled {
                     Stepper("At most \(maxPerDay) a day", value: $maxPerDay, in: 1...6)
                     Picker("Quiet from", selection: $quietStart) { hourOptions }

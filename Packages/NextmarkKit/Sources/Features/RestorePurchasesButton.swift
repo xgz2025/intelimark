@@ -60,7 +60,7 @@ struct RestorePurchasesButton: View {
 
     private var message: Text {
         switch outcome {
-        case .restored: Text("Thanks for supporting Nextmark. Everything in Pro is unlocked.")
+        case .restored: Text("Thanks for supporting Laterwise. Everything in Pro is unlocked.")
         case .nothingToRestore: Text("This Apple Account hasn't bought Laterwise Pro. If you bought it with another account, sign in to the App Store with that one.")
         case .failed, nil: Text("Check your connection and that you're signed in to the App Store, then try again.")
         }

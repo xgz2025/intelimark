@@ -147,6 +147,12 @@ struct ItemDetailView: View {
             Section("Actions") {
                 ForEach(context.actions) { action in
                     ActionRow(action: action) { toggle(action) }
+                        .swipeActions {
+                            Button("Delete", systemImage: "trash", role: .destructive) { deleteAction(action) }
+                        }
+                        .contextMenu {
+                            Button("Delete Action", systemImage: "trash", role: .destructive) { deleteAction(action) }
+                        }
                 }
                 ForEach(suggestions, id: \.self) { suggestion in
                     SuggestedActionRow(suggestion: suggestion) {
@@ -414,6 +420,11 @@ struct ItemDetailView: View {
         newAction = ""
         let (repository, id) = (services.actions, itemID)
         performEdit { _ = try await repository.add(title: title, itemID: id) }
+    }
+
+    private func deleteAction(_ action: ActionRecord) {
+        let repository = services.actions
+        performEdit { try await repository.delete(action.id) }
     }
 
     private func toggle(_ action: ActionRecord) {

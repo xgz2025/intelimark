@@ -105,6 +105,11 @@ struct GroupDetailView: View {
                                 run { try await services.actions.delete(action.id) }
                             }
                         }
+                        .contextMenu {
+                            Button("Delete Action", systemImage: "trash", role: .destructive) {
+                                run { try await services.actions.delete(action.id) }
+                            }
+                        }
                 }
                 TextField("Add an action", text: $newAction)
                     .onSubmit { addAction() }
@@ -116,17 +121,21 @@ struct GroupDetailView: View {
                     ForEach(suggested) { member in
                         HStack {
                             ItemLinkRow(item: member.item, services: services)
-                            Button("Keep", systemImage: "checkmark.circle") {
+                            Button("Keep in Group", systemImage: "checkmark.circle") {
                                 run { try await services.groups.confirmItem(member.item.id, in: groupID) }
                             }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
-                            Button("Remove", systemImage: "xmark.circle") {
+                            .font(.title3)
+                            .help(Text("Keep in this group"))
+                            Button("Remove from Group", systemImage: "xmark.circle") {
                                 run { try await services.groups.removeItem(member.item.id, from: groupID) }
                             }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
+                            .font(.title3)
                             .foregroundStyle(.secondary)
+                            .help(Text("Remove from this group"))
                         }
                     }
                 } header: {
@@ -138,12 +147,14 @@ struct GroupDetailView: View {
 
             Section {
                 ForEach(group.state == .suggested ? suggested : confirmed) { member in
-                    ItemLinkRow(item: member.item, services: services)
-                        .swipeActions {
-                            Button("Remove", systemImage: "minus.circle", role: .destructive) {
-                                run { try await services.groups.removeItem(member.item.id, from: groupID) }
-                            }
+                    ItemLinkRow(item: member.item, services: services, removeFromGroup: {
+                        run { try await services.groups.removeItem(member.item.id, from: groupID) }
+                    })
+                    .swipeActions {
+                        Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                            run { try await services.groups.removeItem(member.item.id, from: groupID) }
                         }
+                    }
                 }
             } header: {
                 if group.state == .suggested {
@@ -207,7 +218,7 @@ struct GroupDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("The items stay in your library.")
+            Text("Its items stay in your library. The group's own actions are deleted with it.")
         }
         .alert("Mark “\(group.displayTitle)” as done?", isPresented: $showsDonePrompt) {
             TextField("What came of it? (optional)", text: $outcome)
@@ -251,7 +262,9 @@ struct GroupDetailView: View {
                 try await groups.acceptSuggestion(groupID, smartGroupLimit: limit)
             } catch is GroupLimitReached {
                 showsPaywall = true
-            } catch {}
+            } catch {
+                EditFailure.shared.report(error)
+            }
         }
     }
 }
@@ -357,7 +370,7 @@ private struct BulletLabelStyle: LabelStyle {
     }
 }
 
-private struct RenameGroupSheet: View {
+struct RenameGroupSheet: View {
     let group: GroupRecord
     let services: LibraryServices
     @Environment(\.dismiss) private var dismiss
@@ -382,6 +395,7 @@ private struct RenameGroupSheet: View {
                         performEdit { try await groups.rename(id, to: title, emoji: emoji) }
                         dismiss()
                     }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .onAppear {
@@ -450,22 +464,13 @@ struct SuggestionsView: View {
                     GroupLabel(group: summary.group, count: summary.suggestedCount)
                 }
                 .swipeActions {
-                    Button("Dismiss", systemImage: "xmark", role: .destructive) {
-                        let (groups, id) = (services.groups, summary.id)
-                        performEdit { try await groups.dismissSuggestion(id) }
-                    }
-                    Button("Keep", systemImage: "checkmark") {
-                        let (groups, id) = (services.groups, summary.id)
-                        let limit = ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false)
-                        Task {
-                            do {
-                                try await groups.acceptSuggestion(id, smartGroupLimit: limit)
-                            } catch is GroupLimitReached {
-                                showsPaywall = true
-                            } catch {}
-                        }
-                    }
-                    .tint(.green)
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { dismissSuggestion(summary.id) }
+                    Button("Keep", systemImage: "checkmark") { keep(summary.id) }
+                        .tint(.green)
+                }
+                .contextMenu {
+                    Button("Keep Group", systemImage: "checkmark") { keep(summary.id) }
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { dismissSuggestion(summary.id) }
                 }
             }
         }
@@ -486,6 +491,27 @@ struct SuggestionsView: View {
                 suggestions = summaries
             }
         }
+    }
+}
+
+extension SuggestionsView {
+    private func keep(_ id: String) {
+        let groups = services.groups
+        let limit = ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false)
+        Task {
+            do {
+                try await groups.acceptSuggestion(id, smartGroupLimit: limit)
+            } catch is GroupLimitReached {
+                showsPaywall = true
+            } catch {
+                EditFailure.shared.report(error)
+            }
+        }
+    }
+
+    private func dismissSuggestion(_ id: String) {
+        let groups = services.groups
+        performEdit { try await groups.dismissSuggestion(id) }
     }
 }
 

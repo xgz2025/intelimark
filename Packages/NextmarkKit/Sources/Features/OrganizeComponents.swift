@@ -18,6 +18,8 @@ import DesignSystem
 struct ItemLinkRow: View {
     let item: ItemRecord
     let services: LibraryServices
+    /// In a group's list: takes the item out of the group (it stays in the library).
+    var removeFromGroup: (() -> Void)?
     @State private var showsAddToGroup = false
     @State private var showsAddAction = false
     @State private var showsShare = false
@@ -41,6 +43,9 @@ struct ItemLinkRow: View {
             }
             Button("Add to Group…", systemImage: "square.stack") { showsAddToGroup = true }
             Button("Add Action…", systemImage: "checklist") { showsAddAction = true }
+            if let removeFromGroup {
+                Button("Remove from Group", systemImage: "minus.circle", action: removeFromGroup)
+            }
             Divider()
             if item.status == .done {
                 Button("Mark as Not Done", systemImage: "arrow.uturn.backward") { setStatus(.active) }
@@ -86,7 +91,10 @@ struct ActionRow: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
+            .padding(4)
+            .contentShape(.rect)
             .accessibilityLabel(isDone ? Text("Mark as not done") : Text("Mark as done"))
+            .help(isDone ? Text("Mark as not done") : Text("Mark as done"))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(action.title)
@@ -135,10 +143,16 @@ struct SuggestedActionRow: View {
                 .font(.title3)
                 .buttonStyle(.plain)
                 .foregroundStyle(.tint)
+                .padding(4)
+                .contentShape(.rect)
+                .help(Text("Add this action"))
             Button("Dismiss", systemImage: "xmark", action: onDismiss)
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
+                .padding(4)
+                .contentShape(.rect)
+                .help(Text("Don't suggest this again"))
         }
     }
 }
@@ -280,8 +294,10 @@ struct AddToGroupSheet: View {
                     groups = summaries.filter { $0.group.status == .active }
                 }
             }
-            .sheet(isPresented: $showsNewGroup, onDismiss: { dismiss() }) {
-                NewGroupSheet(itemIDs: itemIDs, services: services)
+            // Creating the group adds the items, so this sheet is done too; cancelling
+            // goes back to the list of groups.
+            .sheet(isPresented: $showsNewGroup) {
+                NewGroupSheet(itemIDs: itemIDs, services: services) { _ in dismiss() }
             }
         }
         .frame(minWidth: 360, minHeight: 360)
