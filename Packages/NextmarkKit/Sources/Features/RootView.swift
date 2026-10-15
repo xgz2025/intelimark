@@ -32,6 +32,7 @@ public struct RootView: View {
     @State private var openActionCount = 0
     @State private var trashCount = 0
     @State private var showsNewGroup = false
+    @State private var showsNewNote = false
 
     /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
     public init(services: LibraryServices, navigator: AppNavigator = AppNavigator(), rescue: RescueController? = nil) {
@@ -64,6 +65,18 @@ public struct RootView: View {
                 if startedRescue { selection = .screenshots }
             }
             .interactiveDismissDisabled()
+        }
+        .onChange(of: navigator.command, initial: true) {
+            guard let command = navigator.command else { return }
+            navigator.command = nil
+            switch command {
+            case .newNote: showsNewNote = true
+            case .newGroup: showsNewGroup = true
+            case .search: selection = .search
+            }
+        }
+        .sheet(isPresented: $showsNewNote) {
+            NewNoteSheet(services: services)
         }
         .onChange(of: navigator.destination, initial: true) {
             // `initial`: a notification tap that launched the app arrives before this view.

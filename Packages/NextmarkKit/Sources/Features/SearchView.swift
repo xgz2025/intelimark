@@ -22,17 +22,21 @@ struct SearchView: View {
     @State private var filters = SearchFilters()
     @State private var results: [ItemRecord] = []
     @State private var hasSearched = false
+    /// Bumped when the library changes, so results don't show an item as it was.
+    @State private var revision = ""
+    @FocusState private var isSearchFocused: Bool
 
     private struct Request: Equatable {
         var text: String
         var filters: SearchFilters
+        var revision: String
 
         var isBlank: Bool {
             text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && filters.isEmpty
         }
     }
 
-    private var request: Request { Request(text: text, filters: filters) }
+    private var request: Request { Request(text: text, filters: filters, revision: revision) }
 
     var body: some View {
         List(results) { item in
@@ -45,6 +49,13 @@ struct SearchView: View {
             }
         }
         .searchable(text: $text, prompt: "Words, meanings, text in photos")
+        .searchFocused($isSearchFocused)
+        .onAppear { isSearchFocused = true }
+        .task {
+            for await value in services.items.revisions().ignoringErrors() {
+                revision = value
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 FilterMenu(filters: $filters)

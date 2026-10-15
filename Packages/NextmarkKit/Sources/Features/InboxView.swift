@@ -49,6 +49,11 @@ struct InboxView: View {
             }
         }
         .navigationTitle("Inbox")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                AddMenu(services: services)
+            }
+        }
         .task {
             do {
                 for try await snapshot in services.items.inboxItems() {
@@ -62,9 +67,9 @@ struct InboxView: View {
 
     static var emptyHint: LocalizedStringKey {
         #if os(macOS)
-        "In any app, click Share and choose Laterwise, or press the quick capture shortcut from the menu bar."
+        "Click + to add a note, link, photo or file. In other apps, click Share and choose Laterwise, or use Quick Capture from the menu bar."
         #else
-        "In any app, tap Share and choose Laterwise."
+        "Tap + to add a note, link, photo or file. In other apps, tap Share and choose Laterwise."
         #endif
     }
 }

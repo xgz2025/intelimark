@@ -70,6 +70,7 @@ public struct SettingsView: View {
                 if pro?.isPro != true {
                     ProUpsellRow(text: "Date reminders come with Pro", reason: "Moments bring saves back when they matter.")
                 }
+                NotificationAccessRow(isNeeded: momentsEnabled || reviewEnabled)
                 Toggle("Remind Me About Dates in My Saves", isOn: $momentsEnabled)
                 if momentsEnabled {
                     Stepper("At most \(maxPerDay) a day", value: $maxPerDay, in: 1...6)

@@ -54,7 +54,7 @@ public struct OnboardingView: View {
                 #if os(macOS)
                 Text("Press ⌥⌘S in any app, choose Services › Save to Laterwise, or use Share. Say why: to read, buy, try or go.")
                 #else
-                Text("Tap Share in any app and choose Nextmark. Say why: to read, buy, try or go.")
+                Text("Tap Share in any app and choose Laterwise, or tap + in the Inbox. Say why: to read, buy, try or go.")
                 #endif
             }
             Feature(symbol: "sparkles", title: "Laterwise does the sorting") {
@@ -65,7 +65,11 @@ public struct OnboardingView: View {
             }
             Spacer(minLength: 0)
             Button {
-                if rescue == nil { onFinish(false) } else { showsRescue = true }
+                // Asked here, right under "Back when it matters", so the prompt makes sense.
+                Task {
+                    await NotificationAccess.request()
+                    if rescue == nil { onFinish(false) } else { showsRescue = true }
+                }
             } label: {
                 Text("Continue").frame(maxWidth: .infinity)
             }

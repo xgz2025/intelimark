@@ -36,9 +36,13 @@ struct NextmarkApp: App {
     var body: some Scene {
         #if os(macOS)
         // One main window: "Open Laterwise" brings it back instead of adding another.
-        Window("Laterwise", id: Self.mainWindowID) { main }
+        Window("Laterwise", id: Self.mainWindowID) {
+            main.opensLibraryWindow(for: model)
+        }
+        .commands { MacLibraryCommands(navigator: model.navigator) }
         #else
         WindowGroup(id: Self.mainWindowID) { main }
+            .commands { LibraryCommands(navigator: model.navigator) }
         #endif
         #if os(macOS)
         MenuBarExtra("Laterwise", systemImage: "bookmark.fill") {

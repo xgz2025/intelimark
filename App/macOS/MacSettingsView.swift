@@ -9,6 +9,7 @@
 //
 
 import AppKit
+import ServiceManagement
 import SwiftUI
 import Features
 
@@ -32,9 +33,24 @@ struct MacSettingsView: View {
 private struct CaptureSettingsView: View {
     @AppStorage(QuickCaptureController.hotKeyEnabledKey) private var hotKeyEnabled = true
     @State private var hotKeyTaken = false
+    @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var loginItemError: String?
 
     var body: some View {
         Form {
+            Section {
+                Toggle(isOn: $opensAtLogin) {
+                    Text("Open at Login")
+                    Text("Keeps the menu bar item and the quick capture shortcut ready after you restart your Mac.")
+                }
+                if SMAppService.mainApp.status == .requiresApproval {
+                    Button("Allow in Login Items Settings…") { SMAppService.openSystemSettingsLoginItems() }
+                }
+                if let loginItemError {
+                    Label(loginItemError, systemImage: "exclamationmark.triangle.fill")
+                        .symbolRenderingMode(.multicolor)
+                }
+            }
             Section("Quick Capture") {
                 Toggle(isOn: $hotKeyEnabled) {
                     Text("Open with \(GlobalHotKey.Combo.quickCapture.symbol) from any app")
@@ -46,7 +62,7 @@ private struct CaptureSettingsView: View {
                 }
             }
             Section("Services") {
-                Text("Select text or a link in any app, or files in Finder, then Control-click and choose Services › Save to Nextmark.")
+                Text("Select text or a link in any app, or files in Finder, then Control-click and choose Services › Save to Laterwise.")
                     .foregroundStyle(.secondary)
             }
             Section("Screenshots") {
@@ -58,6 +74,19 @@ private struct CaptureSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onChange(of: opensAtLogin) { _, enabled in
+            do {
+                if enabled {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+                loginItemError = nil
+            } catch {
+                loginItemError = error.localizedDescription
+                opensAtLogin = SMAppService.mainApp.status == .enabled
+            }
+        }
         .onChange(of: hotKeyEnabled, initial: true) {
             QuickCaptureController.shared.updateHotKey()
             hotKeyTaken = hotKeyEnabled && !QuickCaptureController.shared.isHotKeyRegistered

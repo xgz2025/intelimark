@@ -29,6 +29,10 @@ struct ItemDetailView: View {
     @State private var showsFullText = false
     @State private var showsRecognizedText = false
     @State private var showsShare = false
+    @State private var showsRename = false
+    @State private var titleDraft = ""
+    @State private var noteDraft = ""
+    @FocusState private var isEditingNote: Bool
     /// The saved photo, PDF or file itself, when it's on this device.
     @State private var original: URL?
     @State private var previewedFile: URL?
@@ -48,6 +52,10 @@ struct ItemDetailView: View {
             try? await services.items.markOpened(itemID)
             for await value in services.items.observeItem(id: itemID).ignoringErrors() {
                 item = value
+                // Kept as typed while editing; otherwise follows the item (another device).
+                if !isEditingNote { noteDraft = value?.note ?? "" }
+                // Deleted for good (Empty Trash, another device): nothing left to show.
+                if value == nil { dismiss() }
             }
         }
         .task(id: itemID) {
@@ -116,10 +124,13 @@ struct ItemDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let note = item.note, !note.isEmpty {
-                    Text(note)
-                        .textSelection(.enabled)
-                }
+                TextField("Add a note", text: $noteDraft, axis: .vertical)
+                    .lineLimit(1...8)
+                    .focused($isEditingNote)
+                    .onSubmit { saveNote() }
+                    .onChange(of: isEditingNote) { _, editing in
+                        if !editing { saveNote() }
+                    }
             }
 
             Section {
@@ -157,8 +168,20 @@ struct ItemDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar { toolbar(item) }
+        // Leaving while still typing keeps the note.
+        .onDisappear { saveNote() }
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)
+        }
+        .alert("Rename", isPresented: $showsRename) {
+            TextField("Title", text: $titleDraft)
+            Button("Save") {
+                let (items, id, title) = (services.items, item.id, titleDraft)
+                performEdit { try await items.setTitle(title, forItem: id) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Leave it empty to use the title Laterwise found.")
         }
         .alert("All Actions Done", isPresented: $showsDonePrompt) {
             Button("Mark Item as Done") { finish(item, as: .done) }
@@ -188,6 +211,15 @@ struct ItemDetailView: View {
                 }
                 .help(Text("Mark as done: it leaves the Inbox and waits in Done. It stays in its groups and in Search."))
             }
+        }
+        ToolbarItem(placement: .secondaryAction) {
+            Button {
+                titleDraft = item.userTitle ?? item.displayTitle
+                showsRename = true
+            } label: {
+                Label("Rename…", systemImage: "pencil")
+            }
+            .help(Text("Give it your own title"))
         }
         if item.status != .trashed {
             ToolbarItem(placement: .secondaryAction) {
@@ -390,6 +422,12 @@ struct ItemDetailView: View {
             let completion = try await repository.setDone(action.status != .done, forAction: action.id)
             if completion.finishedItemID == id { showsDonePrompt = true }
         }
+    }
+
+    private func saveNote() {
+        guard let item, noteDraft.trimmingCharacters(in: .whitespacesAndNewlines) != (item.note ?? "") else { return }
+        let (items, id, note) = (services.items, item.id, noteDraft)
+        performEdit { try await items.setNote(note, forItem: id) }
     }
 
     private func setStatus(_ status: ItemStatus) {

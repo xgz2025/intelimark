@@ -10,6 +10,7 @@
 
 import Foundation
 import SwiftUI
+import Capture
 import Library
 import Search
 
@@ -25,15 +26,19 @@ public struct LibraryServices: Sendable {
     public let syncNow: @Sendable () async -> Void
     /// Where each item's files live (`<itemsDirectory>/<itemID>/…`).
     public let itemsDirectory: URL?
+    /// Where saves made in the app go, like those from the Share menu.
+    public let captureStore: EnvelopeStore
 
     public init(
         database: LibraryDatabase,
         search: HybridSearch,
         itemsDirectory: URL? = nil,
+        captureStore: EnvelopeStore = EnvelopeStore(),
         refresh: @escaping @Sendable () async -> Void,
         syncNow: @escaping @Sendable () async -> Void = {}
     ) {
         self.itemsDirectory = itemsDirectory
+        self.captureStore = captureStore
         items = ItemRepository(database: database)
         groups = GroupRepository(database: database)
         actions = ActionRepository(database: database)

@@ -35,6 +35,8 @@ final class AppModel {
     @ObservationIgnored private(set) var services: LibraryServices!
     /// Where notification taps lead; RootView follows it.
     let navigator = AppNavigator()
+    /// Opens the library window and brings the app forward (set by the window on the Mac).
+    @ObservationIgnored var showLibrary: (@MainActor () -> Void)?
     /// Laterwise Pro (PRD P4): Moments, Briefs and unlimited smart groups.
     let pro = ProAccess()
     private(set) var lastError: String?
@@ -87,6 +89,7 @@ final class AppModel {
             database: database,
             search: search,
             itemsDirectory: AppGroup.itemsURL,
+            captureStore: store,
             refresh: { [weak self] in
                 await self?.updateSync()
                 await self?.processInbox()
@@ -124,6 +127,7 @@ final class AppModel {
     func handle(_ response: MomentResponse) async {
         if let destination = try? await moments.handle(response) {
             navigator.open(destination)
+            showLibrary?()
         }
         await rescheduleMoments()
     }

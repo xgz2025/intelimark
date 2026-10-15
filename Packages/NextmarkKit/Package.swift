@@ -60,7 +60,7 @@ let package = Package(
         .target(name: "Store"),
         .target(
             name: "Features",
-            dependencies: ["Model", "Library", "Intelligence", "Search", "Moments", "Integrations", "Store", "DesignSystem"]
+            dependencies: ["Model", "Capture", "Library", "Intelligence", "Search", "Moments", "Integrations", "Store", "DesignSystem"]
         ),
 
         .testTarget(name: "ModelTests", dependencies: ["Model"]),

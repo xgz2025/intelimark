@@ -81,6 +81,17 @@ public struct ItemRepository: Sendable {
         }
     }
 
+    /// Changes whenever any item is added, changed or deleted: lists that aren't
+    /// observed queries (search results) refresh on it.
+    public func revisions() -> AsyncThrowingStream<String, any Error> {
+        database.observe { db in
+            let row = try Row.fetchOne(db, sql: "SELECT COUNT(*) AS count, MAX(updatedAt) AS latest FROM item")
+            let count: Int = row?["count"] ?? 0
+            let latest: String? = row?["latest"]
+            return "\(count)|\(latest ?? "")"
+        }
+    }
+
     /// Live list of finished items, most recently finished first.
     public func doneItems() -> AsyncThrowingStream<[ItemRecord], any Error> {
         database.observe { db in
@@ -99,6 +110,32 @@ public struct ItemRepository: Sendable {
             item.updatedAt = now
             try item.update(db)
         }
+    }
+
+    /// The person's own title; nil or blank goes back to the automatic one.
+    public func setTitle(_ title: String?, forItem id: String, now: Date = Date()) async throws {
+        try await editUserLayer(id, now: now) { $0.userTitle = Self.cleaned(title) }
+    }
+
+    /// The person's note; nil or blank removes it.
+    public func setNote(_ note: String?, forItem id: String, now: Date = Date()) async throws {
+        try await editUserLayer(id, now: now) { $0.note = Self.cleaned(note) }
+    }
+
+    private func editUserLayer(_ id: String, now: Date, _ edit: @escaping @Sendable (inout ItemRecord) -> Void) async throws {
+        try await database.writer.write { db in
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+            let before = item
+            edit(&item)
+            guard item != before else { return }
+            item.updatedAt = now
+            try item.update(db)
+        }
+    }
+
+    static func cleaned(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
     }
 
     public func attachments(forItem id: String) async throws -> [AttachmentRecord] {

@@ -96,11 +96,9 @@ private struct SharePickerAnchor: NSViewRepresentable {
             sharingServicesForItems items: [Any],
             proposedSharingServices proposedServices: [NSSharingService]
         ) -> [NSSharingService] {
+            // A share extension shows under its display name.
             let names = OwnShareExtension.names
-            let identifier = OwnShareExtension.bundleIdentifier
-            return proposedServices.filter { service in
-                !names.contains(service.title) && !service.name.rawValue.contains(identifier)
-            }
+            return proposedServices.filter { !names.contains($0.title) }
         }
     }
 }

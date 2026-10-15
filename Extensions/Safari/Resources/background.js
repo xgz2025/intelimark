@@ -8,8 +8,9 @@
 //  Created by Gaoliang Luo.
 //
 
-// Adds "Save to Laterwise" to Safari's right-click menu (macOS) and forwards the
-// page capture from content.js to the native handler.
+// "Save to Laterwise": the toolbar button (macOS, and the extensions menu on iPhone
+// and iPad) and the right-click menu (macOS). Forwards the page capture from
+// content.js to the native handler.
 const MENU_ID = "nextmark-save";
 
 // Inline images (data:, blob:) and browser pages (favorites:) can't be opened again later.
@@ -53,21 +54,32 @@ if (browser.contextMenus) {
       await save(tab.id, { type: "save", url: target, title: label });
       return;
     }
-    let page = {};
-    try {
-      page = (await browser.tabs.sendMessage(tab.id, { type: "capture" })) || {};
-    } catch (error) {
-      // Pages where content scripts can't run (e.g. the start page): fall back to tab info.
-    }
-    const payload = Object.assign({ url: tab.url, title: tab.title }, page, { type: "save" });
-    // Text selected inside a frame the content script doesn't run in.
-    if (!payload.selection && info.selectionText) {
-      payload.selection = { exact: info.selectionText.trim().slice(0, 2000) };
-    }
-    if (!isSavable(payload.url)) {
-      if (!payload.selection) return;  // a browser page with nothing selected: nothing to keep
-      delete payload.url;
-    }
-    await save(tab.id, payload);
+    await savePage(tab, info.selectionText);
+  });
+}
+
+// The page, with its selection as a highlight.
+async function savePage(tab, selectionText) {
+  let page = {};
+  try {
+    page = (await browser.tabs.sendMessage(tab.id, { type: "capture" })) || {};
+  } catch (error) {
+    // Pages where content scripts can't run (e.g. the start page): fall back to tab info.
+  }
+  const payload = Object.assign({ url: tab.url, title: tab.title }, page, { type: "save" });
+  // Text selected inside a frame the content script doesn't run in.
+  if (!payload.selection && selectionText) {
+    payload.selection = { exact: selectionText.trim().slice(0, 2000) };
+  }
+  if (!isSavable(payload.url)) {
+    if (!payload.selection) return;  // a browser page with nothing selected: nothing to keep
+    delete payload.url;
+  }
+  await save(tab.id, payload);
+}
+
+if (browser.action) {
+  browser.action.onClicked.addListener(async (tab) => {
+    if (tab) await savePage(tab, null);
   });
 }

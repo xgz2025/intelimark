@@ -40,12 +40,9 @@ public struct UserNotificationScheduler: MomentScheduling {
 
     public func replaceMoments(with plan: [MomentCandidate]) async {
         let center = UNUserNotificationCenter.current()
-        if !plan.isEmpty, await center.notificationSettings().authorizationStatus == .notDetermined {
-            // Not awaited: an unanswered prompt (the user left the app) would otherwise
-            // hold up everything waiting on this, saves included. Requests added now
-            // are delivered once allowed.
-            Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) }
-        }
+        // Permission is asked where it's clear why (onboarding, Settings), never from
+        // here: a prompt out of nowhere after a save gets declined. Requests added
+        // before it's given are delivered once allowed.
         let scheduled = await center.pendingNotificationRequests()
             .map(\.identifier)
             .filter { $0.hasPrefix(Self.momentPrefix) }

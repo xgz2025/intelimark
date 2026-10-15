@@ -16,16 +16,26 @@ import Intelligence
 import Moments
 import DesignSystem
 
-/// Where the app should go next, e.g. after a notification tap. RootView follows it.
+/// Where the app should go next, e.g. after a notification tap, and menu commands
+/// (New Note, Find). RootView follows it.
 @MainActor
 @Observable
 public final class AppNavigator {
+    public enum Command: Sendable, Equatable {
+        case newNote, newGroup, search
+    }
+
     public var destination: MomentDestination?
+    public var command: Command?
 
     public init() {}
 
     public func open(_ destination: MomentDestination) {
         self.destination = destination
+    }
+
+    public func perform(_ command: Command) {
+        self.command = command
     }
 }
 
