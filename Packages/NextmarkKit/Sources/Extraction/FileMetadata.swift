@@ -42,16 +42,32 @@ public enum PhotoMetadata {
                 fields.longitude = lon
             }
         }
-        if let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
-           let original = exif[kCGImagePropertyExifDateTimeOriginal] as? String {
-            fields.takenAt = date(original, offset: exif[kCGImagePropertyExifOffsetTimeOriginal] as? String)
-        }
+        fields.takenAt = takenAt(in: properties)
         return fields == PhotoFields() ? nil : fields
+    }
+
+    /// When the picture was taken, by the camera's own clock: the original time, else
+    /// when it was digitized (scans), else the file's TIFF time (some editors keep only that).
+    static func takenAt(in properties: [CFString: Any]) -> Date? {
+        let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] ?? [:]
+        let tiff = properties[kCGImagePropertyTIFFDictionary] as? [CFString: Any] ?? [:]
+        let candidates: [(String?, String?)] = [
+            (exif[kCGImagePropertyExifDateTimeOriginal] as? String, exif[kCGImagePropertyExifOffsetTimeOriginal] as? String),
+            (exif[kCGImagePropertyExifDateTimeDigitized] as? String, exif[kCGImagePropertyExifOffsetTimeDigitized] as? String),
+            (tiff[kCGImagePropertyTIFFDateTime] as? String, exif[kCGImagePropertyExifOffsetTime] as? String),
+        ]
+        for case let (text?, offset) in candidates {
+            if let date = date(text, offset: offset) { return date }
+        }
+        return nil
     }
 
     /// EXIF dates read "2026:10:03 18:42:07", in the camera's local time; the offset
     /// ("+09:00") says which, when the camera wrote it.
     static func date(_ text: String, offset: String?) -> Date? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines.union(.controlCharacters))
+        // Cameras without a clock write zeros.
+        guard !text.hasPrefix("0000") else { return nil }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         if let offset, !offset.isEmpty {

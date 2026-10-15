@@ -41,7 +41,9 @@ extension ItemRecord {
             card.style = .receipt
             if userTitle == nil, let merchant = fields?.receipt?.merchant { card.title = merchant }
             card.figure = fields?.receipt?.total.map { Self.money($0, currency: fields?.receipt?.currency) }
-            card.byline = Self.join([fields?.photo?.placeName, Self.day(fields?.photo?.takenAt ?? createdAt)])
+            // The receipt's own date, else when the photo was taken; never the day it was saved.
+            let date = fields?.receipt?.purchasedAt ?? fields?.photo?.takenAt
+            card.byline = Self.join([fields?.photo?.placeName, date.map(Self.day)])
             return card
         }
 

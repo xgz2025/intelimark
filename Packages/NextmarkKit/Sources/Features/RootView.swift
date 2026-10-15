@@ -14,7 +14,7 @@ import Moments
 import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, screenshots, trash, settings
+    case inbox, nextActions, review, search, suggestions, screenshots, done, trash, settings
     case group(String)
 }
 
@@ -91,6 +91,7 @@ public struct RootView: View {
                 trashCount = count
             }
         }
+        .recentChangeBanner(items: services.items)
         .editFailureAlert()
         .sheet(isPresented: $showsNewGroup) {
             NewGroupSheet(services: services) { id in
@@ -145,6 +146,8 @@ public struct RootView: View {
                 .buttonStyle(.borderless)
             }
             Section {
+                Label("Done", systemImage: "checkmark.circle")
+                    .tag(SidebarSelection.done)
                 Label("Trash", systemImage: "trash")
                     .badge(trashCount)
                     .tag(SidebarSelection.trash)
@@ -174,6 +177,8 @@ public struct RootView: View {
             if let rescue {
                 ScreenshotRescueView(services: services, controller: rescue)
             }
+        case .done:
+            DoneView(services: services)
         case .trash:
             TrashView(services: services)
         case .settings:

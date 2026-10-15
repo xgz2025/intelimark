@@ -66,11 +66,28 @@ public struct ItemRepository: Sendable {
 
     /// A user-layer change: done, faded, trashed… (PRD A5, M6).
     public func setStatus(_ status: ItemStatus, forItem id: String, now: Date = Date()) async throws {
+        try await setStatus(status, forItems: [id], now: now)
+    }
+
+    /// Several items at once (a selection in the Inbox), in one transaction.
+    public func setStatus(_ status: ItemStatus, forItems ids: [String], now: Date = Date()) async throws {
         try await database.writer.write { db in
-            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
-            item.status = status
-            item.updatedAt = now
-            try item.update(db)
+            for id in ids {
+                guard var item = try ItemRecord.fetchOne(db, key: id), item.status != status else { continue }
+                item.status = status
+                item.updatedAt = now
+                try item.update(db)
+            }
+        }
+    }
+
+    /// Live list of finished items, most recently finished first.
+    public func doneItems() -> AsyncThrowingStream<[ItemRecord], any Error> {
+        database.observe { db in
+            try ItemRecord
+                .filter(Column("status") == ItemStatus.done.rawValue)
+                .order(Column("updatedAt").desc)
+                .fetchAll(db)
         }
     }
 

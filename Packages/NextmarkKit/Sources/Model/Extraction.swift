@@ -47,11 +47,14 @@ public struct ReceiptFields: Codable, Sendable, Hashable {
     public var total: Double?
     /// ISO 4217 code when the receipt makes it clear ("USD", "EUR"…).
     public var currency: String?
+    /// The date printed on the receipt.
+    public var purchasedAt: Date?
 
-    public init(merchant: String? = nil, total: Double? = nil, currency: String? = nil) {
+    public init(merchant: String? = nil, total: Double? = nil, currency: String? = nil, purchasedAt: Date? = nil) {
         self.merchant = merchant
         self.total = total
         self.currency = currency
+        self.purchasedAt = purchasedAt
     }
 }
 

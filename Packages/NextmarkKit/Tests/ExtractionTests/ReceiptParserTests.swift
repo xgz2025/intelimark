@@ -54,6 +54,32 @@ struct ReceiptParserTests {
         #expect(ReceiptParser.parse(nil) == nil)
     }
 
+    @Test func readsTheDateAndYuanOnAChineseReceipt() throws {
+        let text = """
+            星巴克咖啡
+            2026-10-12 14:35
+            拿铁 1        ¥32.00
+            小计          ¥32.00
+            合计          ¥32.00
+            微信支付
+            """
+        let now = Date(timeIntervalSince1970: 1_792_000_000)   // 2026-10-15
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let receipt = try #require(ReceiptParser.parse(text, now: now, calendar: calendar))
+        #expect(receipt.total == 32)
+        #expect(receipt.currency == "CNY")
+        #expect(receipt.merchant == "星巴克咖啡")
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 14, minute: 35))
+        #expect(receipt.purchasedAt == expected)
+    }
+
+    @Test func aReceiptIsNeverDatedInTheFuture() {
+        let now = Date(timeIntervalSince1970: 1_792_000_000)
+        #expect(ReceiptParser.date(in: "Valid until 2031-01-01", now: now, calendar: .current) == nil)
+        #expect(ReceiptParser.date(in: "Date: 2026/10/03", now: now, calendar: .current) != nil)
+    }
+
     @Test func largeAmountsKeepTheirThousands() {
         #expect(ReceiptParser.amount(in: "Grand Total USD 1,234.56") == 1234.56)
         #expect(ReceiptParser.amount(in: "Total 1.234,56 €") == 1234.56)
@@ -77,6 +103,17 @@ struct PhotoMetadataTests {
         #expect(photo.latitude == 35.6595)
         #expect(photo.longitude == 139.7005)
         #expect(photo.takenAt == Date(timeIntervalSince1970: 1_791_020_527))
+    }
+
+    @Test func fallsBackToTheDigitizedTimeAndIgnoresZeroDates() throws {
+        let scanned: [CFString: Any] = [
+            kCGImagePropertyExifDictionary: [
+                kCGImagePropertyExifDateTimeOriginal: "0000:00:00 00:00:00",
+                kCGImagePropertyExifDateTimeDigitized: "2026:10:03 18:42:07",
+                kCGImagePropertyExifOffsetTimeDigitized: "+09:00",
+            ] as [CFString: Any],
+        ]
+        #expect(PhotoMetadata.fields(from: scanned)?.takenAt == Date(timeIntervalSince1970: 1_791_020_527))
     }
 
     @Test func westAndSouthAreNegativeAndZeroIsNoLocation() {

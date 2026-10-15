@@ -20,6 +20,11 @@ struct ItemLinkRow: View {
     let services: LibraryServices
     @State private var showsAddToGroup = false
     @State private var showsAddAction = false
+    @State private var showsShare = false
+
+    private var link: URL? {
+        item.anchorURL ?? item.canonicalURL.flatMap { URL(string: $0) }
+    }
 
     var body: some View {
         NavigationLink(value: ItemLink(id: item.id)) {
@@ -27,11 +32,11 @@ struct ItemLinkRow: View {
         }
         .draggable(item.id)
         .contextMenu {
-            if let link = item.anchorURL ?? item.canonicalURL.flatMap({ URL(string: $0) }) {
+            if let link {
                 Link(destination: link) {
-                    Label("Open", systemImage: "safari")
+                    Label("Open in Browser", systemImage: "safari")
                 }
-                ShareLink(item: link)
+                Button("Share…", systemImage: "square.and.arrow.up") { showsShare = true }
                 Divider()
             }
             Button("Add to Group…", systemImage: "square.stack") { showsAddToGroup = true }
@@ -45,6 +50,7 @@ struct ItemLinkRow: View {
             Divider()
             Button("Move to Trash", systemImage: "trash", role: .destructive) { setStatus(.trashed) }
         }
+        .sharePicker(isPresented: $showsShare, items: link.map { [$0] } ?? [])
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)
         }
@@ -54,8 +60,7 @@ struct ItemLinkRow: View {
     }
 
     private func setStatus(_ status: ItemStatus) {
-        let (items, id) = (services.items, item.id)
-        performEdit { try await items.setStatus(status, forItem: id) }
+        changeStatus(status, of: [item], using: services.items)
     }
 }
 

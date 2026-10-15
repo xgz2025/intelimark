@@ -22,6 +22,8 @@ struct NextActionsView: View {
     @State private var newAction = ""
     @State private var finishedItem: FinishedItem?
     @State private var showsFinishedPrompt = false
+    /// Set once the person has answered the prompt: a good moment to ask for a rating.
+    @State private var answeredFinishedPrompt = false
 
     private struct FinishedItem: Identifiable {
         let id: String
@@ -104,16 +106,18 @@ struct NextActionsView: View {
                 await loadSuggestions()
             }
         }
-        // Every action on a save done is a good moment to ask for a rating.
-        .requestsReview(after: showsFinishedPrompt)
+        // Every action on a save done is a good moment to ask for a rating, once the
+        // question about the item has been answered.
+        .requestsReview(after: answeredFinishedPrompt)
         .alert("All Actions Done", isPresented: $showsFinishedPrompt, presenting: finishedItem) { item in
-            Button("Mark as Done") {
+            Button("Mark Item as Done") {
                 let (items, id) = (services.items, item.id)
                 performEdit { try await items.setStatus(.done, forItem: id) }
+                answeredFinishedPrompt = true
             }
-            Button("Not Now", role: .cancel) {}
+            Button("Keep in Inbox", role: .cancel) { answeredFinishedPrompt = true }
         } message: { item in
-            Text("Mark “\(item.title)” as done too?")
+            Text("You've finished every action for “\(item.title)”. Mark the item as done too? It moves from the Inbox to Done.")
         }
     }
 
@@ -138,6 +142,7 @@ struct NextActionsView: View {
             let completion = try await repository.setDone(true, forAction: action.id)
             if let itemID = completion.finishedItemID, let item = try? await items.item(id: itemID) {
                 finishedItem = FinishedItem(id: itemID, title: item.displayTitle)
+                answeredFinishedPrompt = false
                 showsFinishedPrompt = true
             }
         }

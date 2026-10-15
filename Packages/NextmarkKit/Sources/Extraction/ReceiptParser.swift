@@ -25,7 +25,7 @@ public enum ReceiptParser {
         "小计", "税", "领收", "領収", "レシート", "quittung", "mwst", "rückgeld", "reçu", "tva", "recibo", "iva",
     ]
 
-    public static func parse(_ text: String?) -> ReceiptFields? {
+    public static func parse(_ text: String?, now: Date = Date(), calendar: Calendar = .current) -> ReceiptFields? {
         guard let text else { return nil }
         let lines = text.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -37,8 +37,40 @@ public enum ReceiptParser {
         return ReceiptFields(
             merchant: merchant(in: lines),
             total: total,
-            currency: currency ?? currencyCode(in: text)
+            currency: currency ?? currencyCode(in: text),
+            purchasedAt: date(in: text, now: now, calendar: calendar)
         )
+    }
+
+    /// The date printed on the receipt: "2026-10-15", "2026/10/15 12:30", "2026年10月15日",
+    /// or one the system recognizes ("Oct 15, 2026"). Only a full date in the past
+    /// few years counts; a receipt isn't dated in the future.
+    static func date(in text: String, now: Date, calendar: Calendar) -> Date? {
+        let earliest = calendar.date(byAdding: .year, value: -5, to: now) ?? now
+        let latest = now.addingTimeInterval(86_400)
+        let pattern = #/(20\d{2})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})日?(?:\D{0,3}(\d{1,2}):(\d{2}))?/#
+        for match in text.matches(of: pattern) {
+            var parts = DateComponents()
+            parts.year = Int(match.output.1)
+            parts.month = Int(match.output.2)
+            parts.day = Int(match.output.3)
+            parts.hour = match.output.4.flatMap { Int($0) }
+            parts.minute = match.output.5.flatMap { Int($0) }
+            guard let month = parts.month, (1...12).contains(month), let day = parts.day, (1...31).contains(day),
+                  let date = calendar.date(from: parts), date >= earliest, date <= latest
+            else { continue }
+            return date
+        }
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        for match in detector.matches(in: text, range: range) {
+            guard let date = match.date, date >= earliest, date <= latest,
+                  let swiftRange = Range(match.range, in: text),
+                  text[swiftRange].contains(where: \.isNumber), text[swiftRange].count >= 6
+            else { continue }
+            return date
+        }
+        return nil
     }
 
     /// The amount on the last line that names the total (not a subtotal), or on the
@@ -97,8 +129,11 @@ public enum ReceiptParser {
         if text.contains("£") { return "GBP" }
         if text.contains("₩") { return "KRW" }
         if text.contains("₹") { return "INR" }
-        if text.contains("元") { return "CNY" }
-        if text.contains("円") || text.contains("¥") { return "JPY" }
+        if text.contains("円") { return "JPY" }
+        // ¥ is both yuan and yen: Chinese receipts say so in words.
+        let chinese = ["元", "￥", "合计", "总计", "实收", "找零", "收银", "人民币", "发票", "小票", "应收", "实付"]
+        if chinese.contains(where: text.contains) { return "CNY" }
+        if text.contains("¥") { return Locale.current.region == .chinaMainland ? "CNY" : "JPY" }
         if text.contains("$") { return "USD" }
         return nil
     }

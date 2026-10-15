@@ -35,6 +35,14 @@ struct TrashTests {
         )
     }
 
+    @Test func severalItemsChangeAtOnce() async throws {
+        let ids = try await importScreenshots(["a", "b", "c"])
+        try await repository.setStatus(.done, forItems: [ids[0], ids[1]], now: now)
+        #expect(try await repository.item(id: ids[0])?.status == .done)
+        #expect(try await repository.item(id: ids[1])?.status == .done)
+        #expect(try await repository.item(id: ids[2])?.status == .active)
+    }
+
     @Test func restoreBringsAnItemBack() async throws {
         let ids = try await importScreenshots(["a"])
         try await repository.setStatus(.trashed, forItem: ids[0], now: now)

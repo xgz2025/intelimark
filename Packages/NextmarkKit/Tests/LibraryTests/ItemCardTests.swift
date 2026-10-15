@@ -74,4 +74,42 @@ struct ItemCardTests {
         document.typedFields = TypedFields(article: ArticleFields(headline: "Agreement"))
         #expect(document.card.title == "My contract")
     }
+
+    @Test func aReceiptIsDatedByItsOwnDateNotTheDayItWasSaved() {
+        var receipt = item(.image)
+        receipt.semanticKind = .receipt
+        receipt.typedFields = TypedFields(receipt: ReceiptFields(merchant: "Blue Bottle Coffee", total: 10.61, currency: "USD"))
+        #expect(receipt.card.byline == nil)
+        let printed = Date(timeIntervalSince1970: 1_791_020_527)
+        receipt.typedFields?.receipt?.purchasedAt = printed
+        #expect(receipt.card.byline == printed.formatted(date: .abbreviated, time: .omitted))
+    }
+
+    @Test func factsSayWhereTheyCameFrom() {
+        var photo = item(.image)
+        let taken = Date(timeIntervalSince1970: 1_791_020_527)
+        photo.typedFields = TypedFields(photo: PhotoFields(takenAt: taken, latitude: 35.66, longitude: 139.7, placeName: "Shibuya, Tokyo"))
+        let facts = photo.facts
+        #expect(facts.map(\.label) == [.taken, .location, .saved])
+        #expect(facts[0].source == .photoMetadata)
+        #expect(facts[0].value == .date(taken, hasTime: true))
+        #expect(facts[1].source == .photoLocation)
+        #expect(facts[2].source == .capture(.shareSheet))
+
+        var pdf = item(.pdf)
+        pdf.typedFields = TypedFields(article: ArticleFields(author: "Jane Doe", publishedAt: taken))
+        #expect(pdf.facts.map(\.label) == [.author, .created, .saved])
+        #expect(pdf.facts[0].source == .documentInfo)
+    }
+
+    @Test func placesTheItemAlreadyStatesArentRepeatedAsFound() {
+        var photo = item(.image)
+        photo.typedFields = TypedFields(photo: PhotoFields(placeName: "Shibuya, Tokyo"))
+        photo.places = [
+            ItemPlace(name: "Shibuya, Tokyo", source: .structured),
+            ItemPlace(name: "shibuya, tokyo", source: .model),
+            ItemPlace(name: "Ginza", source: .detector),
+        ]
+        #expect(photo.inferredPlaces.map(\.name) == ["Ginza"])
+    }
 }

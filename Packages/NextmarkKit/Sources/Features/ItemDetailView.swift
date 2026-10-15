@@ -15,16 +15,20 @@ import Library
 import Intelligence
 import DesignSystem
 
-/// One item: what it is, why it was saved, its groups and its next steps.
+/// One item: what it is, what it says about itself (and where each fact came
+/// from), why it was saved, its groups and its next steps.
 struct ItemDetailView: View {
     let itemID: String
     let services: LibraryServices
+    @Environment(\.dismiss) private var dismiss
     @State private var item: ItemRecord?
     @State private var context = ItemContext()
     @State private var newAction = ""
     @State private var showsAddToGroup = false
     @State private var showsDonePrompt = false
     @State private var showsFullText = false
+    @State private var showsRecognizedText = false
+    @State private var showsShare = false
     /// The saved photo, PDF or file itself, when it's on this device.
     @State private var original: URL?
     @State private var previewedFile: URL?
@@ -67,21 +71,28 @@ struct ItemDetailView: View {
 
             if let quote = item.text, !quote.isEmpty {
                 Section {
-                    let isLong = quote.count > Self.previewCharacters
-                    Text(isLong && !showsFullText ? String(quote.prefix(Self.previewCharacters)) + "…" : quote)
+                    longText(quote)
                         .italic(item.anchor != nil)
-                        .textSelection(.enabled)
-                    if isLong && !showsFullText {
-                        Button("Show All") { showsFullText = true }
-                    }
                 } header: {
                     if item.anchor == nil { Text("Text") } else { Text("Highlight") }
                 }
             }
 
-            if let description = item.imageDescription, !description.isEmpty {
-                Section("In the Picture") {
-                    Text(description)
+            Section("Details") {
+                ForEach(item.facts) { fact in
+                    FactRow(fact: fact, mapsURL: fact.label == .location ? item.photoMapsURL : nil)
+                }
+            }
+
+            foundInText(item)
+
+            if item.kind == .image, let recognized = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !recognized.isEmpty {
+                Section {
+                    DisclosureGroup("Text in the Picture", isExpanded: $showsRecognizedText) {
+                        longText(recognized)
+                            .font(.callout)
+                    }
                 }
             }
 
@@ -107,38 +118,19 @@ struct ItemDetailView: View {
                 }
                 if let note = item.note, !note.isEmpty {
                     Text(note)
+                        .textSelection(.enabled)
                 }
             }
 
-            if !item.dates.isEmpty || !item.places.isEmpty {
-                Section("Dates and Places") {
-                    ForEach(item.dates, id: \.self) { date in
-                        Label(
-                            date.date.formatted(date: .abbreviated, time: date.hasTime ? .shortened : .omitted),
-                            systemImage: date.role == .deadline || date.role == .expiry ? "hourglass" : "calendar"
-                        )
-                    }
-                    ForEach(item.places, id: \.self) { place in
-                        let label = Label(
-                            [place.name, place.address].compactMap { $0 }.joined(separator: " · "),
-                            systemImage: "mappin.and.ellipse"
-                        )
-                        if let maps = place.mapsURL {
-                            Link(destination: maps) { label }
-                        } else {
-                            label
-                        }
-                    }
-                }
-            }
-
-            Section("Groups") {
+            Section {
                 ForEach(context.groups) { group in
                     NavigationLink(value: GroupLink(id: group.id)) {
                         GroupLabel(group: group)
                     }
                 }
                 Button("Add to Group…", systemImage: "plus") { showsAddToGroup = true }
+            } header: {
+                Text("Groups")
             }
 
             Section("Actions") {
@@ -160,30 +152,50 @@ struct ItemDetailView: View {
             }
         }
         .navigationTitle(item.displayTitle)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                if item.status == .done {
-                    Button("Mark as Not Done", systemImage: "arrow.uturn.backward") { setStatus(.active) }
-                } else {
-                    Button("Mark as Done", systemImage: "checkmark.circle") { setStatus(.done) }
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                if item.status == .trashed {
-                    Button("Restore", systemImage: "arrow.uturn.backward") { setStatus(.active) }
-                } else {
-                    Button("Move to Trash", systemImage: "trash", role: .destructive) { setStatus(.trashed) }
-                }
-            }
-        }
+        #if os(iOS)
+        // The header shows the title large; the bar only needs it once scrolled away.
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar { toolbar(item) }
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)
         }
         .alert("All Actions Done", isPresented: $showsDonePrompt) {
-            Button("Mark as Done") { setStatus(.done) }
-            Button("Not Now", role: .cancel) {}
+            Button("Mark Item as Done") { finish(item, as: .done) }
+            Button("Keep in Inbox", role: .cancel) {}
         } message: {
-            Text("Mark “\(item.displayTitle)” as done too?")
+            Text("You've finished every action for “\(item.displayTitle)”. Mark the item as done too? It moves from the Inbox to Done.")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func toolbar(_ item: ItemRecord) -> some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            switch item.status {
+            case .done:
+                Button { setStatus(.active) } label: {
+                    Label("Mark as Not Done", systemImage: "arrow.uturn.backward.circle")
+                }
+                .help(Text("Not done after all: move it back to the Inbox"))
+            case .trashed:
+                Button { setStatus(.active) } label: {
+                    Label("Restore", systemImage: "arrow.uturn.backward")
+                }
+                .help(Text("Take it out of the Trash and back into the Inbox"))
+            default:
+                Button { finish(item, as: .done) } label: {
+                    Label("Mark as Done", systemImage: "checkmark.circle")
+                }
+                .help(Text("Mark as done: it leaves the Inbox and waits in Done. It stays in its groups and in Search."))
+            }
+        }
+        if item.status != .trashed {
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) { finish(item, as: .trashed) } label: {
+                    Label("Move to Trash", systemImage: "trash")
+                }
+                .help(Text("Move to the Trash: it leaves the Inbox and its groups. You can restore it for 30 days."))
+            }
         }
     }
 
@@ -205,7 +217,8 @@ struct ItemDetailView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(original == nil)
-                .accessibilityLabel(Text("Open"))
+                .accessibilityLabel(Text(Self.openTitle(for: item.kind)))
+                .help(Text(Self.openTitle(for: item.kind)))
             }
             if let source = card.source {
                 Text(source)
@@ -230,10 +243,9 @@ struct ItemDetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            if let summary = item.summary, !summary.isEmpty, summary != card.title {
-                Text(summary)
-            } else if let description = item.imageDescription, !description.isEmpty, description != card.title {
-                Text(description)
+            if let snippet = Self.snippet(for: item, card: card) {
+                Text(snippet)
+                    .textSelection(.enabled)
             }
             openButtons(item)
                 .padding(.top, 4)
@@ -241,17 +253,89 @@ struct ItemDetailView: View {
         .padding(.vertical, 4)
     }
 
+    /// What it is, in a line or two: the summary or what the picture shows, unless
+    /// that's only the start of the recognized text (shown in full below) or the
+    /// receipt's own lines (its facts say it better).
+    static func snippet(for item: ItemRecord, card: ItemCard) -> String? {
+        let candidate: String? = switch card.style {
+        case .receipt: nil
+        case .photo: item.imageDescription ?? item.summary
+        default: item.summary
+        }
+        guard let text = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
+              text.caseInsensitiveCompare(card.title) != .orderedSame
+        else { return nil }
+        let echoed = [item.ocrText, item.text, item.contentText].contains { source in
+            guard let source else { return false }
+            let start = text.hasSuffix("…") ? String(text.dropLast()) : text
+            return source.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix(start)
+        }
+        return echoed ? nil : text
+    }
+
+    /// Dates and places found in the text, each with the words it was read from.
+    @ViewBuilder
+    private func foundInText(_ item: ItemRecord) -> some View {
+        let dates = item.inferredDates
+        let places = item.inferredPlaces
+        if !dates.isEmpty || !places.isEmpty {
+            Section {
+                ForEach(dates, id: \.self) { date in
+                    InferredFactRow(
+                        title: Text(date.role.title),
+                        value: date.date.formatted(date: .abbreviated, time: date.hasTime ? .shortened : .omitted),
+                        systemImage: date.role == .deadline || date.role == .expiry ? "hourglass" : "calendar",
+                        evidence: date.evidence,
+                        source: date.source
+                    )
+                }
+                ForEach(places, id: \.self) { place in
+                    let row = InferredFactRow(
+                        title: Text("Place"),
+                        value: [place.name, place.address].compactMap { $0 }.joined(separator: " · "),
+                        systemImage: "mappin.and.ellipse",
+                        evidence: nil,
+                        source: place.source
+                    )
+                    if let maps = place.mapsURL {
+                        Link(destination: maps) { row }
+                            .help(Text("Show in Maps"))
+                    } else {
+                        row
+                    }
+                }
+            } header: {
+                Text("Found in the Text")
+            } footer: {
+                Text("Read from the words in this item. Check them before you rely on them.")
+            }
+        }
+    }
+
+    private func longText(_ text: String) -> some View {
+        let isLong = text.count > Self.previewCharacters
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(isLong && !showsFullText ? String(text.prefix(Self.previewCharacters)) + "…" : text)
+                .textSelection(.enabled)
+            if isLong && !showsFullText {
+                Button("Show All") { showsFullText = true }
+            }
+        }
+    }
+
     /// Back to the thing itself: the page (at the highlight), or the saved file.
     @ViewBuilder
     private func openButtons(_ item: ItemRecord) -> some View {
         let link = item.anchorURL ?? item.canonicalURL.flatMap { URL(string: $0) }
+        let shared = [original ?? link].compactMap { $0 }
         if link != nil || original != nil {
             HStack(spacing: 10) {
                 if let link {
                     Link(destination: link) {
-                        Label("Open", systemImage: "safari")
+                        Label(item.anchor == nil ? LocalizedStringKey("Open Page") : "Open at Highlight", systemImage: "safari")
                     }
                     .buttonStyle(.borderedProminent)
+                    .help(Text(link.absoluteString))
                 }
                 if let original {
                     Button {
@@ -260,11 +344,16 @@ struct ItemDetailView: View {
                         Label(Self.openTitle(for: item.kind), systemImage: "eye")
                     }
                     .buttonStyle(.borderedProminent)
-                    ShareLink(item: original) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                    .buttonStyle(.bordered)
+                    .help(Text("Quick Look"))
                 }
+                Button {
+                    showsShare = true
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+                .sharePicker(isPresented: $showsShare, items: shared)
+                .help(Text("Share"))
             }
             .controlSize(.small)
         }
@@ -304,8 +393,156 @@ struct ItemDetailView: View {
     }
 
     private func setStatus(_ status: ItemStatus) {
-        let (items, id) = (services.items, itemID)
-        performEdit { try await items.setStatus(status, forItem: id) }
+        guard let item else { return }
+        changeStatus(status, of: [item], using: services.items)
+    }
+
+    /// Done or trashed, the item leaves the list it was opened from: go back to it
+    /// (the banner there offers Undo).
+    private func finish(_ item: ItemRecord, as status: ItemStatus) {
+        changeStatus(status, of: [item], using: services.items)
+        dismiss()
+    }
+}
+
+/// A fact the item states about itself, with where it came from underneath.
+private struct FactRow: View {
+    let fact: ItemFact
+    var mapsURL: URL?
+
+    var body: some View {
+        let row = LabeledContent {
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Self.title(for: fact.label))
+                Text(Self.source(for: fact.source))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        if let mapsURL {
+            Link(destination: mapsURL) { row }
+                .help(Text("Show in Maps"))
+        } else {
+            row
+        }
+    }
+
+    private var value: String {
+        switch fact.value {
+        case .text(let text): text
+        case .date(let date, let hasTime): date.formatted(date: .abbreviated, time: hasTime ? .shortened : .omitted)
+        }
+    }
+
+    static func title(for label: ItemFact.Label) -> LocalizedStringKey {
+        switch label {
+        case .merchant: "Merchant"
+        case .total: "Total"
+        case .purchased: "Date on Receipt"
+        case .taken: "Taken"
+        case .location: "Location"
+        case .author: "Author"
+        case .publisher: "Publisher"
+        case .published: "Published"
+        case .created: "Created"
+        case .price: "Price"
+        case .brand: "Brand"
+        case .availability: "Availability"
+        case .starts: "Starts"
+        case .ends: "Ends"
+        case .venue: "Venue"
+        case .address: "Address"
+        case .phone: "Phone"
+        case .cookTime: "Total Time"
+        case .servings: "Servings"
+        case .saved: "Saved"
+        }
+    }
+
+    static func source(for source: ItemFact.Source) -> LocalizedStringKey {
+        switch source {
+        case .receiptText: "Read from the receipt"
+        case .photoMetadata: "From the photo's camera data"
+        case .photoLocation: "From the photo's location, named by Apple Maps"
+        case .documentInfo: "From the document's properties"
+        case .page: "From the page's own data"
+        case .capture(let surface): surface.savedFrom
+        }
+    }
+}
+
+/// A date or place found in the text, with the words it came from.
+private struct InferredFactRow: View {
+    let title: Text
+    let value: String
+    let systemImage: String
+    let evidence: String?
+    let source: FactSource
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline) {
+                    title
+                    Spacer(minLength: 8)
+                    Text(value)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                }
+                Group {
+                    if let evidence, !evidence.isEmpty {
+                        Text("“\(evidence)” · \(Text(Self.method(for: source)))")
+                    } else {
+                        Text(Self.method(for: source))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            }
+        } icon: {
+            Image(systemName: systemImage)
+        }
+    }
+
+    static func method(for source: FactSource) -> LocalizedStringKey {
+        switch source {
+        case .structured: "From the item's own data"
+        case .model: "Found by Apple Intelligence"
+        case .detector: "Found in the text"
+        }
+    }
+}
+
+extension ItemDate.Role {
+    var title: LocalizedStringKey {
+        switch self {
+        case .eventStart: "Starts"
+        case .eventEnd: "Ends"
+        case .deadline: "Deadline"
+        case .expiry: "Expires"
+        case .reservation: "Reservation"
+        case .mentioned: "Date"
+        }
+    }
+}
+
+extension CaptureSurface {
+    /// How something was saved, for its Details.
+    var savedFrom: LocalizedStringKey {
+        switch self {
+        case .shareSheet: "From the Share menu"
+        case .safariExtension: "From Safari"
+        case .services: "From the Services menu"
+        case .quickCapture: "With Quick Capture"
+        case .appIntent: "With Shortcuts"
+        case .inApp: "In Laterwise"
+        case .screenshotImport: "From your screenshots"
+        }
     }
 }
 
@@ -330,5 +567,13 @@ extension ItemRecord {
         case .mail(let url): url
         default: nil
         }
+    }
+
+    /// Where the photo was taken, in Apple Maps.
+    var photoMapsURL: URL? {
+        guard let photo = typedFields?.photo, let latitude = photo.latitude, let longitude = photo.longitude else { return nil }
+        return ItemPlace(
+            name: photo.placeName ?? "", latitude: latitude, longitude: longitude, source: .structured
+        ).mapsURL
     }
 }

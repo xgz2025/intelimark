@@ -111,7 +111,7 @@ public enum FactMerge {
     }
 
     /// schema.org dates without a time parse to local midnight (`SchemaDate`).
-    static func hasTimeOfDay(_ date: Date, calendar: Calendar = .current) -> Bool {
+    public static func hasTimeOfDay(_ date: Date, calendar: Calendar = .current) -> Bool {
         let parts = calendar.dateComponents([.hour, .minute, .second], from: date)
         return parts.hour != 0 || parts.minute != 0 || parts.second != 0
     }

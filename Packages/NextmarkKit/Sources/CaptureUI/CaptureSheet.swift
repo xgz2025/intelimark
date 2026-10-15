@@ -76,12 +76,33 @@ public struct CaptureSheet<Accessory: View>: View {
                     IntentPicker(selection: $draft.intent)
                 }
                 Section("Note") {
-                    TextField("Optional", text: $draft.note, axis: .vertical)
-                        .lineLimit(1...4)
+                    noteField
                 }
             }
             .formStyle(.grouped)
         }
+    }
+
+    private var canSave: Bool {
+        !draft.isLoading && !(draft.content?.isEmpty ?? true)
+    }
+
+    /// On the Mac, Return saves from anywhere in the sheet, the note included (a
+    /// multi-line field would take it for a new line); Option-Return still adds one.
+    @ViewBuilder
+    private var noteField: some View {
+        #if os(macOS)
+        TextField("Optional", text: $draft.note, axis: .vertical)
+            .lineLimit(1...4)
+            .onKeyPress(.return, phases: .down) { press in
+                guard !press.modifiers.contains(.option) else { return .ignored }
+                if canSave { onSave() }
+                return .handled
+            }
+        #else
+        TextField("Optional", text: $draft.note, axis: .vertical)
+            .lineLimit(1...4)
+        #endif
     }
 
     private var header: some View {
@@ -92,7 +113,7 @@ public struct CaptureSheet<Accessory: View>: View {
             Spacer()
             Button("Save", action: onSave)
                 .bold()
-                .disabled(draft.isLoading || (draft.content?.isEmpty ?? true))
+                .disabled(!canSave)
                 .keyboardShortcut(.defaultAction)
         }
         .padding()
