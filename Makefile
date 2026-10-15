@@ -19,7 +19,7 @@ test:
 
 # In-app purchases against App/Nextmark.storekit (StoreKit Testing, iOS Simulator).
 test-storekit: generate
-	xcodebuild test -project $(PROJECT) -scheme Nextmark-iOS -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:StoreKitTests-iOS
+	xcodebuild test -project $(PROJECT) -scheme Nextmark-iOS -destination 'platform=iOS Simulator,name=iPhone 17' -only-testing:StoreKitTests-iOS -collect-test-diagnostics never
 
 build-ios: generate
 	xcodebuild build -project $(PROJECT) -scheme Nextmark-iOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
