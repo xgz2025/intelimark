@@ -165,7 +165,9 @@ struct GroupDetailView: View {
             }
         }
         .navigationTitle(group.displayTitle)
-        .dropDestination(for: String.self) { ids, _ in
+        .dropDestination(for: String.self) { dropped, _ in
+            let ids = dropped.filter { ULID($0) != nil }
+            guard !ids.isEmpty else { return false }
             run { _ = try await services.groups.addItems(ids, to: groupID) }
             return true
         }

@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import Model
 import Library
 import Moments
 import Integrations
@@ -157,7 +158,10 @@ public struct RootView: View {
                 ForEach(groups) { summary in
                     GroupSidebarRow(summary: summary)
                         .tag(SidebarSelection.group(summary.id))
-                        .dropDestination(for: String.self) { ids, _ in
+                        .dropDestination(for: String.self) { dropped, _ in
+                            // Items drag as their IDs; other text dropped here isn't an item.
+                            let ids = dropped.filter { ULID($0) != nil }
+                            guard !ids.isEmpty else { return false }
                             let (repository, groupID) = (services.groups, summary.id)
                             Task { @MainActor in
                                 do {
