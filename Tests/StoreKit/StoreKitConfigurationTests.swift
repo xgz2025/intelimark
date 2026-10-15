@@ -53,10 +53,12 @@ final class StoreKitConfigurationTests: XCTestCase {
 
     func testASubscriptionUnlocksProUntilItExpires() async throws {
         let session = try await makeSession()
-        _ = try await session.buyProduct(identifier: Self.yearly, options: [])
+        let transaction = try await session.buyProduct(identifier: Self.yearly, options: [])
         let entitled = await entitlements(eventually: { $0.contains(Self.yearly) })
         XCTAssertTrue(entitled.contains(Self.yearly))
 
+        // Cancelled first: with auto-renew on, the test store renews it straight away.
+        try session.disableAutoRenewForTransaction(identifier: UInt(transaction.id))
         try session.expireSubscription(productIdentifier: Self.yearly)
         let afterExpiry = await entitlements(eventually: { !$0.contains(Self.yearly) })
         XCTAssertFalse(afterExpiry.contains(Self.yearly))
@@ -73,14 +75,17 @@ final class StoreKitConfigurationTests: XCTestCase {
         XCTAssertFalse(afterRefund.contains(Self.lifetime))
     }
 
-    /// The product IDs this account is entitled to now, waiting a moment for StoreKit
-    /// to catch up with a purchase, an expiry or a refund.
+    /// The product IDs that unlock Pro now, by the app's rule (`ProAccess`): not
+    /// refunded, not expired. Waits a moment for StoreKit to catch up with a purchase,
+    /// an expiry or a refund.
     private func entitlements(eventually condition: (Set<String>) -> Bool) async -> Set<String> {
         var ids: Set<String> = []
         for _ in 0..<20 {
             ids = []
             for await result in Transaction.currentEntitlements {
-                if case .verified(let transaction) = result, transaction.revocationDate == nil {
+                if case .verified(let transaction) = result,
+                   transaction.revocationDate == nil,
+                   transaction.expirationDate.map({ $0 > Date() }) ?? true {
                     ids.insert(transaction.productID)
                 }
             }
