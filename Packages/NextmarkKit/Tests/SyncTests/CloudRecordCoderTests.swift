@@ -45,5 +45,6 @@ struct CloudRecordCoderTests {
         #expect(CloudSync.message(for: CKError(.networkUnavailable)).contains("offline"))
         #expect(CloudSync.message(for: CKError(.quotaExceeded)).contains("iCloud storage is full"))
         #expect(CloudSync.message(for: CKError(.notAuthenticated)).contains("Sign in"))
+        #expect(CloudSync.message(for: CKError(.serverRejectedRequest)).contains("stays on this device"))
     }
 }

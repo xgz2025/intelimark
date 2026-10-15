@@ -517,6 +517,8 @@ public actor CloudSync: CKSyncEngineDelegate {
             return String(localized: "Your iCloud account needs attention. Check Settings › Apple Account.")
         case .serviceUnavailable, .requestRateLimited, .zoneBusy:
             return String(localized: "iCloud is busy. Laterwise will try again shortly.")
+        case .serverRejectedRequest, .badContainer, .missingEntitlement, .permissionFailure:
+            return String(localized: "iCloud didn't accept this copy of Laterwise, so your library stays on this device. Updating Laterwise usually fixes this.")
         default:
             return error.localizedDescription
         }

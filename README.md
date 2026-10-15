@@ -41,8 +41,11 @@ targets and settings there. Before running on a device:
 1. Set your team in `project.yml` (`DEVELOPMENT_TEAM`) if it isn't `DMY7T44MNF`.
 2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.veloworkspaces.nextmark`
    (CloudKit container) for the team; automatic signing does the rest.
-3. Run the **Nextmark-iOS** or **Nextmark-macOS** scheme. To try capture, share a
-   Safari page to Laterwise; it appears in the Inbox.
+3. Run the **Nextmark-iOS** scheme on an iPhone, iPad or simulator, or the
+   **Nextmark-macOS** scheme on **My Mac**. To try capture, share a Safari page or a
+   file to Laterwise; it appears in the Inbox. On the Mac, if Laterwise is missing
+   from a Share menu, choose **Edit Extensions…** at the bottom of the menu (or
+   System Settings › General › Login Items & Extensions › Sharing) and turn it on.
 
 | Target | iOS | macOS |
 |---|---|---|
