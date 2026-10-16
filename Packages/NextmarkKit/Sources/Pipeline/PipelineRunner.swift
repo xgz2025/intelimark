@@ -271,7 +271,9 @@ public actor PipelineRunner {
                 kind: item.kind,
                 url: item.canonicalURL.flatMap { URL(string: $0) },
                 pageContext: item.pageContext,
-                files: files
+                files: files,
+                text: item.text,
+                capturedAt: item.createdAt
             )
             let extraction = try await extractor.extract(input)
             // The preview first: saving the extraction updates the item, which redraws it.

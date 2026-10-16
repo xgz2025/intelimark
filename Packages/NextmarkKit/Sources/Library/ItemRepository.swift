@@ -158,7 +158,7 @@ public struct ItemRepository: Sendable {
             item.imageLabels = extraction.imageLabels
             item.barcodes = extraction.barcodes
             item.structuredKind = extraction.structured?.kind
-            item.typedFields = extraction.typedFields
+            item.typedFields = Self.keepingPriceHistory(extraction.typedFields, from: item.typedFields, savedAt: item.createdAt)
             if let kind = extraction.structured?.kind {
                 item.semanticKind = kind
             }
@@ -166,6 +166,25 @@ public struct ItemRepository: Sendable {
             item.updatedAt = now
             try item.update(db)
         }
+    }
+
+    /// A product's first price is its price when saved, the start of its history. Prices
+    /// checked since are kept when the page is read again.
+    static func keepingPriceHistory(_ fields: TypedFields?, from previous: TypedFields?, savedAt: Date) -> TypedFields? {
+        guard var fields, var product = fields.product else { return fields }
+        if let earlier = previous?.product, earlier.priceHistory?.isEmpty == false {
+            product.originalPrice = earlier.originalPrice
+            product.priceHistory = earlier.priceHistory
+            product.checkedAt = earlier.checkedAt
+            product.price = earlier.price ?? product.price
+            product.currency = earlier.currency ?? product.currency
+        } else if let price = product.price, product.originalPrice == nil {
+            product.originalPrice = price
+            product.priceHistory = [PricePoint(at: savedAt, price: price)]
+            product.checkedAt = savedAt
+        }
+        fields.product = product
+        return fields
     }
 
     /// Writes the Understand stage's output into the derived layer only, so a user
@@ -183,6 +202,12 @@ public struct ItemRepository: Sendable {
             item.keywords = understanding.keywords
             if let description = understanding.imageDescription {
                 item.imageDescription = description
+            }
+            // What the model read of a trip, when nothing exact did.
+            if let trip = understanding.trip, item.typedFields?.trip == nil {
+                var fields = item.typedFields ?? TypedFields()
+                fields.trip = trip
+                item.typedFields = fields
             }
             item.dates = FactMerge.dates(structured: item.typedFields?.structuredDates ?? [], inferred: understanding.dates)
             item.places = FactMerge.places(structured: item.typedFields?.structuredPlaces ?? [], inferred: understanding.places)

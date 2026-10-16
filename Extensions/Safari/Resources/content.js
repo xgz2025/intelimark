@@ -38,6 +38,30 @@
     return snippet.length ? snippet : null;
   }
 
+  // Open Graph and product tags, and a price shown with schema.org microdata: what a
+  // shop page says about the product as the person saw it. Same keys as PageCapture.js.
+  const metaKeys = [
+    "og:title", "og:description", "og:image", "og:site_name", "og:type",
+    "product:price:amount", "product:price:currency", "og:price:amount", "og:price:currency",
+    "product:brand", "product:availability"
+  ];
+
+  function pageMeta() {
+    const meta = {};
+    for (const key of metaKeys) {
+      const tag = document.querySelector(`meta[property="${key}"], meta[name="${key}"]`);
+      const value = tag && tag.getAttribute("content");
+      if (value) meta[key] = value.trim().slice(0, 1000);
+    }
+    const price = document.querySelector('[itemprop="price"]');
+    const amount = price && (price.getAttribute("content") || price.textContent);
+    if (amount) meta["itemprop:price"] = amount.trim().slice(0, 40);
+    const currency = document.querySelector('[itemprop="priceCurrency"]');
+    const code = currency && (currency.getAttribute("content") || currency.textContent);
+    if (code) meta["itemprop:priceCurrency"] = code.trim().slice(0, 10);
+    return meta;
+  }
+
   function capturePage() {
     const selection = window.getSelection();
     let exact = selection ? selection.toString().trim() : "";
@@ -53,7 +77,8 @@
       excerpt: document.body ? document.body.innerText.slice(0, 4000) : null,
       jsonLD: Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
         .slice(0, 5)
-        .map((script) => script.textContent.slice(0, 20000))
+        .map((script) => script.textContent.slice(0, 20000)),
+      meta: pageMeta()
     };
     if (exact) {
       result.selection = {

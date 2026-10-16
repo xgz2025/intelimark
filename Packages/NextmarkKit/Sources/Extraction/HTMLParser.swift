@@ -19,11 +19,14 @@ public struct HTMLMetadata: Sendable, Equatable {
     public var canonicalURL: URL?
     public var imageURL: URL?
     public var jsonLD: [String]
+    /// Product tags (`product:price:amount`, `og:price:amount`, microdata `price`…).
+    public var productTags: [String: String]
 
     public init(
         title: String? = nil, description: String? = nil, siteName: String? = nil, language: String? = nil,
-        canonicalURL: URL? = nil, imageURL: URL? = nil, jsonLD: [String] = []
+        canonicalURL: URL? = nil, imageURL: URL? = nil, jsonLD: [String] = [], productTags: [String: String] = [:]
     ) {
+        self.productTags = productTags
         self.title = title
         self.description = description
         self.siteName = siteName
@@ -43,6 +46,11 @@ public enum HTMLParser {
     static let htmlTag = HTMLText.regex(#"<html\b[^>]*>"#)
     static let titleElement = HTMLText.regex(#"<title\b[^>]*>(.*?)</title>"#)
     static let scriptElement = HTMLText.regex(#"<script\b([^>]*)>(.*?)</script>"#)
+    static let pricedElement = HTMLText.regex(#"<[a-z]+\b[^>]*\bitemprop\s*=\s*["']price(?:Currency)?["'][^>]*>"#)
+    static let productTagKeys: Set<String> = [
+        "product:price:amount", "product:price:currency", "og:price:amount", "og:price:currency",
+        "product:brand", "product:availability", "price", "pricecurrency",
+    ]
 
     /// Relative URLs (images, canonical) are resolved against `baseURL`.
     public static func metadata(from html: String, baseURL: URL?) -> HTMLMetadata {
@@ -73,6 +81,15 @@ public enum HTMLParser {
         let language = HTMLText.matches(htmlTag, in: html).first?[0]
             .flatMap { HTMLText.attributes(of: $0)["lang"] }
 
+        var productTags = meta.filter { productTagKeys.contains($0.key) }
+        // Microdata on any element: <span itemprop="price" content="12.99">.
+        for groups in HTMLText.matches(pricedElement, in: html) {
+            guard let tag = groups[0] else { continue }
+            let attributes = HTMLText.attributes(of: tag)
+            guard let property = attributes["itemprop"]?.lowercased(), let content = attributes["content"], !content.isEmpty else { continue }
+            productTags[property] = productTags[property] ?? content
+        }
+
         return HTMLMetadata(
             title: nonEmpty(meta["og:title"] ?? documentTitle ?? meta["twitter:title"]),
             description: nonEmpty(meta["og:description"] ?? meta["description"] ?? meta["twitter:description"]),
@@ -80,7 +97,8 @@ public enum HTMLParser {
             language: nonEmpty(language),
             canonicalURL: canonical ?? meta["og:url"].flatMap { resolve($0, against: baseURL) },
             imageURL: (meta["og:image"] ?? meta["og:image:url"] ?? meta["twitter:image"]).flatMap { resolve($0, against: baseURL) },
-            jsonLD: jsonLDBlocks(in: html)
+            jsonLD: jsonLDBlocks(in: html),
+            productTags: productTags
         )
     }
 

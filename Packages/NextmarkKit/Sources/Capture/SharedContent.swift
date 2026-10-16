@@ -51,7 +51,8 @@ public struct SharedContent: Sendable, Equatable {
             canonicalURL: page.canonicalURL,
             language: page.language,
             excerpt: page.excerpt,
-            jsonLD: page.jsonLD
+            jsonLD: page.jsonLD,
+            meta: page.meta.isEmpty ? nil : page.meta
         )
     }
 
@@ -96,6 +97,7 @@ public struct PageCapture: Sendable, Equatable {
     public var canonicalURL: URL?
     public var excerpt: String?
     public var jsonLD: [String]
+    public var meta: [String: String]
 
     public init(dictionary: [String: Any]) {
         url = (dictionary["url"] as? String).flatMap { URL(string: $0) }
@@ -104,6 +106,7 @@ public struct PageCapture: Sendable, Equatable {
         canonicalURL = (dictionary["canonical"] as? String).flatMap { URL(string: $0) }
         excerpt = Self.nonEmpty(dictionary["excerpt"])
         jsonLD = dictionary["jsonLD"] as? [String] ?? []
+        meta = (dictionary["meta"] as? [String: Any] ?? [:]).compactMapValues { Self.nonEmpty($0) }
         if let selection = dictionary["selection"] as? [String: Any], let exact = Self.nonEmpty(selection["exact"]) {
             self.selection = TextQuote(
                 exact: exact,

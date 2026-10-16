@@ -74,6 +74,9 @@ public struct Understanding: Sendable, Equatable {
     /// True for the no-model fallback: the item is understood again once the
     /// on-device model is available.
     public var isProvisional: Bool
+    /// A trip's route and number, when the model read a ticket or itinerary that no
+    /// exact source (a Wallet pass, a barcode, the page's data) described.
+    public var trip: TripFields?
 
     public init(
         title: String,
@@ -85,8 +88,10 @@ public struct Understanding: Sendable, Equatable {
         dates: [ItemDate] = [],
         places: [ItemPlace] = [],
         producer: String,
-        isProvisional: Bool = false
+        isProvisional: Bool = false,
+        trip: TripFields? = nil
     ) {
+        self.trip = trip
         self.title = title
         self.summary = summary
         self.semanticKind = semanticKind

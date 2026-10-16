@@ -54,6 +54,34 @@ function nextmarkTextAround(selection, before) {
   return snippet.length ? snippet : null;
 }
 
+// Open Graph and product tags, and a price shown with schema.org microdata: what a
+// shop page says about the product as the person saw it.
+var NEXTMARK_META_KEYS = [
+  "og:title", "og:description", "og:image", "og:site_name", "og:type",
+  "product:price:amount", "product:price:currency", "og:price:amount", "og:price:currency",
+  "product:brand", "product:availability"
+];
+
+function nextmarkMeta() {
+  var meta = {};
+  NEXTMARK_META_KEYS.forEach(function (key) {
+    var tag = document.querySelector('meta[property="' + key + '"], meta[name="' + key + '"]');
+    var value = tag && tag.getAttribute("content");
+    if (value) meta[key] = value.trim().slice(0, 1000);
+  });
+  var price = document.querySelector('[itemprop="price"]');
+  if (price) {
+    var amount = price.getAttribute("content") || price.textContent;
+    if (amount) meta["itemprop:price"] = amount.trim().slice(0, 40);
+  }
+  var currency = document.querySelector('[itemprop="priceCurrency"]');
+  if (currency) {
+    var code = currency.getAttribute("content") || currency.textContent;
+    if (code) meta["itemprop:priceCurrency"] = code.trim().slice(0, 10);
+  }
+  return meta;
+}
+
 function nextmarkCapturePage() {
   var selection = window.getSelection();
   var exact = selection ? selection.toString().trim() : "";
@@ -69,7 +97,8 @@ function nextmarkCapturePage() {
     excerpt: document.body ? document.body.innerText.slice(0, 4000) : null,
     jsonLD: Array.prototype.slice
       .call(document.querySelectorAll('script[type="application/ld+json"]'), 0, 5)
-      .map(function (script) { return script.textContent.slice(0, 20000); })
+      .map(function (script) { return script.textContent.slice(0, 20000); }),
+    meta: nextmarkMeta()
   };
   if (exact) {
     result.selection = {

@@ -17,12 +17,19 @@ public struct PageContext: Codable, Sendable, Hashable {
     public var excerpt: String?
     /// Raw schema.org JSON-LD blocks, parsed later by the Extract stage.
     public var jsonLD: [String]
+    /// The page's Open Graph and product tags ("og:image", "product:price:amount"…),
+    /// as the page showed them.
+    public var meta: [String: String]?
 
-    public init(canonicalURL: URL? = nil, language: String? = nil, excerpt: String? = nil, jsonLD: [String] = []) {
+    public init(
+        canonicalURL: URL? = nil, language: String? = nil, excerpt: String? = nil, jsonLD: [String] = [],
+        meta: [String: String]? = nil
+    ) {
         self.canonicalURL = canonicalURL
         self.language = language
         self.excerpt = excerpt
         self.jsonLD = jsonLD
+        self.meta = meta
     }
 }
 

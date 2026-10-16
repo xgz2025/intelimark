@@ -108,3 +108,33 @@ public enum Grounding {
         text.lowercased().split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 }
+
+extension Grounding {
+    /// A trip from the model's route and number, kept only when the content states them.
+    public static func trip(from: String, to: String, number: String, departures dates: [ItemDate], in source: String) -> TripFields? {
+        let lowered = source.lowercased()
+        func grounded(_ value: String) -> String? {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.count >= 2, lowered.contains(trimmed.lowercased()) else { return nil }
+            return trimmed
+        }
+        let compactSource = lowered.replacingOccurrences(of: " ", with: "")
+        let flightOrTrain = number.trimmingCharacters(in: .whitespacesAndNewlines)
+        let groundedNumber = flightOrTrain.count >= 3 && compactSource.contains(flightOrTrain.lowercased().replacingOccurrences(of: " ", with: ""))
+            ? flightOrTrain : nil
+        let origin = grounded(from)
+        let destination = grounded(to)
+        guard origin != nil || destination != nil else { return nil }
+        let departure = dates.filter { $0.role == .departure || $0.role == .eventStart }.min { $0.date < $1.date }
+        let mode: TripFields.Mode = {
+            guard let groundedNumber, let first = groundedNumber.first else { return .other }
+            let trainPrefixes: Set<Character> = ["G", "D", "C", "Z", "T", "K"]
+            let digitsOnly = groundedNumber.dropFirst().allSatisfy(\.isNumber)
+            return trainPrefixes.contains(first) && digitsOnly ? .train : .flight
+        }()
+        return TripFields(mode: mode, legs: [TripLeg(
+            number: groundedNumber, from: origin, to: destination,
+            departure: departure?.date, departureHasTime: departure?.hasTime ?? true
+        )], origin: .model)
+    }
+}
