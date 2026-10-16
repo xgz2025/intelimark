@@ -151,13 +151,9 @@ struct ProductPriceSection: View {
     /// person to pick the real one (an app's own page, a price behind a sign-in).
     @ViewBuilder
     private var readFromPicture: some View {
-        let label = HStack {
-            Label("Read Price from Screenshot…", systemImage: "text.viewfinder")
-            Spacer()
-            if isReadingPicture { ProgressView().controlSize(.small) }
-        }
+        let isReading = isReadingPicture
         #if os(iOS)
-        PhotosPicker(selection: $picture, matching: .images, photoLibrary: .shared()) { label }
+        PhotosPicker(selection: $picture, matching: .images, photoLibrary: .shared()) { Self.pictureLabel(isReading: isReading) }
             .disabled(isReadingPicture)
             .onChange(of: picture) { _, selection in
                 guard let selection else { return }
@@ -169,7 +165,7 @@ struct ProductPriceSection: View {
                 }
             }
         #else
-        Button { showsImporter = true } label: { label }
+        Button { showsImporter = true } label: { Self.pictureLabel(isReading: isReading) }
             .disabled(isReadingPicture)
             .help(Text("Choose a screenshot of the product's page; Laterwise reads its prices on this Mac"))
             .fileImporter(isPresented: $showsImporter, allowedContentTypes: [.image]) { result in
@@ -183,6 +179,14 @@ struct ProductPriceSection: View {
                 }
             }
         #endif
+    }
+
+    nonisolated private static func pictureLabel(isReading: Bool) -> some View {
+        HStack {
+            Label("Read Price from Screenshot…", systemImage: "text.viewfinder")
+            Spacer()
+            if isReading { ProgressView().controlSize(.small) }
+        }
     }
 
     private func readPrices(in data: Data?) async {
