@@ -37,11 +37,43 @@ struct ProductPriceSection: View {
     let services: LibraryServices
     @State private var isChecking = false
     @State private var result: String?
+    @State private var targetText = ""
+    @FocusState private var isEditingTarget: Bool
 
     private var product: ProductFields? { item.typedFields?.product }
+    private var link: URL? { item.canonicalURL.flatMap { URL(string: $0) } }
 
     var body: some View {
         Section {
+            LabeledContent {
+                HStack(spacing: 4) {
+                    TextField("None", text: $targetText)
+                        .multilineTextAlignment(.trailing)
+                        .focused($isEditingTarget)
+                        .onSubmit { saveTarget() }
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                    if let currency = product?.currency {
+                        Text(currency).foregroundStyle(.secondary)
+                    }
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Target Price")
+                    Text("Tell me when it's at or under this")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onChange(of: isEditingTarget) { _, editing in
+                if !editing { saveTarget() }
+            }
+            if let status = targetStatus {
+                Label(status.text, systemImage: status.reached ? "checkmark.circle.fill" : "arrow.down.circle")
+                    .foregroundStyle(status.reached ? .green : .secondary)
+                    .font(.callout)
+            }
             if let history = product?.priceHistory, history.count >= 2 {
                 Chart(history, id: \.at) { point in
                     LineMark(x: .value("Date", point.at), y: .value("Price", point.price))
@@ -69,13 +101,57 @@ struct ProductPriceSection: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            if let link {
+                Link(destination: link) {
+                    Label("Update from the Page in Safari", systemImage: "safari")
+                }
+                .help(Text("Open the page, then tap Laterwise in Safari's toolbar or Share menu"))
+            }
         } header: {
             Text("Price")
         } footer: {
-            if let checked = product?.checkedAt {
-                Text("Checked \(checked.formatted(.relative(presentation: .named))).")
+            VStack(alignment: .leading, spacing: 4) {
+                if let checked = product?.checkedAt {
+                    Text("Checked \(checked.formatted(.relative(presentation: .named))).")
+                }
+                Text("Some shops show prices only in a browser. Open the page in Safari and tap Laterwise in the toolbar (or Share › Laterwise): the price you see is recorded here, without saving it twice.")
             }
         }
+        .onAppear { targetText = Self.text(for: item.targetPrice) }
+        .onChange(of: item.targetPrice) { _, price in
+            if !isEditingTarget { targetText = Self.text(for: price) }
+        }
+    }
+
+    /// How the price stands against the target.
+    private var targetStatus: (text: String, reached: Bool)? {
+        guard let target = item.targetPrice, let price = product?.price else { return nil }
+        if price <= target { return (String(localized: "At or under your target."), true) }
+        let gap = ItemRecord.money(price - target, currency: product?.currency)
+        return (String(localized: "\(gap) above your target."), false)
+    }
+
+    static func text(for price: Double?) -> String {
+        price.map { $0.formatted(.number.precision(.fractionLength(0...2)).grouping(.never)) } ?? ""
+    }
+
+    /// "299", "299.5", "1 299,90": the number typed, read in the person's locale.
+    static func parse(_ text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        if let number = formatter.number(from: trimmed.replacingOccurrences(of: " ", with: "")) {
+            return number.doubleValue
+        }
+        return Double(trimmed.filter { $0.isNumber || $0 == "." })
+    }
+
+    private func saveTarget() {
+        let price = Self.parse(targetText)
+        guard price != item.targetPrice else { return }
+        let (items, id) = (services.items, item.id)
+        performEdit { try await items.setTargetPrice(price, forItem: id) }
     }
 
     private func check() {
@@ -184,7 +260,11 @@ private struct ComparisonRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(card.figure ?? "—")
                     .font(.body.weight(.semibold).monospacedDigit())
-                if isCheapest {
+                if card.isUnderTarget {
+                    Text("Under target")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                } else if isCheapest {
                     Text("Lowest")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.green)

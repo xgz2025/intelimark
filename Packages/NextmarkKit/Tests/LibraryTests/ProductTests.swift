@@ -85,4 +85,35 @@ struct ProductTests {
         #expect(ProductMatching.similarity("Wool Coat", "Desk Lamp") == 0)
         #expect(ProductMatching.similarity("女士羊毛大衣 驼色", "驼色羊毛大衣") >= ProductMatching.threshold)
     }
+
+    @Test func productLinksMatchWhateverTheirTracking() {
+        let amazon = ProductURL.key(URL(string: "https://www.amazon.com/Wool-Coat/dp/B0ABC12345/ref=sr_1_3?tag=x"))
+        #expect(amazon == ProductURL.key(URL(string: "https://amazon.com/dp/B0ABC12345?psc=1")))
+        #expect(amazon != ProductURL.key(URL(string: "https://amazon.co.jp/dp/B0ABC12345")))
+        let temu = ProductURL.key(URL(string: "https://www.temu.com/goods.html?goods_id=601&_x_sessn_id=abc&refer_page_name=home"))
+        #expect(temu == "temu.com/goods.html?goods_id=601")
+        #expect(ProductURL.key(URL(string: "https://shop.example.com/products/coat/?utm_source=ig"))
+            == ProductURL.key(URL(string: "https://shop.example.com/products/coat")))
+    }
+
+    @Test func aTargetIsAnnouncedOnceWhenReached() {
+        #expect(PriceAlert.notice(for: .dropped(from: 320, to: 289, currency: "CNY"), target: 299, includesDrops: false)
+            == .reachedTarget(price: 289, target: 299))
+        // Already under it: said before.
+        #expect(PriceAlert.notice(for: .dropped(from: 289, to: 279, currency: "CNY"), target: 299, includesDrops: false) == nil)
+        #expect(PriceAlert.notice(for: .unchanged(289), target: 299, includesDrops: true) == nil)
+        // Drops are told to Pro.
+        #expect(PriceAlert.notice(for: .dropped(from: 400, to: 350, currency: "CNY"), target: 299, includesDrops: true)
+            == .dropped(from: 400, to: 350))
+        #expect(PriceAlert.notice(for: .dropped(from: 400, to: 350, currency: "CNY"), target: nil, includesDrops: false) == nil)
+    }
+
+    @Test func aTargetPriceIsKeptAndCleared() async throws {
+        let id = try await product("Wool Coat", price: 120, url: "https://shop.example.com/coat")
+        try await items.setTargetPrice(99, forItem: id)
+        #expect(try await items.item(id: id)?.targetPrice == 99)
+        try await items.setTargetPrice(0, forItem: id)
+        #expect(try await items.item(id: id)?.targetPrice == nil)
+    }
 }
+

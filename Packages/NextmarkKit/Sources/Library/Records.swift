@@ -67,6 +67,9 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     public var sourceAssetID: String?
     /// Reminders chosen for this show or trip; nil uses the defaults for its kind.
     public var reminders: [ReminderTime]?
+    /// The price a product is wanted at, in its currency: a check that finds it at or
+    /// under this says so.
+    public var targetPrice: Double?
 
     public var displayTitle: String {
         for candidate in [userTitle, aiTitle, sourceTitle] {
@@ -140,6 +143,7 @@ extension ItemRecord {
         syncScope = .cloud
         sourceAssetID = nil
         reminders = nil
+        targetPrice = nil
     }
 }
 

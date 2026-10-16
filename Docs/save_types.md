@@ -59,11 +59,19 @@ comparing before buying.
   "↓ $50 since saved".
 - **Check Price** on a product (or **Check Prices** on a group) fetches the page
   again and records the price. Up to 60 checks are kept as its price history.
+- **Target price** (free): "tell me when it's at or under ¥299". Any check that
+  crosses it (Check Price, a Safari refresh, Pro's daily check) sends a notification,
+  once per crossing; lists mark the product "Under target".
+- **Safari refresh**: saving a product page that's already saved (Safari's Laterwise
+  button, or Share) updates that product instead of saving it twice: the page as the
+  person sees it, prices behind scripts or a sign-in included, is read again.
+  `ProductURL.key` decides it's the same product (Amazon by its ASIN; shops by their
+  product parameters, without tracking ones). A highlight or a note is a new save.
 - **Pro**: prices are checked once a day while Laterwise runs, a notification says
   when one drops, and similar products are put in a **comparison group** on their
   own (free users get it as a suggestion). A group of products shows them side by
   side, cheapest first.
 - Some stores show prices only to a browser that runs their scripts, or to signed-in
-  people; then the price saved from Safari stays, and Check Price says it couldn't
-  read a newer one. Laterwise never signs in to a store or sends anything but the
+  people; then Check Price says it couldn't read a newer one, and a Safari refresh
+  is the way to update it. Laterwise never signs in to a store or sends anything but the
   page request.

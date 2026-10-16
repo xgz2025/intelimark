@@ -167,6 +167,11 @@ public struct ItemRepository: Sendable {
         try await editUserLayer(id, now: now) { $0.reminders = reminders }
     }
 
+    /// The price a product is wanted at; nil (or zero) removes it.
+    public func setTargetPrice(_ price: Double?, forItem id: String, now: Date = Date()) async throws {
+        try await editUserLayer(id, now: now) { $0.targetPrice = price.flatMap { $0 > 0 ? $0 : nil } }
+    }
+
     /// The person's note; nil or blank removes it.
     public func setNote(_ note: String?, forItem id: String, now: Date = Date()) async throws {
         try await editUserLayer(id, now: now) { $0.note = Self.cleaned(note) }
@@ -197,37 +202,55 @@ public struct ItemRepository: Sendable {
     /// Writes the Extract stage's facts. Source facts are only filled when missing
     /// (a page title never replaces the one captured); the user layer is untouched.
     /// Read-modify-write in one transaction, so a concurrent edit can't be lost.
-    public func applyExtraction(_ extraction: Extraction, toItem id: String, version: Int, now: Date = Date()) async throws {
-        try await database.writer.write { db in
-            guard var item = try ItemRecord.fetchOne(db, key: id) else { return }
+    /// - Returns: For a product, what its price did: a page read again (a Safari
+    ///   refresh, say) records the price it shows now.
+    @discardableResult
+    public func applyExtraction(_ extraction: Extraction, toItem id: String, version: Int, now: Date = Date()) async throws -> PriceCheckOutcome? {
+        try await database.writer.write { db -> PriceCheckOutcome? in
+            guard var item = try ItemRecord.fetchOne(db, key: id) else { return nil }
+            let earlier = item.typedFields?.product
             item.sourceTitle = item.sourceTitle ?? extraction.title
-            item.siteName = extraction.siteName
-            item.heroImageURL = extraction.heroImageURL?.absoluteString
+            item.siteName = extraction.siteName ?? item.siteName
+            item.heroImageURL = extraction.heroImageURL?.absoluteString ?? item.heroImageURL
             item.contentText = extraction.contentText
             item.ocrText = extraction.ocrText
             item.imageLabels = extraction.imageLabels
             item.barcodes = extraction.barcodes
             item.structuredKind = extraction.structured?.kind
-            item.typedFields = Self.keepingPriceHistory(extraction.typedFields, from: item.typedFields, savedAt: item.createdAt)
+            item.typedFields = Self.keepingPriceHistory(extraction.typedFields, from: item.typedFields, savedAt: item.createdAt, now: now)
             if let kind = extraction.structured?.kind {
                 item.semanticKind = kind
             }
             item.extractVersion = version
             item.updatedAt = now
             try item.update(db)
+            return Self.outcome(from: earlier, to: item.typedFields?.product)
         }
     }
 
-    /// A product's first price is its price when saved, the start of its history. Prices
-    /// checked since are kept when the page is read again.
-    static func keepingPriceHistory(_ fields: TypedFields?, from previous: TypedFields?, savedAt: Date) -> TypedFields? {
+    static func outcome(from earlier: ProductFields?, to current: ProductFields?) -> PriceCheckOutcome? {
+        guard let price = current?.price else { return nil }
+        guard let before = earlier?.price, earlier?.currency == current?.currency else { return .found(price) }
+        if price < before - 0.005 { return .dropped(from: before, to: price, currency: current?.currency) }
+        if price > before + 0.005 { return .rose(from: before, to: price, currency: current?.currency) }
+        return .unchanged(price)
+    }
+
+    /// A product's first price is its price when saved, the start of its history. Read
+    /// again, its page's price is recorded on top of the history so far.
+    static func keepingPriceHistory(_ fields: TypedFields?, from previous: TypedFields?, savedAt: Date, now: Date) -> TypedFields? {
         guard var fields, var product = fields.product else { return fields }
-        if let earlier = previous?.product, earlier.priceHistory?.isEmpty == false {
-            product.originalPrice = earlier.originalPrice
-            product.priceHistory = earlier.priceHistory
-            product.checkedAt = earlier.checkedAt
-            product.price = earlier.price ?? product.price
-            product.currency = earlier.currency ?? product.currency
+        if var earlier = previous?.product, earlier.priceHistory?.isEmpty == false {
+            if let price = product.price {
+                earlier.record(price: price, currency: product.currency ?? earlier.currency, at: now)
+            }
+            earlier.name = product.name ?? earlier.name
+            earlier.description = product.description ?? earlier.description
+            earlier.imageURL = product.imageURL ?? earlier.imageURL
+            earlier.store = product.store ?? earlier.store
+            earlier.brand = product.brand ?? earlier.brand
+            earlier.availability = product.availability ?? earlier.availability
+            product = earlier
         } else if let price = product.price, product.originalPrice == nil {
             product.originalPrice = price
             product.priceHistory = [PricePoint(at: savedAt, price: price)]

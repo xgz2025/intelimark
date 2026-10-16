@@ -1,6 +1,17 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ above your target." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比你的目标价格高 %@。"
+          }
+        }
+      }
+    },
     "%@ · %lld saves" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -624,6 +635,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每天最多 %lld 条"
+          }
+        }
+      }
+    },
+    "At or under your target." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已达到或低于你的目标价格。"
           }
         }
       }
@@ -3334,6 +3356,17 @@
         }
       }
     },
+    "Now %@, your target is %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现价 %1$@，你的目标价为 %2$@。"
+          }
+        }
+      }
+    },
     "Now %@." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3473,6 +3506,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开设置"
+          }
+        }
+      }
+    },
+    "Open the page, then tap Laterwise in Safari's toolbar or Share menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开网页，然后轻点 Safari 浏览器工具栏或“共享”菜单中的 Laterwise"
           }
         }
       }
@@ -4775,6 +4819,17 @@
         }
       }
     },
+    "Some shops show prices only in a browser. Open the page in Safari and tap Laterwise in the toolbar (or Share › Laterwise): the price you see is recorded here, without saving it twice." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有些商店只在浏览器中显示价格。在 Safari 浏览器中打开网页，轻点工具栏中的 Laterwise（或“共享”›Laterwise）：你看到的价格会记录在这里，不会重复保存。"
+          }
+        }
+      }
+    },
     "Sort My Screenshots" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5024,6 +5079,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在任意 App 中轻点“共享”并选择 Laterwise，或在收件箱中轻点 +。在 Safari 浏览器中，从扩展菜单（拼图图标）打开 Laterwise 即可保存高亮。说明原因：阅读、购买、尝试或前往。"
+          }
+        }
+      }
+    },
+    "Target Price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目标价格"
+          }
+        }
+      }
+    },
+    "Tell me when it's at or under this" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "价格达到或低于此值时提醒我"
           }
         }
       }
@@ -5556,6 +5633,28 @@
         }
       }
     },
+    "Under target" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低于目标价"
+          }
+        }
+      }
+    },
+    "Under your target: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低于目标价：%@"
+          }
+        }
+      }
+    },
     "Undo" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5629,6 +5728,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "即将到来"
+          }
+        }
+      }
+    },
+    "Update from the Page in Safari" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Safari 浏览器中从网页更新"
           }
         }
       }

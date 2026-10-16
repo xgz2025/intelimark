@@ -84,7 +84,7 @@ public enum SyncCatalog {
     public static let tables: [SyncTable] = [
         SyncTable(
             recordType: "Item", table: "item", keyColumns: ["id"], parents: [],
-            userColumns: ["userTitle", "note", "intent", "status", "pinned", "reminders"],
+            userColumns: ["userTitle", "note", "intent", "status", "pinned", "reminders", "targetPrice"],
             derivedLayers: [
                 .init(stampKey: "extractVersion", versionColumn: "extractVersion", columns: [
                     "ocrText", "contentText", "siteName", "heroImageURL", "imageLabels", "barcodes",

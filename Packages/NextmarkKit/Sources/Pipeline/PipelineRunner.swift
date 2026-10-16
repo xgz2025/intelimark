@@ -50,6 +50,14 @@ public actor PipelineRunner {
         comparesProductsAutomatically = value
     }
 
+    /// Told what a product's price did when its page was read (a Safari refresh, say),
+    /// so the app can say it reached its target.
+    var priceObserver: (@Sendable (String, PriceCheckOutcome) async -> Void)?
+
+    public func setPriceObserver(_ observer: @escaping @Sendable (String, PriceCheckOutcome) async -> Void) {
+        priceObserver = observer
+    }
+
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
     ///   - embedder: computes item vectors for semantic search and grouping; without one
@@ -289,7 +297,8 @@ public actor PipelineRunner {
                     try await repository.saveThumbnail(forItem: job.itemID, fileName: Thumbnailer.fileName, byteSize: byteSize)
                 }
             }
-            try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            let price = try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            if let price, let priceObserver { await priceObserver(job.itemID, price) }
             // A product joins the similar ones already saved, to compare.
             if extraction.typedFields?.product != nil {
                 _ = try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)

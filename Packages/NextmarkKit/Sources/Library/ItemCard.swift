@@ -31,6 +31,8 @@ public struct ItemCard: Sendable, Equatable {
     public var change: String?
     /// True when `change` is a drop.
     public var isDrop = false
+    /// A product at or under the price the person wants it at.
+    public var isUnderTarget = false
     /// What it is, in a line or two.
     public var snippet: String?
 }
@@ -81,6 +83,7 @@ extension ItemRecord {
                 card.change = (change < 0 ? "↓ " : "↑ ") + Self.money(abs(change), currency: product?.currency)
                 card.isDrop = change < 0
             }
+            if let target = targetPrice, let price = product?.price, price <= target { card.isUnderTarget = true }
             card.byline = Self.join([product?.store ?? siteName, product?.brand])
             card.snippet = Self.distinct(product?.description ?? summary, from: card.title)
             return card

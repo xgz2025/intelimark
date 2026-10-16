@@ -100,8 +100,12 @@ final class AppModel {
             syncNow: { [weak self] in
                 await self?.syncNow()
             },
-            checkPrices: { ids in
-                await priceChecker.check(ids)
+            checkPrices: { [weak self] ids in
+                let outcomes = await priceChecker.check(ids)
+                for (id, outcome) in outcomes {
+                    await self?.announcePrice(of: id, outcome)
+                }
+                return outcomes
             }
         )
         cloudSync = CloudSync(store: SyncStore(database: database, itemsDirectory: AppGroup.itemsURL)) { [weak self] result in
@@ -265,13 +269,29 @@ final class AppModel {
               !ids.isEmpty
         else { return }
         for (id, outcome) in await priceChecker.check(ids) {
-            guard case .dropped(let from, let to, let currency) = outcome, let item = try? await repository.item(id: id) else { continue }
-            let now = ItemRecord.money(to, currency: currency)
-            let was = ItemRecord.money(from, currency: currency)
+            await announcePrice(of: id, outcome)
+        }
+    }
+
+    /// A price that reached its target is announced to everyone; a drop, to Pro.
+    func announcePrice(of id: String, _ outcome: PriceCheckOutcome) async {
+        guard let item = try? await repository.item(id: id),
+              let alert = PriceAlert.notice(for: outcome, target: item.targetPrice, includesDrops: pro.isPro)
+        else { return }
+        let currency = item.typedFields?.product?.currency
+        let title = item.card.title
+        switch alert {
+        case .reachedTarget(let price, let target):
             await UserNotificationScheduler.notifyPriceDrop(
                 itemID: id,
-                title: String(localized: "Price drop: \(item.card.title)"),
-                body: String(localized: "Now \(now), was \(was).")
+                title: String(localized: "Under your target: \(title)"),
+                body: String(localized: "Now \(ItemRecord.money(price, currency: currency)), your target is \(ItemRecord.money(target, currency: currency)).")
+            )
+        case .dropped(let from, let to):
+            await UserNotificationScheduler.notifyPriceDrop(
+                itemID: id,
+                title: String(localized: "Price drop: \(title)"),
+                body: String(localized: "Now \(ItemRecord.money(to, currency: currency)), was \(ItemRecord.money(from, currency: currency)).")
             )
         }
     }
@@ -301,6 +321,9 @@ final class AppModel {
     func processInbox() async {
         guard startupError == nil else { return }
         await pipeline.setComparesProductsAutomatically(pro.isPro)
+        await pipeline.setPriceObserver { [weak self] id, outcome in
+            await self?.announcePrice(of: id, outcome)
+        }
         // New saves appear in the Inbox at once, even while enrichment is busy with
         // earlier ones (a slow page, image analysis, a model download).
         await ingestNow()

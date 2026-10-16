@@ -179,3 +179,60 @@ public enum ProductMatching {
         return String(localized: "Compare: \(short)")
     }
 }
+
+/// One product's address, however it was reached: shops add tracking and session
+/// parameters, and Amazon puts the name in the path. Two links with the same key
+/// are the same product (Safari refresh, Docs/save_types.md).
+public enum ProductURL {
+    /// Query parameters that say which product (or which variant) it is.
+    static let identifyingParameters: Set<String> = [
+        "id", "itemid", "item_id", "goods_id", "goodsid", "productid", "product_id", "pid", "sku", "skuid",
+        "sku_id", "variant", "spuid", "spu_id", "asin",
+    ]
+
+    public static func key(_ url: URL?) -> String? {
+        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              var host = components.host?.lowercased()
+        else { return nil }
+        for prefix in ["www.", "m.", "mobile."] where host.hasPrefix(prefix) {
+            host.removeFirst(prefix.count)
+        }
+        let path = components.path
+        // Amazon: /Some-Name/dp/B0ABC12345/ref=… → the ASIN.
+        if host.contains("amazon."), let asin = path.firstMatch(of: #/(?:/dp/|/gp/product/|/gp/aw/d/)([A-Z0-9]{10})/#) {
+            return "\(host)/dp/\(asin.output.1)"
+        }
+        let kept = (components.queryItems ?? [])
+            .filter { identifyingParameters.contains($0.name.lowercased()) && !($0.value ?? "").isEmpty }
+            .map { "\($0.name.lowercased())=\($0.value ?? "")" }
+            .sorted()
+        components.query = nil
+        let trimmedPath = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+        return host + trimmedPath + (kept.isEmpty ? "" : "?" + kept.joined(separator: "&"))
+    }
+}
+
+/// When a price change is worth a notification: it reached the person's target, or
+/// (Pro) it dropped.
+public enum PriceAlert: Sendable, Equatable {
+    case reachedTarget(price: Double, target: Double)
+    case dropped(from: Double, to: Double)
+
+    public static func notice(for outcome: PriceCheckOutcome, target: Double?, includesDrops: Bool) -> PriceAlert? {
+        let (before, after): (Double?, Double?) = switch outcome {
+        case .dropped(let from, let to, _): (from, to)
+        case .rose(let from, let to, _): (from, to)
+        case .found(let price): (nil, price)
+        case .unchanged, .unavailable: (nil, nil)
+        }
+        guard let after else { return nil }
+        // Crossing the target, not sitting under it: said once, when it happens.
+        if let target, after <= target, before.map({ $0 > target }) ?? true {
+            return .reachedTarget(price: after, target: target)
+        }
+        if includesDrops, let before, after < before {
+            return .dropped(from: before, to: after)
+        }
+        return nil
+    }
+}

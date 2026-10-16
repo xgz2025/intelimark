@@ -40,7 +40,12 @@ struct ItemRow: View {
                             Text(figure)
                                 .font(.body.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(.primary)
-                            if let change = card.change {
+                            if card.isUnderTarget {
+                                Label("Under target", systemImage: "checkmark.circle.fill")
+                                    .labelStyle(BylineLabelStyle())
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            } else if let change = card.change {
                                 Text(change)
                                     .font(.caption.weight(.semibold).monospacedDigit())
                                     .foregroundStyle(card.isDrop ? .green : .red)

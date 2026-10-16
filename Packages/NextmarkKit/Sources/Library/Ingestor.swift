@@ -43,8 +43,7 @@ public struct Ingestor: Sendable {
             // One capture that fails (e.g. its files can't be moved) stays in the Inbox for
             // the next pass; it doesn't hold up the others.
             do {
-                try await ingest(capture, now: now)
-                ingested.append(capture.envelope.id.rawValue)
+                ingested.append(try await ingest(capture, now: now))
             } catch {
                 Self.logger.error("Couldn't add capture \(capture.envelope.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 lastFailure = error
@@ -62,8 +61,14 @@ public struct Ingestor: Sendable {
         return captures.filter { now.timeIntervalSince($0.envelope.id.date) > 60 }.count
     }
 
-    func ingest(_ capture: CommittedCapture, now: Date) async throws {
+    /// Returns the ID of the item the capture became, or refreshed.
+    @discardableResult
+    func ingest(_ capture: CommittedCapture, now: Date) async throws -> String {
         let envelope = capture.envelope
+        if let refreshed = try await refreshProduct(with: envelope, now: now) {
+            try store.discard(envelope.id)
+            return refreshed
+        }
         let itemID = envelope.id.rawValue
         let attachments = try moveAttachments(of: capture, itemID: itemID)
         let item = ItemRecord(envelope: envelope, now: now)
@@ -78,6 +83,42 @@ public struct Ingestor: Sendable {
             try job.insert(db)
         }
         try store.discard(envelope.id)
+        return itemID
+    }
+
+    /// A product page saved again (Safari's Laterwise button, or Share) refreshes the
+    /// product already saved, rather than making a second one: the page as the person
+    /// sees it now is read again for its price (Docs/save_types.md). A highlight, a
+    /// note or a file is a new save.
+    func refreshProduct(with envelope: CaptureEnvelope, now: Date) async throws -> String? {
+        guard envelope.selection == nil, envelope.userNote == nil, envelope.payloadFiles.isEmpty,
+              envelope.surface != .screenshotImport
+        else { return nil }
+        let keys = Set([envelope.url, envelope.pageContext?.canonicalURL].compactMap { ProductURL.key($0) })
+        guard !keys.isEmpty else { return nil }
+        return try await database.writer.write { db -> String? in
+            let products = try ItemRecord
+                .filter(Column("status") != ItemStatus.trashed.rawValue)
+                .filter(Column("canonicalURL") != nil)
+                .filter(Column("typedFields").like("%\"product\"%"))
+                .fetchAll(db)
+            guard var item = products.first(where: { product in
+                product.saveType == .product && ProductURL.key(product.canonicalURL.flatMap { URL(string: $0) }).map(keys.contains) == true
+            }) else { return nil }
+            // The page as seen now; without one (a shopping app's share), the page is
+            // fetched again, with the price in the shared text to fall back on.
+            item.pageContext = envelope.pageContext
+            if let text = envelope.text, item.anchor == nil { item.text = text }
+            if let intent = envelope.userIntent { item.intent = intent }
+            item.updatedAt = now
+            try item.update(db)
+            let pending = try JobRecord.filter(Column("itemID") == item.id && Column("stage") == PipelineStage.extract.rawValue).fetchCount(db)
+            if pending == 0 {
+                var job = JobRecord(itemID: item.id, stage: .extract, notBefore: now)
+                try job.insert(db)
+            }
+            return item.id
+        }
     }
 
     private func moveAttachments(of capture: CommittedCapture, itemID: String) throws -> [AttachmentRecord] {
