@@ -292,7 +292,7 @@ public actor PipelineRunner {
             try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
             // A product joins the similar ones already saved, to compare.
             if extraction.typedFields?.product != nil {
-                try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)
+                _ = try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)
             }
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
 
