@@ -86,9 +86,11 @@ struct ProductTests {
         #expect(ProductMatching.similarity("女士羊毛大衣 驼色", "驼色羊毛大衣") >= ProductMatching.threshold)
     }
 
-    func record(_ name: String, price: Double? = nil, brand: String? = nil, url: String = "https://shop.example.com/p") -> ItemRecord {
+    /// A product saved from its own link, unless given one.
+    func record(_ name: String, price: Double? = nil, brand: String? = nil, url: String? = nil) -> ItemRecord {
+        let link = url ?? "https://shop.example.com/products/\(UUID().uuidString)"
         var item = ItemRecord(
-            envelope: CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet, url: URL(string: url), title: name), now: now
+            envelope: CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet, url: URL(string: link), title: name), now: now
         )
         item.typedFields = TypedFields(product: ProductFields(name: name, brand: brand, price: price, currency: "USD"))
         return item
