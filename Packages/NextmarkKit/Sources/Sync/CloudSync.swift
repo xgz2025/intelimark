@@ -166,8 +166,20 @@ public actor CloudSync: CKSyncEngineDelegate {
             markSynced()
         } catch {
             logger.error("Sync failed: \(error.localizedDescription, privacy: .public)")
+            logDetails(of: error)
             setStatus(Self.message(for: error))
         }
+    }
+
+    /// The whole error, with what the server said (its underlying errors and messages):
+    /// "Server Rejected Request" alone doesn't say why. In full in Debug builds only.
+    private func logDetails(of error: any Error) {
+        let details = String(reflecting: error as NSError)
+        #if DEBUG
+        logger.error("Sync error details: \(details, privacy: .public)")
+        #else
+        logger.error("Sync error details: \(details, privacy: .private)")
+        #endif
     }
 
     /// Records held back after a refusal are offered again.
@@ -321,6 +333,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         case .sentDatabaseChanges(let sent):
             for failure in sent.failedZoneSaves {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
+                logDetails(of: failure.error)
                 if failure.error.code == .quotaExceeded {
                     isQuotaFull = true
                     startHolding()
