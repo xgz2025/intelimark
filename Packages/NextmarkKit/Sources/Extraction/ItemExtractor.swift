@@ -154,7 +154,7 @@ public struct ItemExtractor: Sendable {
         return Self.extraction(fromHTML: html, baseURL: resource.finalURL)
     }
 
-    static func extraction(fromHTML html: String, baseURL: URL) -> Extraction {
+    public static func extraction(fromHTML html: String, baseURL: URL) -> Extraction {
         let metadata = HTMLParser.metadata(from: html, baseURL: baseURL)
         let tagged = ProductPage.product(
             tags: metadata.productTags, title: metadata.title, description: metadata.description,

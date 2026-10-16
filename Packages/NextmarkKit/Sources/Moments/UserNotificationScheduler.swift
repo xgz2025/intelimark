@@ -76,6 +76,20 @@ public struct UserNotificationScheduler: MomentScheduling {
         return delivered + snoozed
     }
 
+    /// Says at once that a saved product got cheaper; opening it shows the item.
+    public static func notifyPriceDrop(itemID: String, title: String, body: String) async {
+        let moment = MomentCandidate(targetID: itemID, targetKind: .item, fireDate: Date(), reason: .priceDrop, title: title, body: body)
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = categoryID(.item)
+        content.threadIdentifier = MomentCandidate.Reason.priceDrop.rawValue
+        content.userInfo = MomentResponse.userInfo(for: moment)
+        let request = UNNotificationRequest(identifier: "pricedrop.\(itemID)", content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
     static func categoryID(_ kind: MomentCandidate.TargetKind) -> String {
         "moment.\(kind.rawValue)"
     }

@@ -43,6 +43,12 @@ public actor PipelineRunner {
     /// Groups whose Brief the model was too busy to write: when to try again, and how
     /// many times it has been busy, for a growing backoff.
     var briefRetries: [String: (after: Date, failures: Int)] = [:]
+    /// Pro puts similar products in a comparison group itself; Free gets a suggestion.
+    var comparesProductsAutomatically = false
+
+    public func setComparesProductsAutomatically(_ value: Bool) {
+        comparesProductsAutomatically = value
+    }
 
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
@@ -284,6 +290,10 @@ public actor PipelineRunner {
                 }
             }
             try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            // A product joins the similar ones already saved, to compare.
+            if extraction.typedFields?.product != nil {
+                try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)
+            }
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
 
         case .understand:

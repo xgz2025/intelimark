@@ -24,6 +24,8 @@ public struct LibraryServices: Sendable {
     public let refresh: @Sendable () async -> Void
     /// Fetches from and sends to iCloud now.
     public let syncNow: @Sendable () async -> Void
+    /// Check Price: reads products' pages again and records their prices.
+    public let checkPrices: @Sendable ([String]) async -> [String: PriceCheckOutcome]
     /// Where each item's files live (`<itemsDirectory>/<itemID>/…`).
     public let itemsDirectory: URL?
     /// Where saves made in the app go, like those from the Share menu.
@@ -35,8 +37,10 @@ public struct LibraryServices: Sendable {
         itemsDirectory: URL? = nil,
         captureStore: EnvelopeStore = EnvelopeStore(),
         refresh: @escaping @Sendable () async -> Void,
-        syncNow: @escaping @Sendable () async -> Void = {}
+        syncNow: @escaping @Sendable () async -> Void = {},
+        checkPrices: @escaping @Sendable ([String]) async -> [String: PriceCheckOutcome] = { _ in [:] }
     ) {
+        self.checkPrices = checkPrices
         self.itemsDirectory = itemsDirectory
         self.captureStore = captureStore
         items = ItemRepository(database: database)

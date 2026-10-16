@@ -78,6 +78,11 @@ struct GroupDetailView: View {
                 }
             }
 
+            let products = (group.state == .suggested ? suggested : confirmed).map(\.item).filter { $0.saveType == .product }
+            if products.count >= 2 {
+                ComparisonSection(members: products, services: services)
+            }
+
             BriefSection(group: group, hasMembers: !confirmed.isEmpty, isPro: isPro) {
                 run {
                     try await services.groups.requestBrief(groupID)

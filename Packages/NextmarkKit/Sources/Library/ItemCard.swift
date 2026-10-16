@@ -154,7 +154,7 @@ extension ItemRecord {
         return ([host] + segments).joined(separator: " › ")
     }
 
-    static func money(_ amount: Double, currency: String?) -> String {
+    public static func money(_ amount: Double, currency: String?) -> String {
         guard let currency else { return amount.formatted(.number.precision(.fractionLength(2))) }
         return amount.formatted(.currency(code: currency))
     }

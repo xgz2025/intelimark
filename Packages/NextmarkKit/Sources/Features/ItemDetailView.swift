@@ -102,6 +102,10 @@ struct ItemDetailView: View {
                 ItemRemindersSection(item: item, services: services)
             }
 
+            if item.saveType == .product {
+                ProductPriceSection(item: item, services: services)
+            }
+
             foundInText(item)
 
             if item.kind == .image, let recognized = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines),

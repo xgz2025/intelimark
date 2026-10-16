@@ -48,6 +48,7 @@ final class AppModel {
 
     private let ingestor: Ingestor
     private let pipeline: PipelineRunner
+    private let priceChecker: PriceChecker
     private let moments: MomentsEngine
     @ObservationIgnored private var cloudSync: CloudSync?
     /// Screenshot Rescue (PRD C9), on iPhone and iPad.
@@ -85,6 +86,8 @@ final class AppModel {
             briefWriter: IntelligenceRouter.makeBriefWriter()
         )
         moments = MomentsEngine(database: database, scheduler: UserNotificationScheduler())
+        let priceChecker = PriceChecker(database: database)
+        self.priceChecker = priceChecker
         services = LibraryServices(
             database: database,
             search: search,
@@ -96,6 +99,9 @@ final class AppModel {
             },
             syncNow: { [weak self] in
                 await self?.syncNow()
+            },
+            checkPrices: { ids in
+                await priceChecker.check(ids)
             }
         )
         cloudSync = CloudSync(store: SyncStore(database: database, itemsDirectory: AppGroup.itemsURL)) { [weak self] result in
@@ -248,6 +254,26 @@ final class AppModel {
         await rescue?.importNew()
         await finishPastShowsAndTrips()
         await processInbox()
+        await checkProductPrices()
+    }
+
+    /// Pro: saved products' prices are checked once a day while Laterwise runs, a few
+    /// at a time, and a drop is announced.
+    private func checkProductPrices() async {
+        guard pro.isPro, startupError == nil,
+              let ids = try? await repository.productIDsToCheck(checkedBefore: Date().addingTimeInterval(-20 * 3600), limit: 10),
+              !ids.isEmpty
+        else { return }
+        for (id, outcome) in await priceChecker.check(ids) {
+            guard case .dropped(let from, let to, let currency) = outcome, let item = try? await repository.item(id: id) else { continue }
+            let now = ItemRecord.money(to, currency: currency)
+            let was = ItemRecord.money(from, currency: currency)
+            await UserNotificationScheduler.notifyPriceDrop(
+                itemID: id,
+                title: String(localized: "Price drop: \(item.card.title)"),
+                body: String(localized: "Now \(now), was \(was).")
+            )
+        }
     }
 
     /// Shows and trips that ended move to Done the morning after (Docs/save_types.md),
@@ -274,6 +300,7 @@ final class AppModel {
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
     func processInbox() async {
         guard startupError == nil else { return }
+        await pipeline.setComparesProductsAutomatically(pro.isPro)
         // New saves appear in the Inbox at once, even while enrichment is busy with
         // earlier ones (a slow page, image analysis, a model download).
         await ingestNow()

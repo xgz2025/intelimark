@@ -16,6 +16,8 @@ public struct MomentCandidate: Sendable, Hashable {
         case eventStart, deadline, expiry, reservation, planDate, actionDue, weeklyReview, recap
         /// A flight, train, bus or boat leaving.
         case departure
+        /// A saved product got cheaper (Pro).
+        case priceDrop
     }
 
     public enum TargetKind: String, Sendable, Hashable {
