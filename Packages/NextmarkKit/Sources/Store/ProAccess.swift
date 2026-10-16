@@ -129,6 +129,15 @@ public final class ProAccess {
             ))
         }
         let now = Date()
+        #if DEBUG
+        // Settings › Debug: try each plan without buying it. Never in a release build.
+        if let plan = DebugPlan.current, plan != .store {
+            hasLifetime = plan == .lifetime
+            hasSubscription = plan == .monthly || plan == .yearly
+            set(plan != .free)
+            return
+        }
+        #endif
         hasLifetime = EntitlementSnapshot.hasLifetime(snapshots, now: now)
         hasSubscription = EntitlementSnapshot.hasSubscription(snapshots, now: now)
         set(EntitlementSnapshot.isPro(snapshots, now: now))
@@ -160,3 +169,17 @@ public final class ProAccess {
         onChange?(value)
     }
 }
+
+#if DEBUG
+/// Debug builds only: which plan to act as, whatever StoreKit says (Settings › Debug).
+public enum DebugPlan: String, CaseIterable, Sendable {
+    /// What StoreKit says: the real purchases (or the StoreKit configuration's).
+    case store, free, monthly, yearly, lifetime
+
+    public static let key = "debug.plan"
+
+    public static var current: DebugPlan? {
+        UserDefaults.standard.string(forKey: key).flatMap(DebugPlan.init(rawValue:))
+    }
+}
+#endif

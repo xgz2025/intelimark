@@ -28,13 +28,18 @@ public enum PriceCheckOutcome: Sendable, Equatable {
 extension ItemRepository {
     /// Records a price seen for a product. Returns the price before it, if any.
     @discardableResult
-    public func recordPrice(_ price: Double, currency: String?, forItem id: String, now: Date = Date()) async throws -> Double? {
+    /// - Parameter origin: Where the price was read (the page's data, what it showed, or
+    ///   the person's pick from a screenshot); a price the person confirmed stays theirs.
+    public func recordPrice(
+        _ price: Double, currency: String?, origin: FieldOrigin? = nil, forItem id: String, now: Date = Date()
+    ) async throws -> Double? {
         try await database.writer.write { db in
             guard var item = try ItemRecord.fetchOne(db, key: id) else { return nil }
             var fields = item.typedFields ?? TypedFields()
-            var product = fields.product ?? ProductFields(name: item.displayTitle, store: item.siteName, origin: .page)
+            var product = fields.product ?? ProductFields(name: item.displayTitle, store: item.siteName, origin: origin ?? .page)
             let before = product.price
             product.record(price: price, currency: currency, at: now)
+            if let origin, product.origin != .user || origin == .user { product.origin = origin }
             fields.product = product
             item.typedFields = fields
             item.updatedAt = now

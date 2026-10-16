@@ -139,6 +139,18 @@ public struct SettingsView: View {
             } footer: {
                 Text(IntelligenceStatus.current.explanation)
             }
+            #if os(macOS)
+            Section {
+                SettingsLink {
+                    Label("Quick Capture, Services and Safari…", systemImage: "square.and.arrow.down")
+                }
+            } footer: {
+                Text("Opens the Settings window, with the Mac's own capture settings.")
+            }
+            #endif
+            #if DEBUG
+            DebugSection()
+            #endif
             Section("About") {
                 LabeledContent("Version", value: NextmarkLinks.versionDescription)
                 if let review = NextmarkLinks.writeReview {
@@ -198,3 +210,43 @@ public struct SettingsView: View {
         return date.formatted(date: .omitted, time: .shortened)
     }
 }
+
+#if DEBUG
+/// Debug builds only, never in a release build: act as each plan without buying it.
+private struct DebugSection: View {
+    @AppStorage(DebugPlan.key) private var plan = DebugPlan.store
+    @Environment(ProAccess.self) private var pro: ProAccess?
+
+    var body: some View {
+        Section {
+            Picker(selection: $plan) {
+                ForEach(DebugPlan.allCases, id: \.self) { plan in
+                    Text(verbatim: Self.title(plan)).tag(plan)
+                }
+            } label: {
+                Text(verbatim: "Act As")
+            }
+            Text(verbatim: "Now: " + (pro?.isPro == true ? "Pro" : "Free")
+                + (pro?.hasLifetime == true ? ", lifetime" : "") + (pro?.hasSubscription == true ? ", subscription" : ""))
+                .foregroundStyle(.secondary)
+        } header: {
+            Text(verbatim: "Debug")
+        } footer: {
+            Text(verbatim: "Debug builds only. \"StoreKit\" uses the real purchases (or the StoreKit configuration's).")
+        }
+        .onChange(of: plan) {
+            Task { await pro?.refresh() }
+        }
+    }
+
+    static func title(_ plan: DebugPlan) -> String {
+        switch plan {
+        case .store: "StoreKit"
+        case .free: "Free"
+        case .monthly: "Pro Monthly"
+        case .yearly: "Pro Yearly"
+        case .lifetime: "Pro Lifetime"
+        }
+    }
+}
+#endif

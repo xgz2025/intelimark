@@ -23,7 +23,7 @@ public enum ProductPage {
         "rakuten.", "mercari.", "zalando.", "asos.", "vip.com", "dangdang.", "suning.", "xiaohongshu.", "xhslink.",
     ]
 
-    static func isShop(_ url: URL?) -> Bool {
+    public static func isShop(_ url: URL?) -> Bool {
         guard let host = url?.host()?.lowercased() else { return false }
         return shopHosts.contains { host.contains($0) }
     }
@@ -32,9 +32,18 @@ public enum ProductPage {
     static func product(tags: [String: String], title: String?, description: String?, imageURL: String?, siteName: String?) -> ProductFields? {
         let lowered = Dictionary(tags.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { first, _ in first })
         let amount = lowered["product:price:amount"] ?? lowered["og:price:amount"] ?? lowered["itemprop:price"] ?? lowered["price"]
-        guard let price = amount.flatMap(PriceText.amount) else { return nil }
-        let currency = lowered["product:price:currency"] ?? lowered["og:price:currency"]
+        var currency = lowered["product:price:currency"] ?? lowered["og:price:currency"]
             ?? lowered["itemprop:pricecurrency"] ?? lowered["pricecurrency"]
+        var origin = FieldOrigin.page
+        var price = amount.flatMap(PriceText.amount)
+        if price == nil, let shown = lowered["laterwise:price"], let read = shownPrice(shown, currency: lowered["laterwise:currency"]) {
+            // No tag states it: the price as the page shows it (ProductPrice.js), read
+            // by the shop's own price element, or else picked out of the layout.
+            price = read.price
+            currency = currency ?? read.currency
+            origin = lowered["laterwise:pricesource"] == "selector" ? .page : .shown
+        }
+        guard let price else { return nil }
         return ProductFields(
             name: lowered["og:title"] ?? title,
             brand: lowered["product:brand"],
@@ -44,8 +53,15 @@ public enum ProductPage {
             description: (lowered["og:description"] ?? description).map { String($0.prefix(500)) },
             imageURL: lowered["og:image"] ?? imageURL,
             store: lowered["og:site_name"] ?? siteName,
-            origin: .page
+            origin: origin
         )
+    }
+
+    /// "$1,299.00", "US$25", "29.99": a shown price and its currency.
+    static func shownPrice(_ text: String, currency: String?) -> (price: Double, currency: String?)? {
+        let code = currency.flatMap { $0.count == 3 ? $0.uppercased() : nil }
+        if let (price, found) = PriceText.find(in: text) { return (price, code ?? found) }
+        return PriceText.amount(text).map { ($0, code) }
     }
 
     /// A page's product, its gaps filled from the tags: a schema.org product often has
@@ -54,8 +70,11 @@ public enum ProductPage {
         guard let tagged else { return structured }
         guard let structured else { return StructuredData(kind: .product, fields: TypedFields(product: tagged)) }
         guard structured.kind == .product, var product = structured.fields.product else { return structured }
-        product.price = product.price ?? tagged.price
-        product.currency = product.currency ?? tagged.currency
+        if product.price == nil, let price = tagged.price {
+            product.price = price
+            product.currency = product.currency ?? tagged.currency
+            product.origin = tagged.origin
+        }
         product.description = product.description ?? tagged.description
         product.imageURL = product.imageURL ?? tagged.imageURL
         product.store = product.store ?? tagged.store
@@ -119,6 +138,48 @@ public enum PriceText {
         return nil
     }
 
+    /// A price written in text, with the line it's on.
+    public struct Mention: Sendable, Hashable {
+        public var price: Double
+        public var currency: String?
+        /// The line it was read from: "Now $29.99", "List price: $39.99".
+        public var line: String
+    }
+
+    /// Every price in `text` that names its currency, in reading order, each once: what a
+    /// screenshot of a shop's page says, for the person to pick the real one.
+    public static func all(in text: String, limit: Int = 8) -> [Mention] {
+        var mentions: [Mention] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let line = line.trimmingCharacters(in: .whitespaces)
+            var rest = Substring(line)
+            while let (price, currency, range) = next(in: rest, context: text) {
+                if let price, !mentions.contains(where: { $0.price == price && $0.currency == currency }) {
+                    mentions.append(Mention(price: price, currency: currency, line: String(line.prefix(80))))
+                    if mentions.count == limit { return mentions }
+                }
+                rest = rest[range.upperBound...]
+            }
+        }
+        return mentions
+    }
+
+    /// The next amount with a currency in `text`, and where it ends; its price is nil
+    /// when the digits aren't one.
+    static func next(in text: Substring, context: String) -> (Double?, String?, Range<Substring.Index>)? {
+        let before = #/(US\$|C\$|A\$|HK\$|S\$|NT\$|R\$|\$|€|£|¥|￥|₩|₹|RMB|CNY|USD|EUR|GBP|JPY|HKD|AUD|CAD)\s?(\d[\d.,]*\d|\d)/#
+        let after = #/(\d[\d.,]*\d|\d)\s?(元|円|€|USD|EUR|GBP|CNY|RMB)/#
+        let early = text.firstMatch(of: before)
+        let late = text.firstMatch(of: after)
+        if let early, late.map({ early.range.lowerBound <= $0.range.lowerBound }) ?? true {
+            return (amount(String(early.output.2)), currency(String(early.output.1), in: context), early.range)
+        }
+        if let late {
+            return (amount(String(late.output.1)), currency(String(late.output.2), in: context), late.range)
+        }
+        return nil
+    }
+
     static func currency(_ symbol: String, in text: String) -> String? {
         switch symbol {
         case "US$", "USD": "USD"
@@ -145,5 +206,33 @@ public enum PriceText {
     static var dollarCurrency: String {
         let local = Locale.current.currency?.identifier ?? "USD"
         return ["CAD", "AUD", "NZD", "HKD", "SGD", "TWD"].contains(local) ? local : "USD"
+    }
+}
+
+/// A product's price as its page showed it once the page's scripts ran: read by
+/// `laterwisePrice()` (Extensions/Shared/ProductPrice.js) in the app's own WebKit page.
+public struct ShownPrice: Sendable, Equatable {
+    public var price: Double
+    public var currency: String?
+    /// `.page` when read from the shop's own price element; `.shown` when picked out
+    /// of the layout (worth a "Correct?").
+    public var origin: FieldOrigin
+
+    public init(price: Double, currency: String?, origin: FieldOrigin) {
+        self.price = price
+        self.currency = currency
+        self.origin = origin
+    }
+
+    /// What `laterwisePrice()` returned: `{price, currency, source}`, or null.
+    public init?(script result: Any?) {
+        guard let result = result as? [String: Any], let text = result["price"] as? String,
+              let read = ProductPage.shownPrice(text, currency: result["currency"] as? String)
+        else { return nil }
+        self.init(
+            price: read.price,
+            currency: read.currency?.uppercased(),
+            origin: result["source"] as? String == "selector" ? .page : .shown
+        )
     }
 }

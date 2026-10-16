@@ -60,7 +60,18 @@ the reminders on its screen:
   airline's itinerary PDF, a 12306 train ticket screenshot, an airline's booking page.
 - **Product**: the same coat from two shops (Safari share and a shopping app's Share);
   they should land in one comparison group (as a suggestion without Pro). Check Price
-  on each; on a page that needs scripts, Check Price says it saw no price.
+  on each. Amazon, Target, Shein and eBay product pages should all show a price,
+  whether saved from Safari, from Share in their apps, or by Check Price (the app
+  reads the page in WebKit; give it up to 20 seconds). Then **Read Price from
+  Screenshot…** with a screenshot of the product: pick the price from the list.
+- **Correct?**: a receipt photo, or a flight read from an email's text, shows
+  "Is this … right?" with Correct, Edit… and Not a …. Edit a departure time and check
+  the reminder and Upcoming follow it; "Not a Receipt" turns it into an ordinary
+  save, and stays one when the same page is saved again.
+
+Subscriptions in a Debug build: Settings › Debug › Act As switches between Free, Pro
+Monthly, Pro Yearly and Pro Lifetime without StoreKit (StoreKit is the real state).
+The section isn't compiled into Release builds.
 
 Reminders: set a show to start in under an hour and pick "30 minutes before" on its
 screen (or use the Settings defaults); the notification arrives even in quiet hours.

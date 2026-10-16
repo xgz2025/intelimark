@@ -38,7 +38,8 @@ public enum ReceiptParser {
             merchant: merchant(in: lines),
             total: total,
             currency: currency ?? currencyCode(in: text),
-            purchasedAt: date(in: text, now: now, calendar: calendar)
+            purchasedAt: date(in: text, now: now, calendar: calendar),
+            origin: .text
         )
     }
 

@@ -21,10 +21,13 @@ extension ItemRecord {
     public var saveType: SaveType {
         let fields = typedFields
         let kind = semanticKind ?? structuredKind
-        if fields?.trip != nil || kind == .travel { return .travel }
-        if fields?.ticket != nil || fields?.event != nil || kind == .ticket || kind == .event { return .show }
-        if fields?.receipt != nil || kind == .receipt { return .receipt }
-        if fields?.product != nil || kind == .product { return .product }
+        // What the person said it isn't ("Not a Receipt") is never guessed again.
+        let rejected = Set(fields?.rejected ?? [])
+        func allowed(_ type: SaveType) -> Bool { !rejected.contains(type.rawValue) }
+        if allowed(.travel), fields?.trip != nil || kind == .travel { return .travel }
+        if allowed(.show), fields?.ticket != nil || fields?.event != nil || kind == .ticket || kind == .event { return .show }
+        if allowed(.receipt), fields?.receipt != nil || kind == .receipt { return .receipt }
+        if allowed(.product), fields?.product != nil || kind == .product { return .product }
         if fields?.article != nil || kind == .article || kind == .document || self.kind == .pdf { return .article }
         if self.kind == .link { return .link }
         return .other

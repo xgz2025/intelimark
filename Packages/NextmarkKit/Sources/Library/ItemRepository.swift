@@ -217,7 +217,10 @@ public struct ItemRepository: Sendable {
             item.imageLabels = extraction.imageLabels
             item.barcodes = extraction.barcodes
             item.structuredKind = extraction.structured?.kind
-            item.typedFields = Self.keepingPriceHistory(extraction.typedFields, from: item.typedFields, savedAt: item.createdAt, now: now)
+            item.typedFields = Self.keepingCorrections(
+                Self.keepingPriceHistory(extraction.typedFields, from: item.typedFields, savedAt: item.createdAt, now: now),
+                from: item.typedFields
+            )
             if let kind = extraction.structured?.kind {
                 item.semanticKind = kind
             }
@@ -239,10 +242,17 @@ public struct ItemRepository: Sendable {
     /// A product's first price is its price when saved, the start of its history. Read
     /// again, its page's price is recorded on top of the history so far.
     static func keepingPriceHistory(_ fields: TypedFields?, from previous: TypedFields?, savedAt: Date, now: Date) -> TypedFields? {
-        guard var fields, var product = fields.product else { return fields }
+        // A page read again without a price keeps the product and its history so far.
+        guard var fields = fields ?? (previous?.product?.priceHistory?.isEmpty == false ? TypedFields() : nil) else { return nil }
+        guard var product = fields.product else {
+            if previous?.product?.priceHistory?.isEmpty == false { fields.product = previous?.product }
+            return fields
+        }
         if var earlier = previous?.product, earlier.priceHistory?.isEmpty == false {
             if let price = product.price {
                 earlier.record(price: price, currency: product.currency ?? earlier.currency, at: now)
+                // Where the latest price came from, unless the person has said.
+                if earlier.origin != .user { earlier.origin = product.origin ?? earlier.origin }
             }
             earlier.name = product.name ?? earlier.name
             earlier.description = product.description ?? earlier.description
@@ -277,7 +287,8 @@ public struct ItemRepository: Sendable {
                 item.imageDescription = description
             }
             // What the model read of a trip, when nothing exact did.
-            if let trip = understanding.trip, item.typedFields?.trip == nil {
+            let notTravel = item.typedFields?.rejected?.contains(SaveType.travel.rawValue) ?? false
+            if let trip = understanding.trip, item.typedFields?.trip == nil, !notTravel {
                 var fields = item.typedFields ?? TypedFields()
                 fields.trip = trip
                 item.typedFields = fields

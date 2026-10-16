@@ -10,8 +10,11 @@
 
 import SwiftUI
 import Charts
+import PhotosUI
+import UniformTypeIdentifiers
 import Model
 import Library
+import Extraction
 
 /// What a Check Price found, in a sentence.
 extension PriceCheckOutcome {
@@ -26,7 +29,7 @@ extension PriceCheckOutcome {
         case .found(let price):
             String(localized: "Now \(ItemRecord.money(price, currency: currency)).")
         case .unavailable:
-            String(localized: "The shop's page didn't show a price to Laterwise (it may need a browser or a sign-in). The price you saved stays.")
+            String(localized: "The shop's page didn't show Laterwise a price (it may need a sign-in). The price you saved stays: update it from the page in Safari, or from a screenshot.")
         }
     }
 }
@@ -39,6 +42,14 @@ struct ProductPriceSection: View {
     @State private var result: String?
     @State private var targetText = ""
     @FocusState private var isEditingTarget: Bool
+    @State private var isReadingPicture = false
+    @State private var pictureMentions: [PriceText.Mention] = []
+    @State private var showsMentions = false
+    #if os(iOS)
+    @State private var picture: PhotosPickerItem?
+    #else
+    @State private var showsImporter = false
+    #endif
 
     private var product: ProductFields? { item.typedFields?.product }
     private var link: URL? { item.canonicalURL.flatMap { URL(string: $0) } }
@@ -107,6 +118,7 @@ struct ProductPriceSection: View {
                 }
                 .help(Text("Open the page, then tap Laterwise in Safari's toolbar or Share menu"))
             }
+            readFromPicture
         } header: {
             Text("Price")
         } footer: {
@@ -114,13 +126,86 @@ struct ProductPriceSection: View {
                 if let checked = product?.checkedAt {
                     Text("Checked \(checked.formatted(.relative(presentation: .named))).")
                 }
-                Text("Some shops show prices only in a browser. Open the page in Safari and tap Laterwise in the toolbar (or Share › Laterwise): the price you see is recorded here, without saving it twice.")
+                Text("Check Price opens the shop's page on this device, as a browser shows it, without your sign-in. For a price only you see (a member price, a shop's app), open the page in Safari and tap Laterwise, or read it from a screenshot.")
             }
+        }
+        .confirmationDialog("Which Is the Price?", isPresented: $showsMentions, titleVisibility: .visible) {
+            ForEach(pictureMentions, id: \.self) { mention in
+                Button {
+                    record(mention)
+                } label: {
+                    Text(verbatim: "\(ItemRecord.money(mention.price, currency: mention.currency ?? product?.currency)) · \(mention.line)")
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Prices read from the picture. Pick the one you'd pay now.")
         }
         .onAppear { targetText = Self.text(for: item.targetPrice) }
         .onChange(of: item.targetPrice) { _, price in
             if !isEditingTarget { targetText = Self.text(for: price) }
         }
+    }
+
+    /// A screenshot of the shop's page or app: its prices read on this device, for the
+    /// person to pick the real one (an app's own page, a price behind a sign-in).
+    @ViewBuilder
+    private var readFromPicture: some View {
+        let label = HStack {
+            Label("Read Price from Screenshot…", systemImage: "text.viewfinder")
+            Spacer()
+            if isReadingPicture { ProgressView().controlSize(.small) }
+        }
+        #if os(iOS)
+        PhotosPicker(selection: $picture, matching: .images, photoLibrary: .shared()) { label }
+            .disabled(isReadingPicture)
+            .onChange(of: picture) { _, selection in
+                guard let selection else { return }
+                picture = nil
+                isReadingPicture = true
+                Task {
+                    let data = try? await selection.loadTransferable(type: Data.self)
+                    await readPrices(in: data)
+                }
+            }
+        #else
+        Button { showsImporter = true } label: { label }
+            .disabled(isReadingPicture)
+            .help(Text("Choose a screenshot of the product's page; Laterwise reads its prices on this Mac"))
+            .fileImporter(isPresented: $showsImporter, allowedContentTypes: [.image]) { result in
+                guard case .success(let url) = result else { return }
+                isReadingPicture = true
+                Task {
+                    let accessing = url.startAccessingSecurityScopedResource()
+                    let data = try? Data(contentsOf: url)
+                    if accessing { url.stopAccessingSecurityScopedResource() }
+                    await readPrices(in: data)
+                }
+            }
+        #endif
+    }
+
+    private func readPrices(in data: Data?) async {
+        defer { isReadingPicture = false }
+        guard let data, let text = try? await VisionImageAnalyzer().analyze(imageData: data).text else {
+            result = String(localized: "Laterwise couldn't read any text in that picture.")
+            return
+        }
+        let mentions = PriceText.all(in: text)
+        if mentions.isEmpty {
+            result = String(localized: "No price found in that picture. Try a screenshot that shows the price.")
+        } else {
+            result = nil
+            pictureMentions = mentions
+            showsMentions = true
+        }
+    }
+
+    private func record(_ mention: PriceText.Mention) {
+        let (items, id) = (services.items, item.id)
+        let currency = mention.currency ?? product?.currency
+        result = String(localized: "Now \(ItemRecord.money(mention.price, currency: currency)).")
+        performEdit { _ = try await items.recordPrice(mention.price, currency: currency, origin: .user, forItem: id) }
     }
 
     /// How the price stands against the target.

@@ -30,6 +30,7 @@ struct ItemDetailView: View {
     @State private var showsRecognizedText = false
     @State private var showsShare = false
     @State private var showsRename = false
+    @State private var showsFieldsEditor = false
     @State private var titleDraft = ""
     @State private var noteDraft = ""
     @FocusState private var isEditingNote: Bool
@@ -75,6 +76,10 @@ struct ItemDetailView: View {
         return List {
             Section {
                 header(item)
+            }
+
+            if item.needsConfirmation, item.status != .trashed {
+                CorrectionBanner(item: item, services: services) { showsFieldsEditor = true }
             }
 
             if let quote = item.text, !quote.isEmpty {
@@ -193,6 +198,9 @@ struct ItemDetailView: View {
         .sheet(isPresented: $showsAddToGroup) {
             AddToGroupSheet(itemIDs: [item.id], services: services)
         }
+        .sheet(isPresented: $showsFieldsEditor) {
+            FieldsEditor(item: item, services: services)
+        }
         .alert("Rename", isPresented: $showsRename) {
             TextField("Title", text: $titleDraft)
             Button("Save") {
@@ -240,6 +248,16 @@ struct ItemDetailView: View {
                 Label("Rename…", systemImage: "pencil")
             }
             .help(Text("Give it your own title"))
+        }
+        if [.travel, .show, .receipt, .product].contains(item.saveType) {
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    showsFieldsEditor = true
+                } label: {
+                    Label("Edit Details…", systemImage: "square.and.pencil")
+                }
+                .help(Text("Fix the details Laterwise read: times, places, prices"))
+            }
         }
         if item.status != .trashed {
             ToolbarItem(placement: .secondaryAction) {
@@ -338,7 +356,7 @@ struct ItemDetailView: View {
                         title: Text(date.role.title),
                         value: date.date.formatted(date: .abbreviated, time: date.hasTime ? .shortened : .omitted),
                         systemImage: date.role == .deadline || date.role == .expiry ? "hourglass" : "calendar",
-                        evidence: date.evidence,
+                        evidence: date.evidence.map { item.context(of: $0) ?? $0 },
                         source: date.source
                     )
                 }
@@ -546,6 +564,8 @@ private struct FactRow: View {
         case .barcode: "From the boarding pass barcode"
         case .textRules: "Read from the text"
         case .model: "Found by Apple Intelligence"
+        case .shownOnPage: "As the shop's page showed it"
+        case .user: "Corrected by you"
         case .capture(let surface): surface.savedFrom
         }
     }
@@ -626,6 +646,7 @@ private struct InferredFactRow: View {
                 Group {
                     if let evidence, !evidence.isEmpty {
                         Text("“\(evidence)” · \(Text(Self.method(for: source)))")
+                            .lineLimit(3)
                     } else {
                         Text(Self.method(for: source))
                     }

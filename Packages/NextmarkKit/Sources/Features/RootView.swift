@@ -146,6 +146,8 @@ public struct RootView: View {
                     .tag(SidebarSelection.review)
                 Label("Search", systemImage: "magnifyingglass")
                     .tag(SidebarSelection.search)
+                Label("Settings", systemImage: "gearshape")
+                    .tag(SidebarSelection.settings)
                 if rescue != nil {
                     Label("Screenshots", systemImage: "camera.viewfinder")
                         .tag(SidebarSelection.screenshots)
@@ -193,10 +195,6 @@ public struct RootView: View {
                 Label("Trash", systemImage: "trash")
                     .badge(trashCount)
                     .tag(SidebarSelection.trash)
-                #if os(iOS)
-                Label("Settings", systemImage: "gearshape")
-                    .tag(SidebarSelection.settings)
-                #endif
             }
         }
         .navigationTitle("Laterwise")

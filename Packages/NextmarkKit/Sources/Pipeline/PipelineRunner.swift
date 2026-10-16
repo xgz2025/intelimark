@@ -58,6 +58,15 @@ public actor PipelineRunner {
         priceObserver = observer
     }
 
+    /// Reads the price a shop's page shows in a browser, for a shop link saved without
+    /// one (shared from the Amazon or Shein app, whose pages state no price to a plain
+    /// request).
+    var priceRenderer: PriceChecker.Renderer?
+
+    public func setPriceRenderer(_ renderer: @escaping PriceChecker.Renderer) {
+        priceRenderer = renderer
+    }
+
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
     ///   - embedder: computes item vectors for semantic search and grouping; without one
@@ -297,10 +306,17 @@ public actor PipelineRunner {
                     try await repository.saveThumbnail(forItem: job.itemID, fileName: Thumbnailer.fileName, byteSize: byteSize)
                 }
             }
-            let price = try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            var price = try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            var isProduct = extraction.typedFields?.product != nil
+            if price == nil, let url = input.url, ProductPage.isShop(url), let priceRenderer,
+               let shown = await priceRenderer(url) {
+                try await repository.recordPrice(shown.price, currency: shown.currency, origin: shown.origin, forItem: job.itemID, now: now)
+                price = .found(shown.price)
+                isProduct = true
+            }
             if let price, let priceObserver { await priceObserver(job.itemID, price) }
             // A product joins the similar ones already saved, to compare.
-            if extraction.typedFields?.product != nil {
+            if isProduct {
                 _ = try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)
             }
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)

@@ -36,6 +36,9 @@ targets:
     sources:
       - App/Shared
       - App/iOS
+      # Reads a product page's price in the app's own WebKit page (Check Price).
+      - path: Extensions/Shared/ProductPrice.js
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: Laterwise
@@ -70,6 +73,8 @@ targets:
         product: Library
       - package: NextmarkKit
         product: Intelligence
+      - package: NextmarkKit
+        product: Extraction
       - package: NextmarkKit
         product: Pipeline
       - package: NextmarkKit
@@ -198,6 +203,9 @@ targets:
     sources:
       - App/Shared
       - App/macOS
+      # Reads a product page's price in the app's own WebKit page (Check Price).
+      - path: Extensions/Shared/ProductPrice.js
+        buildPhase: resources
     settings:
       base:
         PRODUCT_NAME: Laterwise
@@ -229,6 +237,8 @@ targets:
         product: Library
       - package: NextmarkKit
         product: Intelligence
+      - package: NextmarkKit
+        product: Extraction
       - package: NextmarkKit
         product: Pipeline
       - package: NextmarkKit

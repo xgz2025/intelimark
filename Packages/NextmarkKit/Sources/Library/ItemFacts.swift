@@ -42,6 +42,10 @@ public struct ItemFact: Sendable, Equatable, Identifiable {
         /// Laterwise's text rules.
         case textRules
         case model
+        /// The price the page showed, picked out of its layout.
+        case shownOnPage
+        /// Entered or confirmed by the person.
+        case user
         /// Laterwise, when it was saved.
         case capture(CaptureSurface)
     }
@@ -81,9 +85,10 @@ extension ItemRecord {
         }
 
         if let receipt = fields?.receipt {
-            add(.merchant, receipt.merchant, .receiptText)
-            add(.total, receipt.total.map { Self.money($0, currency: receipt.currency) }, .receiptText)
-            add(.purchased, receipt.purchasedAt, hasTime: receipt.purchasedAt.map { FactMerge.hasTimeOfDay($0) } ?? false, .receiptText)
+            let source: ItemFact.Source = receipt.origin == .user ? .user : .receiptText
+            add(.merchant, receipt.merchant, source)
+            add(.total, receipt.total.map { Self.money($0, currency: receipt.currency) }, source)
+            add(.purchased, receipt.purchasedAt, hasTime: receipt.purchasedAt.map { FactMerge.hasTimeOfDay($0) } ?? false, source)
         }
         if let photo = fields?.photo {
             add(.taken, photo.takenAt, hasTime: true, .photoMetadata)
@@ -147,8 +152,34 @@ extension ItemRecord {
 
     /// Facts found in the text (by the date detector or the model), less those
     /// the item's own data already states.
+    /// Dates whose meaning isn't known ("mentioned") are left out: "Oct 21 – Oct 26"
+    /// alone says nothing about what happens then.
     public var inferredDates: [ItemDate] {
-        dates.filter { $0.source != .structured }
+        dates.filter { $0.source != .structured && $0.role != .mentioned }
+    }
+
+    /// The words around `evidence` in the item's text, so a date found there reads
+    /// with its meaning: "…apply by Oct 26 to join…".
+    public func context(of evidence: String, radius: Int = 36) -> String? {
+        let needle = evidence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return nil }
+        for source in [text, contentText, ocrText].compactMap({ $0 }) {
+            guard let range = source.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) else { continue }
+            var start = source.index(range.lowerBound, offsetBy: -radius, limitedBy: source.startIndex) ?? source.startIndex
+            var end = source.index(range.upperBound, offsetBy: radius, limitedBy: source.endIndex) ?? source.endIndex
+            // Whole words: out to the spaces around them (a little further at most).
+            for _ in 0..<20 where start > source.startIndex && !source[source.index(before: start)].isWhitespace {
+                start = source.index(before: start)
+            }
+            for _ in 0..<20 where end < source.endIndex && !source[end].isWhitespace {
+                end = source.index(after: end)
+            }
+            let snippet = source[start..<end]
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+            return (start > source.startIndex ? "…" : "") + snippet + (end < source.endIndex ? "…" : "")
+        }
+        return nil
     }
 
     public var inferredPlaces: [ItemPlace] {
@@ -167,6 +198,8 @@ extension ItemRecord {
         case .text: .textRules
         case .document: .documentInfo
         case .model: .model
+        case .shown: .shownOnPage
+        case .user: .user
         case .page, nil: .page
         }
     }

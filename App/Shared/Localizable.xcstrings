@@ -232,6 +232,17 @@
         }
       }
     },
+    "A price you fix here replaces the one Laterwise read; it isn't counted as a price change." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这里修正的价格会替换 Laterwise 读取的价格，不计为价格变动。"
+          }
+        }
+      }
+    },
     "A quick summary. It's rewritten with Apple Intelligence when available." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -327,6 +338,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "添加"
+          }
+        }
+      }
+    },
+    "Add a Leg" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加航段"
           }
         }
       }
@@ -584,6 +606,28 @@
         }
       }
     },
+    "Apple Intelligence read these from the item's words. Check them before you rely on them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些信息由 Apple 智能从项目的文字中读取，使用前请核对。"
+          }
+        }
+      }
+    },
+    "Are the show's details right?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出的详细信息正确吗？"
+          }
+        }
+      }
+    },
     "Arrives" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -613,6 +657,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "文章"
+          }
+        }
+      }
+    },
+    "As the shop's page showed it" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按商店网页显示的内容"
           }
         }
       }
@@ -826,6 +881,17 @@
         }
       }
     },
+    "Carrier" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承运方"
+          }
+        }
+      }
+    },
     "Cheapest first. Prices are as each shop's page last showed them." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -859,6 +925,17 @@
         }
       }
     },
+    "Check Price opens the shop's page on this device, as a browser shows it, without your sign-in. For a price only you see (a member price, a shop's app), open the page in Safari and tap Laterwise, or read it from a screenshot." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“查看价格”会在此设备上像浏览器一样打开商店网页，但不使用你的登录信息。对于只有你能看到的价格（会员价、商店 App 中的价格），请在 Safari 中打开网页并轻点 Laterwise，或从截屏读取。"
+          }
+        }
+      }
+    },
     "Check Prices" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -888,6 +965,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@查过价格。"
+          }
+        }
+      }
+    },
+    "Choose a screenshot of the product's page; Laterwise reads its prices on this Mac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择商品页面的截屏；Laterwise 会在这台 Mac 上读取其中的价格"
           }
         }
       }
@@ -1035,6 +1123,28 @@
         }
       }
     },
+    "Correct" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正确"
+          }
+        }
+      }
+    },
+    "Corrected by you" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由你更正"
+          }
+        }
+      }
+    },
     "Couldn't Complete the Purchase" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1119,6 +1229,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "创建日期"
+          }
+        }
+      }
+    },
+    "Currency" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "货币"
           }
         }
       }
@@ -1519,6 +1640,28 @@
         }
       }
     },
+    "Edit Details" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑详细信息"
+          }
+        }
+      }
+    },
+    "Edit Details…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑详细信息…"
+          }
+        }
+      }
+    },
     "Edit Plan" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1537,6 +1680,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "编辑计划…"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑…"
           }
         }
       }
@@ -1691,6 +1845,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按字词或含义查找内容，包括照片和截屏中的文字。"
+          }
+        }
+      }
+    },
+    "Fix the details Laterwise read: times, places, prices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正 Laterwise 读取的详细信息：时间、地点、价格"
+          }
+        }
+      }
+    },
+    "Fix what Laterwise read" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修正 Laterwise 读取的内容"
           }
         }
       }
@@ -2201,6 +2377,50 @@
         }
       }
     },
+    "Is %@ the price?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "价格是 %@ 吗？"
+          }
+        }
+      }
+    },
+    "Is this product right?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个商品信息正确吗？"
+          }
+        }
+      }
+    },
+    "Is this receipt right?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这张收据正确吗？"
+          }
+        }
+      }
+    },
+    "Is this trip right?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个行程正确吗？"
+          }
+        }
+      }
+    },
     "It reads what you saved, finds dates and places, and groups related saves, on your device." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2267,6 +2487,17 @@
         }
       }
     },
+    "Journey" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
+          }
+        }
+      }
+    },
     "Keep" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2329,6 +2560,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保留在收件箱（→）"
+          }
+        }
+      }
+    },
+    "Keep these details as they are" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留这些详细信息"
           }
         }
       }
@@ -2454,6 +2696,17 @@
         }
       }
     },
+    "Laterwise couldn't read any text in that picture." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laterwise 无法读取该图片中的任何文字。"
+          }
+        }
+      }
+    },
     "Laterwise does the sorting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2509,6 +2762,28 @@
         }
       }
     },
+    "Laterwise read it wrong: show it as an ordinary save" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laterwise 读错了：将其显示为普通保存项"
+          }
+        }
+      }
+    },
+    "Laterwise read these from the item's words. Check them before you rely on them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些信息由 Laterwise 从项目的文字中读取，使用前请核对。"
+          }
+        }
+      }
+    },
     "Laterwise reads the text in each one and sorts out the receipts, tickets, recipes and quotes. Everything stays on your devices." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2549,6 +2824,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@出发"
+          }
+        }
+      }
+    },
+    "Leg %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 段"
           }
         }
       }
@@ -3114,6 +3400,17 @@
         }
       }
     },
+    "No price found in that picture. Try a screenshot that shows the price." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该图片中没有找到价格。请试试显示价格的截屏。"
+          }
+        }
+      }
+    },
     "No Purchases Found" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3143,6 +3440,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无"
+          }
+        }
+      }
+    },
+    "Not a Product" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不是商品"
+          }
+        }
+      }
+    },
+    "Not a Receipt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不是收据"
+          }
+        }
+      }
+    },
+    "Not a Show" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不是演出"
+          }
+        }
+      }
+    },
+    "Not a Trip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不是行程"
           }
         }
       }
@@ -3220,6 +3561,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "很久没打开了"
+          }
+        }
+      }
+    },
+    "Not This" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不是这个"
           }
         }
       }
@@ -3374,6 +3726,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "现价 %@。"
+          }
+        }
+      }
+    },
+    "Number" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "班次号"
           }
         }
       }
@@ -3539,6 +3902,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在任意 App 中按 %@ 打开"
+          }
+        }
+      }
+    },
+    "Opens the Settings window, with the Mac's own capture settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置窗口，其中有 Mac 专属的捕捉设置。"
           }
         }
       }
@@ -3851,6 +4225,17 @@
         }
       }
     },
+    "Prices read from the picture. Pick the one you'd pay now." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些是从图片中读取的价格。请选择你现在要支付的那个。"
+          }
+        }
+      }
+    },
     "Privacy Policy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3924,6 +4309,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "快速捕捉"
+          }
+        }
+      }
+    },
+    "Quick Capture, Services and Safari…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快速捕捉、服务与 Safari…"
           }
         }
       }
@@ -4049,6 +4445,17 @@
         }
       }
     },
+    "Read from how the shop's page looks, not from its data: it may be another price on the page." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "根据商店网页的显示读取，而非网页数据：可能是网页上的另一个价格。"
+          }
+        }
+      }
+    },
     "Read from the receipt" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4078,6 +4485,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这些信息读取自此项目的文字，使用前请核对。"
+          }
+        }
+      }
+    },
+    "Read Price from Screenshot…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从截屏读取价格…"
           }
         }
       }
@@ -4265,6 +4683,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从此分组中移除"
+          }
+        }
+      }
+    },
+    "Remove This Leg" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除此航段"
           }
         }
       }
@@ -4742,6 +5171,17 @@
         }
       }
     },
+    "Show" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出"
+          }
+        }
+      }
+    },
     "Show All" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4815,17 +5255,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "软件"
-          }
-        }
-      }
-    },
-    "Some shops show prices only in a browser. Open the page in Safari and tap Laterwise in the toolbar (or Share › Laterwise): the price you see is recorded here, without saving it twice." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有些商店只在浏览器中显示价格。在 Safari 浏览器中打开网页，轻点工具栏中的 Laterwise（或“共享”›Laterwise）：你看到的价格会记录在这里，不会重复保存。"
           }
         }
       }
@@ -5237,13 +5666,13 @@
         }
       }
     },
-    "The shop's page didn't show a price to Laterwise (it may need a browser or a sign-in). The price you saved stays." : {
+    "The shop's page didn't show Laterwise a price (it may need a sign-in). The price you saved stays: update it from the page in Safari, or from a screenshot." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "该商店的网页未向 Laterwise 显示价格（可能需要浏览器或登录）。你保存时的价格会保留。"
+            "value" : "商店网页没有向 Laterwise 显示价格（可能需要登录）。已保存的价格保持不变：可以在 Safari 中从网页更新，或从截屏读取。"
           }
         }
       }
@@ -5387,6 +5816,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "时间"
+          }
+        }
+      }
+    },
+    "Time Known" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已知时间"
           }
         }
       }
@@ -5629,6 +6069,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 Safari 浏览器扩展…"
+          }
+        }
+      }
+    },
+    "Type" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型"
           }
         }
       }
@@ -5893,6 +6344,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下一步做什么？"
+          }
+        }
+      }
+    },
+    "Which Is the Price?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "哪个是价格？"
           }
         }
       }

@@ -26,6 +26,9 @@ public struct TypedFields: Codable, Sendable, Hashable {
     public var ticket: TicketFields?
     /// A flight, train, bus or boat ticket, boarding pass or itinerary.
     public var trip: TripFields?
+    /// What the person said this isn't ("Not a Receipt"): `SaveType` raw values. Kept
+    /// when the item is read again, so the same guess isn't made twice.
+    public var rejected: [String]?
 
     public init(
         product: ProductFields? = nil,
@@ -36,7 +39,8 @@ public struct TypedFields: Codable, Sendable, Hashable {
         receipt: ReceiptFields? = nil,
         photo: PhotoFields? = nil,
         ticket: TicketFields? = nil,
-        trip: TripFields? = nil
+        trip: TripFields? = nil,
+        rejected: [String]? = nil
     ) {
         self.product = product
         self.place = place
@@ -47,6 +51,7 @@ public struct TypedFields: Codable, Sendable, Hashable {
         self.photo = photo
         self.ticket = ticket
         self.trip = trip
+        self.rejected = rejected
     }
 
     /// `other`'s fields where these have none: exact sources first, then the rest.
@@ -62,6 +67,7 @@ public struct TypedFields: Codable, Sendable, Hashable {
         merged.photo = photo ?? other.photo
         merged.ticket = ticket ?? other.ticket
         merged.trip = trip ?? other.trip
+        merged.rejected = rejected ?? other.rejected
         return merged
     }
 }
@@ -82,6 +88,18 @@ public enum FieldOrigin: String, Codable, Sendable, Hashable {
     case document
     /// The on-device model.
     case model
+    /// The price a page shows to a person, picked out of its layout: likely, not certain.
+    case shown
+    /// Entered or confirmed by the person ("Correct?").
+    case user
+
+    /// Read by rules or a model rather than stated by the item: worth a "Correct?".
+    public var isUncertain: Bool {
+        switch self {
+        case .text, .model, .shown: true
+        case .page, .walletPass, .calendarFile, .barcode, .document, .user: false
+        }
+    }
 }
 
 /// A ticket for a show, concert, game, film or exhibition.
@@ -221,12 +239,15 @@ public struct ReceiptFields: Codable, Sendable, Hashable {
     public var currency: String?
     /// The date printed on the receipt.
     public var purchasedAt: Date?
+    /// Text rules or the model, unless the person corrected it.
+    public var origin: FieldOrigin?
 
-    public init(merchant: String? = nil, total: Double? = nil, currency: String? = nil, purchasedAt: Date? = nil) {
+    public init(merchant: String? = nil, total: Double? = nil, currency: String? = nil, purchasedAt: Date? = nil, origin: FieldOrigin? = nil) {
         self.merchant = merchant
         self.total = total
         self.currency = currency
         self.purchasedAt = purchasedAt
+        self.origin = origin
     }
 }
 
