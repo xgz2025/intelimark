@@ -65,6 +65,8 @@ public struct ItemRecord: Codable, Sendable, Identifiable, Hashable, FetchableRe
     public var syncScope: SyncScope
     /// Screenshot Rescue: the Photos asset this came from, until it's deleted there.
     public var sourceAssetID: String?
+    /// Reminders chosen for this show or trip; nil uses the defaults for its kind.
+    public var reminders: [ReminderTime]?
 
     public var displayTitle: String {
         for candidate in [userTitle, aiTitle, sourceTitle] {
@@ -137,6 +139,7 @@ extension ItemRecord {
         lastOpenedAt = nil
         syncScope = .cloud
         sourceAssetID = nil
+        reminders = nil
     }
 }
 

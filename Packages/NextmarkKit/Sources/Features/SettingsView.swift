@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import Model
 import Intelligence
 import Library
 import Moments
@@ -21,6 +22,7 @@ public struct SettingsView: View {
     private let onSyncNow: @Sendable () async -> Void
 
     @AppStorage(MomentSettings.Key.enabled) private var momentsEnabled = true
+    @AppStorage(ReminderDefaults.enabledKey) private var showAndTripReminders = true
     @AppStorage(MomentSettings.Key.maxPerDay) private var maxPerDay = 3
     @AppStorage(MomentSettings.Key.quietStart) private var quietStart = 22
     @AppStorage(MomentSettings.Key.quietEnd) private var quietEnd = 8
@@ -66,11 +68,12 @@ public struct SettingsView: View {
                     Text("You own Pro for life, so you can cancel your subscription in Manage Subscription.")
                 }
             }
+            ReminderDefaultsSection(onChange: onChange)
             Section {
                 if pro?.isPro != true {
                     ProUpsellRow(text: "Date reminders come with Pro", reason: "Moments bring saves back when they matter.")
                 }
-                NotificationAccessRow(isNeeded: momentsEnabled || reviewEnabled)
+                NotificationAccessRow(isNeeded: momentsEnabled || reviewEnabled || showAndTripReminders)
                 Toggle("Remind Me About Dates in My Saves", isOn: $momentsEnabled)
                     .disabled(pro?.isPro != true)
                 if momentsEnabled {

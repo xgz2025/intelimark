@@ -15,7 +15,7 @@ import Moments
 import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, screenshots, done, trash, settings
+    case inbox, upcoming, nextActions, review, search, suggestions, screenshots, done, trash, settings
     case group(String)
 }
 
@@ -137,6 +137,8 @@ public struct RootView: View {
             Section {
                 Label("Inbox", systemImage: "tray")
                     .tag(SidebarSelection.inbox)
+                Label("Upcoming", systemImage: "calendar")
+                    .tag(SidebarSelection.upcoming)
                 Label("Next Actions", systemImage: "checklist")
                     .badge(openActionCount)
                     .tag(SidebarSelection.nextActions)
@@ -205,6 +207,8 @@ public struct RootView: View {
         switch selection {
         case .inbox:
             InboxView(services: services)
+        case .upcoming:
+            UpcomingView(services: services)
         case .nextActions:
             NextActionsView(services: services)
         case .review:

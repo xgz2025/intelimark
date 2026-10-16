@@ -25,6 +25,8 @@ final class RecentChange {
         /// What each item was before, to put it back.
         let previous: [String: ItemStatus]
         let title: String?
+        /// Laterwise did it (shows and trips that ended), not the person.
+        var isAutomatic = false
     }
 
     private(set) var change: Change?
@@ -57,6 +59,14 @@ final class RecentChange {
             }
         }
     }
+}
+
+/// Shows and trips that ended were moved to Done (`finishPastShowsAndTrips`): says so,
+/// with Undo.
+@MainActor
+public func announceFinishedShowsAndTrips(_ previous: [String: ItemStatus]) {
+    guard !previous.isEmpty else { return }
+    RecentChange.shared.record(.init(status: .done, previous: previous, title: nil, isAutomatic: true))
 }
 
 /// Marks items done, trashes them or brings them back, and offers Undo.
@@ -132,6 +142,11 @@ private struct RecentChangeBanner: View {
 
     static func message(for change: RecentChange.Change) -> Text {
         let count = change.previous.count
+        if change.isAutomatic {
+            return count == 1
+                ? Text("A show or trip that's over moved to Done.")
+                : Text("\(count) shows and trips that are over moved to Done.")
+        }
         switch (change.status, change.title) {
         case (.done, let title?): return Text("Marked “\(title)” as done. Find it in Done.")
         case (.done, nil): return Text("Marked \(count) items as done. Find them in Done.")

@@ -172,4 +172,51 @@ struct MuteRuleTests {
         let entries = [entry(.dismissed, daysAgo: 31), entry(.dismissed, daysAgo: 32), entry(.dismissed, daysAgo: 33)]
         #expect(MuteRule.mutedReasons(entries, now: clock.now).isEmpty)
     }
+
+    // MARK: Shows and trips
+
+    func show(startingAt start: Date) -> ItemRecord {
+        var show = item("Swan Lake", createdAt: clock.now)
+        show.typedFields = TypedFields(ticket: TicketFields(name: "Swan Lake", startDate: start, venue: "Royal Opera House"))
+        show.dates = show.typedFields?.structuredDates ?? []
+        return show
+    }
+
+    @Test func showsGetTheirRemindersFreeTheEveningBeforeAndTwoHoursBefore() {
+        var settings = MomentSettings()
+        settings.includesTimeMoments = false
+        let concert = show(startingAt: clock.date(14, 19, 30))
+        let reminders = moments(items: [concert], settings: settings).sorted { $0.fireDate < $1.fireDate }
+        #expect(reminders.map(\.fireDate) == [clock.date(13, 18), clock.date(14, 17, 30)])
+        #expect(reminders.allSatisfy { $0.isRequested && $0.reason == .eventStart })
+        #expect(reminders.first?.body.hasSuffix("Royal Opera House") == true)
+        #expect(Set(reminders.map(\.identifier)).count == 2)
+    }
+
+    @Test func eachLegOfAFlightIsRemindedOfAndAnItemCanChooseItsOwn() {
+        var trip = item("Tokyo", createdAt: clock.now)
+        trip.typedFields = TypedFields(trip: TripFields(mode: .flight, legs: [
+            TripLeg(number: "MU 523", fromCode: "PVG", toCode: "NRT", departure: clock.date(15, 14, 5)),
+            TripLeg(number: "MU 524", fromCode: "NRT", toCode: "PVG", departure: clock.date(20, 9)),
+        ]))
+        trip.dates = trip.typedFields?.structuredDates ?? []
+        let defaults = moments(items: [trip]).map(\.fireDate).sorted()
+        #expect(defaults == [clock.date(14, 14, 5), clock.date(15, 11, 5), clock.date(19, 9), clock.date(20, 6)])
+
+        trip.reminders = [.before(minutes: 120)]
+        let chosen = moments(items: [trip]).map(\.fireDate).sorted()
+        #expect(chosen == [clock.date(15, 12, 5), clock.date(20, 7)])
+
+        trip.reminders = []
+        #expect(moments(items: [trip]).isEmpty)
+    }
+
+    @Test func setRemindersKeepTheirTimeInQuietHoursAndAboveTheDailyLimit() {
+        let early = MomentCandidate(targetID: "a", fireDate: clock.date(11, 5), reason: .departure, slot: "before-180.0")
+        let others = (0..<5).map { MomentCandidate(targetID: "b\($0)", fireDate: clock.date(11, 12), reason: .deadline) }
+        let plan = MomentPlanner(policy: MomentPolicy(maxPerDay: 3), calendar: clock.calendar).plan([early] + others, now: clock.now)
+        #expect(plan.contains { $0.targetID == "a" && $0.fireDate == clock.date(11, 5) })
+        #expect(plan.filter { $0.reason == .deadline }.count == 3)
+    }
 }
+

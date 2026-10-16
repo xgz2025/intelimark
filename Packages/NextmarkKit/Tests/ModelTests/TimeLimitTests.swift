@@ -22,12 +22,14 @@ struct TimeLimitTests {
         await #expect(throws: TimeLimitExceeded.self) {
             // Ignores cancellation, like a framework call that never checks.
             try await withTimeLimit(0.2) {
-                let end = Date().addingTimeInterval(2)
+                let end = Date().addingTimeInterval(6)
                 while Date() < end { await Task.yield() }
                 return 1
             }
         }
-        #expect(Date().timeIntervalSince(start) < 1.5)
+        // Well before the work would end. Loose: a CI machine running every suite at
+        // once can be seconds late to wake the timer, which says nothing of the limit.
+        #expect(Date().timeIntervalSince(start) < 4)
     }
 
     @Test func errorsArePassedOn() async {

@@ -98,6 +98,10 @@ struct ItemDetailView: View {
                 }
             }
 
+            if item.saveType == .show || item.saveType == .travel {
+                ItemRemindersSection(item: item, services: services)
+            }
+
             foundInText(item)
 
             if item.kind == .image, let recognized = item.ocrText?.trimmingCharacters(in: .whitespacesAndNewlines),

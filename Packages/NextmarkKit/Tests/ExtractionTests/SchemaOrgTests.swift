@@ -19,7 +19,7 @@ struct SchemaOrgTests {
         let structured = try #require(SchemaOrg.structuredData(fromJSONLD: blocks))
         #expect(structured.kind == .product)
         #expect(structured.fields.product == ProductFields(
-            name: "Aeron Chair", brand: "Herman Miller", price: 1395, currency: "USD", availability: "InStock"
+            name: "Aeron Chair", brand: "Herman Miller", price: 1395, currency: "USD", availability: "InStock", origin: .page
         ))
     }
 

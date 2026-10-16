@@ -92,6 +92,51 @@ public struct ItemRepository: Sendable {
         }
     }
 
+    /// Shows and trips still ahead (or under way), soonest first: the Upcoming list.
+    public func upcomingItems(now: @escaping @Sendable () -> Date = Date.init) -> AsyncThrowingStream<[ItemRecord], any Error> {
+        database.observe { db in
+            let candidates = try ItemRecord
+                .filter([ItemStatus.inbox.rawValue, ItemStatus.active.rawValue].contains(Column("status")))
+                .filter(Column("dates") != "[]" || Column("typedFields") != nil)
+                .fetchAll(db)
+            let current = now()
+            return candidates
+                .compactMap { item -> (ItemRecord, Date)? in item.nextDate(after: current).map { (item, $0.date) } }
+                .sorted { $0.1 < $1.1 }
+                .map(\.0)
+        }
+    }
+
+    /// Moves shows and trips that are over to Done, from the morning after: their
+    /// date has passed, and there's nothing left to do with them. Returns what
+    /// each moved item was before, for Undo.
+    @discardableResult
+    public func finishPastShowsAndTrips(now: Date = Date(), calendar: Calendar = .current) async throws -> [String: ItemStatus] {
+        let startOfToday = calendar.startOfDay(for: now)
+        return try await database.writer.write { db in
+            let candidates = try ItemRecord
+                .filter([ItemStatus.inbox.rawValue, ItemStatus.active.rawValue].contains(Column("status")))
+                .filter(Column("dates") != "[]" || Column("typedFields") != nil)
+                .fetchAll(db)
+            var finished: [String: ItemStatus] = [:]
+            for var item in candidates {
+                guard item.saveType == .show || item.saveType == .travel,
+                      let end = item.endsAt, end < startOfToday,
+                      try Self.openActionCount(db, itemID: item.id) == 0
+                else { continue }
+                finished[item.id] = item.status
+                item.status = .done
+                item.updatedAt = now
+                try item.update(db)
+            }
+            return finished
+        }
+    }
+
+    static func openActionCount(_ db: Database, itemID: String) throws -> Int {
+        try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM action WHERE itemID = ? AND status = 'open'", arguments: [itemID]) ?? 0
+    }
+
     /// Live list of finished items, most recently finished first.
     public func doneItems() -> AsyncThrowingStream<[ItemRecord], any Error> {
         database.observe { db in
@@ -115,6 +160,11 @@ public struct ItemRepository: Sendable {
     /// The person's own title; nil or blank goes back to the automatic one.
     public func setTitle(_ title: String?, forItem id: String, now: Date = Date()) async throws {
         try await editUserLayer(id, now: now) { $0.userTitle = Self.cleaned(title) }
+    }
+
+    /// The reminders for one show or trip; nil goes back to the defaults for its kind.
+    public func setReminders(_ reminders: [ReminderTime]?, forItem id: String, now: Date = Date()) async throws {
+        try await editUserLayer(id, now: now) { $0.reminders = reminders }
     }
 
     /// The person's note; nil or blank removes it.

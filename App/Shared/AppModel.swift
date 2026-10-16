@@ -246,7 +246,15 @@ final class AppModel {
         guard startupError == nil else { return }
         await requeueForModelIfReady()
         await rescue?.importNew()
+        await finishPastShowsAndTrips()
         await processInbox()
+    }
+
+    /// Shows and trips that ended move to Done the morning after (Docs/save_types.md),
+    /// with Undo.
+    private func finishPastShowsAndTrips() async {
+        guard let finished = try? await repository.finishPastShowsAndTrips(), !finished.isEmpty else { return }
+        announceFinishedShowsAndTrips(finished)
     }
 
     /// Items understood without the model (or with an older prompt), and Briefs written
