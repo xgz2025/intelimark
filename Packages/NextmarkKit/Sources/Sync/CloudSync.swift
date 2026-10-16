@@ -174,7 +174,7 @@ public actor CloudSync: CKSyncEngineDelegate {
     /// The whole error, with what the server said (its underlying errors and messages):
     /// "Server Rejected Request" alone doesn't say why. In full in Debug builds only.
     private func logDetails(of error: any Error) {
-        let details = String(reflecting: error as NSError)
+        let details = Self.details(of: error as NSError)
         #if DEBUG
         logger.error("Sync error details: \(details, privacy: .public)")
         #else
@@ -514,6 +514,26 @@ public actor CloudSync: CKSyncEngineDelegate {
         if !isQuotaFull && !failedApply {
             UserDefaults.standard.set("", forKey: SyncSettings.Key.status)
         }
+    }
+
+    /// An error with everything it carries: its domain and code, then each entry of its
+    /// user info (the server's message, the HTTP status, a retry time…), underlying
+    /// errors in turn.
+    static func details(of error: NSError, depth: Int = 0) -> String {
+        var lines = ["\(error.domain) \(error.code): \(error.localizedDescription)"]
+        for (key, value) in error.userInfo.sorted(by: { $0.key < $1.key }) {
+            if let underlying = value as? NSError, depth < 3 {
+                lines.append("\(key) → " + details(of: underlying, depth: depth + 1))
+            } else if let partial = value as? [AnyHashable: Any] {
+                for (id, item) in partial.prefix(3) {
+                    let text = (item as? NSError).map { details(of: $0, depth: depth + 1) } ?? String(describing: item)
+                    lines.append("\(key)[\(id)] → \(text)")
+                }
+            } else {
+                lines.append("\(key): \(String(describing: value).prefix(500))")
+            }
+        }
+        return lines.joined(separator: "\n" + String(repeating: "  ", count: depth + 1))
     }
 
     /// What Settings says when syncing fails.

@@ -61,7 +61,7 @@ struct ProductPriceTests {
     @Test func readsThePriceAShopKeepsInItsScripts() throws {
         let target = """
             <html><head><title>Wool Coat : Target</title></head><body><div id="root"></div>
-            <script>window.__TGT_DATA__ = {"product":{"price":{"current_retail":49.99,"formatted_current_price":"$49.99"}}}</script>
+            <script>window.__TGT_DATA__ = JSON.parse("{\\"product\\":{\\"price\\":{\\"current_retail\\":49.99,\\"formatted_current_price\\":\\"$49.99\\"}}}")</script>
             </body></html>
             """
         let product = try #require(

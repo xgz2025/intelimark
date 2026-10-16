@@ -149,9 +149,9 @@ struct ItemSelectionList<Header: View>: View {
     private func rows(selectable: Bool) -> some View {
         ForEach(DaySection.sections(of: items, date: date)) { section in
             Section(section.title) {
-                ForEach(section.items) { item in
+                ForEach(section.items, id: \.listID) { item in
                     if selectable {
-                        ItemRow(item: item).id(item.rowVersion).tag(item.id)
+                        ItemRow(item: item).tag(item.id)
                     } else {
                         ItemLinkRow(item: item, services: services)
                             .swipeActions(edge: .leading) {

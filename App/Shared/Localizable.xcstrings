@@ -2806,6 +2806,17 @@
         }
       }
     },
+    "Laterwise sees %@ on this page. Pick a size or color first if the price depends on it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laterwise 在此页面上看到的价格是 %@。如果价格取决于尺码或颜色，请先选择。"
+          }
+        }
+      }
+    },
     "Laterwise's built-in rules write titles, summaries and Briefs on this device. Saving, search, groups, reminders and sync work the same." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2901,6 +2912,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在查找截屏…"
+          }
+        }
+      }
+    },
+    "Looking for the price… If the shop asks whether you're a person, answer it here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查找价格… 如果商店要求验证你是真人，请在这里完成验证。"
           }
         }
       }
@@ -3880,6 +3902,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开设置"
+          }
+        }
+      }
+    },
+    "Open Shop Page in Laterwise…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Laterwise 中打开商店网页…"
           }
         }
       }
@@ -5061,6 +5094,17 @@
         }
       }
     },
+    "See the page here: answer the shop's checks or pick a size, then use the price it shows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这里查看网页：完成商店的验证或选择尺码，然后使用网页显示的价格"
+          }
+        }
+      }
+    },
     "Select" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5699,13 +5743,13 @@
         }
       }
     },
-    "The shop's page didn't show Laterwise a price (it may need a sign-in). The price you saved stays: update it from the page in Safari, or from a screenshot." : {
+    "The shop's page didn't show Laterwise a price; the price you saved stays. Open the shop's page in Laterwise (the shop may want to check you're a person), or read it from a screenshot." : {
       "extractionState" : "manual",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "商店网页没有向 Laterwise 显示价格（可能需要登录）。已保存的价格保持不变：可以在 Safari 中从网页更新，或从截屏读取。"
+            "value" : "商店网页没有向 Laterwise 显示价格；已保存的价格保持不变。请在 Laterwise 中打开商店网页（商店可能需要验证你是真人），或从截屏读取价格。"
           }
         }
       }
@@ -6238,6 +6282,17 @@
         }
       }
     },
+    "Use %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 %@"
+          }
+        }
+      }
+    },
     "Use My Usual Reminders" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6245,6 +6300,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用我的默认提醒"
+          }
+        }
+      }
+    },
+    "Use Price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用价格"
           }
         }
       }

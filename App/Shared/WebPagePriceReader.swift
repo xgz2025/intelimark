@@ -8,21 +8,24 @@
 //  Created by Gaoliang Luo.
 //
 
+
 import Foundation
 import OSLog
 import WebKit
 import Extraction
+import Features
 #if os(macOS)
 import AppKit
 #else
 import UIKit
 #endif
 
-/// Reads a product's price the way a person sees it: loads the page in an offscreen
-/// WebKit view, lets the shop's scripts run, then asks `laterwisePrice()`
-/// (Extensions/Shared/ProductPrice.js). Amazon, Target and Shein state no price to a
-/// plain page request. Only the page is requested, with no cookies or sign-in: a
-/// separate, non-persistent website data store.
+/// Reads a product page the way a person sees it: loads it in a WebKit view out of
+/// sight, lets the shop's scripts run, then asks `laterwisePrice()`
+/// (Extensions/Shared/ProductPrice.js) for the price and takes the page's text for a
+/// summary. Amazon, Target and Shein state no price to a plain page request. The page
+/// uses the app's own web data (`ShopBrowser`), so a shop's "are you a person?" check
+/// passed in the shop page sheet stays passed here too.
 ///
 /// WebKit's page process logs a lot while it runs (sandbox, pasteboard, RunningBoard
 /// and image-decoding messages). They come from the system, not from Laterwise.
@@ -30,26 +33,20 @@ enum WebPagePriceReader {
     /// How long a page may take to show its price.
     static let timeout: Duration = .seconds(20)
 
-    static let script: String? = Bundle.main.url(forResource: "ProductPrice", withExtension: "js")
-        .flatMap { try? String(contentsOf: $0, encoding: .utf8) }
-
     private static let logger = Logger(subsystem: "com.veloworkspaces.nextmark", category: "prices")
 
-    static func price(at url: URL) async -> ShownPrice? {
-        await Gate.shared.run { await read(url) }
+    static func read(_ url: URL) async -> RenderedPage? {
+        await Gate.shared.run { await render(url) }
     }
 
     @MainActor
-    private static func read(_ url: URL) async -> ShownPrice? {
-        guard let script else { return nil }
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.mediaTypesRequiringUserActionForPlayback = .all
+    private static func render(_ url: URL) async -> RenderedPage? {
+        guard ShopBrowser.script != nil else { return nil }
+        let configuration = ShopBrowser.configuration()
         // Out of sight, but run as if in sight: shops fill the price in with timers.
         configuration.preferences.inactiveSchedulingPolicy = .none
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: pageWidth, height: 2000), configuration: configuration)
-        // The shop's page for Safari, as a person would get it.
-        view.customUserAgent = userAgent
+        view.customUserAgent = ShopBrowser.userAgent
         let loader = Loader()
         view.navigationDelegate = loader
         let unhost = host(view)
@@ -61,43 +58,80 @@ enum WebPagePriceReader {
         view.load(URLRequest(url: url, timeoutInterval: 15))
         let host = url.host() ?? "?"
         let deadline = ContinuousClock.now.advanced(by: timeout)
+        var price: ShownPrice?
         // Shops fill the price in after loading: ask every second until it's there.
         try? await Task.sleep(for: .seconds(2))
         while ContinuousClock.now < deadline, !Task.isCancelled, !loader.failed {
-            // In Laterwise's own script world: the page's scripts can't see or change it.
-            if let result = try? await view.callAsyncJavaScript(
-                script + "\nreturn laterwisePrice();", arguments: [:], in: nil, contentWorld: .defaultClient
-            ), let price = ShownPrice(script: result) {
-                logger.info("Read a price on \(host, privacy: .public) (\(price.origin == .page ? "price element" : "layout", privacy: .public))")
-                return price
-            }
+            price = await ShopBrowser.price(in: view)
+            if price != nil { break }
             try? await Task.sleep(for: .seconds(1))
         }
-        // Why not, for a bug report: a load failure, or the page it got (a sign-in or
-        // robot check shows in its title).
-        let title = view.title ?? ""
-        logger.notice("""
-            No price on \(host, privacy: .public): \(loader.failed ? "the page didn't load" : "none shown", privacy: .public); \
-            page title “\(title, privacy: .private)”
-            """)
-        return nil
+        let text = await pageText(of: view)
+        if let price {
+            logger.info("Read a price on \(host, privacy: .public) (\(price.origin == .page ? "price element" : "layout", privacy: .public))")
+        } else {
+            // Why not, for a bug report: a load failure, or the page it got (a sign-in or
+            // robot check shows in its title).
+            let title = view.title ?? ""
+            logger.notice("""
+                No price on \(host, privacy: .public): \(loader.failed ? "the page didn't load" : "none shown", privacy: .public); \
+                page title “\(title, privacy: .private)”
+                """)
+            #if DEBUG
+            if let found = try? await view.callAsyncJavaScript(Self.clues, arguments: [:], in: nil, contentWorld: .defaultClient) as? String {
+                logger.notice("Price clues on \(host, privacy: .public): \(found, privacy: .public)")
+            }
+            #endif
+        }
+        guard price != nil || text != nil else { return nil }
+        return RenderedPage(price: price, text: text)
     }
 
-    /// Puts the page in a window, out of sight: WebKit holds back drawing and some
-    /// scripts on a page in no window, and shops wait for them to show a price.
-    /// Returns what takes it out again.
+    /// The page's words as shown, for a summary when a plain request got none.
+    @MainActor
+    private static func pageText(of view: WKWebView) async -> String? {
+        let script = "return document.body ? document.body.innerText.slice(0, 8000) : null;"
+        let text = try? await view.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: .defaultClient) as? String
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.count >= 200 ? trimmed : nil
+    }
+
+    #if DEBUG
+    /// What a page that showed no price has: where it ended up, the price elements the
+    /// script looks for, the data it reads, and the amounts in its text.
+    private static let clues = """
+        var element = document.querySelector("[data-test='product-price'], .productPrice, #productMainPriceId, .a-price .a-offscreen");
+        var html = document.documentElement.innerHTML;
+        return JSON.stringify({
+          url: location.href,
+          visibility: document.visibilityState,
+          text: document.body ? document.body.innerText.length : 0,
+          element: element ? element.outerHTML.slice(0, 300) : null,
+          data: ["current_retail", "formatted_current_price", "salePrice", "amountWithSymbol"].filter(function (key) { return html.indexOf(key) >= 0; }),
+          amounts: ((document.body && document.body.innerText.match(/[$€£¥]\\s?\\d[\\d.,]*/g)) || []).slice(0, 10)
+        });
+        """
+    #endif
+
+    /// Puts the page in a window nobody sees: WebKit holds back drawing and some scripts
+    /// on a page in no window, and shops wait for them to show a price. Returns what
+    /// takes it out again.
     @MainActor
     private static func host(_ view: WKWebView) -> () -> Void {
         #if os(macOS)
         let window = NSWindow(
-            contentRect: NSRect(x: -30_000, y: -30_000, width: pageWidth, height: 2000),
+            contentRect: NSRect(x: 0, y: 0, width: pageWidth, height: 2000),
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         window.isReleasedWhenClosed = false
         window.ignoresMouseEvents = true
+        window.alphaValue = 0
+        window.hasShadow = false
         window.collectionBehavior = [.transient, .ignoresCycle, .fullScreenNone]
         window.contentView = view
         window.orderBack(nil)
+        // Ordering in may move it onto a screen; move it well off them all.
+        window.setFrameOrigin(NSPoint(x: -30_000, y: -30_000))
         return {
             window.orderOut(nil)
             window.contentView = nil
@@ -121,14 +155,6 @@ enum WebPagePriceReader {
         390
         #else
         1280
-        #endif
-    }
-
-    private static var userAgent: String {
-        #if os(iOS)
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1"
-        #else
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
         #endif
     }
 

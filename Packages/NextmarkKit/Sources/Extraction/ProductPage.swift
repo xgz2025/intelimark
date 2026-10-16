@@ -62,15 +62,21 @@ public enum ProductPage {
     static func embeddedPrice(inHTML html: String, host: String?) -> (price: Double, currency: String?)? {
         guard let host = host?.lowercased() else { return nil }
         var patterns: [(Regex<(Substring, Substring)>, String?)] = []
+        // Quotes may be escaped (Target's data is JSON inside a JSON string), and the
+        // price may be too (a "\u0024" for the dollar sign).
         if host == "target.com" || host.hasSuffix(".target.com") {
             patterns = [
-                (#/"formatted_current_price"\s*:\s*"([^"]{1,40})"/#, "USD"),
-                (#/"current_retail"\s*:\s*([\d.]{1,12})/#, "USD"),
+                (#/\\?"formatted_current_price\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/#, "USD"),
+                (#/\\?"current_retail\\?"\s*:\s*([\d.]{1,12})/#, "USD"),
             ]
         } else if host.contains("shein.") {
-            patterns = [(#/"salePrice"\s*:\s*\{[^{}]{0,400}?"amountWithSymbol"\s*:\s*"([^"]{1,40})"/#, nil)]
+            patterns = [
+                (#/\\?"salePrice\\?"\s*:\s*\{[^{}]{0,400}?\\?"amountWithSymbol\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/#, nil),
+            ]
         } else if host.contains("walmart.") {
-            patterns = [(#/"currentPrice"\s*:\s*\{[^{}]{0,400}?"priceString"\s*:\s*"([^"]{1,40})"/#, nil)]
+            patterns = [
+                (#/\\?"currentPrice\\?"\s*:\s*\{[^{}]{0,400}?\\?"priceString\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/#, nil),
+            ]
         }
         for (pattern, code) in patterns {
             guard let match = html.firstMatch(of: pattern) else { continue }
@@ -264,5 +270,17 @@ public struct ShownPrice: Sendable, Equatable {
             currency: read.currency?.uppercased(),
             origin: result["source"] as? String == "selector" ? .page : .shown
         )
+    }
+}
+
+/// A page as a browser showed it once its scripts ran (`WebPagePriceReader` in the app):
+/// the price it showed, and its words, for a summary when a plain request got none.
+public struct RenderedPage: Sendable, Equatable {
+    public var price: ShownPrice?
+    public var text: String?
+
+    public init(price: ShownPrice?, text: String?) {
+        self.price = price
+        self.text = text
     }
 }

@@ -17,9 +17,9 @@ import Extraction
 /// price. Only the page is requested; nothing about the person is sent.
 public struct PriceChecker: Sendable {
     public typealias Outcome = PriceCheckOutcome
-    /// Loads a page in a browser engine and reads the price it shows once its
-    /// scripts have run (`WebPagePriceReader` in the app).
-    public typealias Renderer = @Sendable (URL) async -> ShownPrice?
+    /// Loads a page in a browser engine and reads what it shows once its scripts have
+    /// run (`WebPagePriceReader` in the app).
+    public typealias Renderer = @Sendable (URL) async -> RenderedPage?
 
     private let fetcher: any PageFetcher
     private let repository: ItemRepository
@@ -61,7 +61,7 @@ public struct PriceChecker: Sendable {
            let price = product.price {
             return ShownPrice(price: price, currency: product.currency, origin: product.origin ?? .page)
         }
-        return await renderer?(url)
+        return await renderer?(url)?.price
     }
 
     /// Several products, a few at a time.

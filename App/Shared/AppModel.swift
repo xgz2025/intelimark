@@ -86,7 +86,7 @@ final class AppModel {
             briefWriter: IntelligenceRouter.makeBriefWriter()
         )
         moments = MomentsEngine(database: database, scheduler: UserNotificationScheduler())
-        let priceChecker = PriceChecker(database: database) { url in await WebPagePriceReader.price(at: url) }
+        let priceChecker = PriceChecker(database: database) { url in await WebPagePriceReader.read(url) }
         self.priceChecker = priceChecker
         services = LibraryServices(
             database: database,
@@ -324,7 +324,7 @@ final class AppModel {
         await pipeline.setPriceObserver { [weak self] id, outcome in
             await self?.announcePrice(of: id, outcome)
         }
-        await pipeline.setPriceRenderer { url in await WebPagePriceReader.price(at: url) }
+        await pipeline.setPageRenderer { url in await WebPagePriceReader.read(url) }
         // New saves appear in the Inbox at once, even while enrichment is busy with
         // earlier ones (a slow page, image analysis, a model download).
         await ingestNow()

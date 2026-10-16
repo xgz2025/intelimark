@@ -48,6 +48,17 @@ extension ItemRepository {
         }
     }
 
+    /// The page's words as a browser showed them, when the page read without scripts
+    /// had fewer: what the summary is written from.
+    public func fillContentText(_ text: String, forItem id: String, now: Date = Date()) async throws {
+        try await database.writer.write { db in
+            guard var item = try ItemRecord.fetchOne(db, key: id), (item.contentText?.count ?? 0) < text.count else { return }
+            item.contentText = text
+            item.updatedAt = now
+            try item.update(db)
+        }
+    }
+
     /// Notes a check that found no price, so it isn't tried again at once.
     public func markPriceChecked(forItem id: String, now: Date = Date()) async throws {
         try await database.writer.write { db in

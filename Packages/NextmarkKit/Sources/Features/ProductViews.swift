@@ -29,7 +29,7 @@ extension PriceCheckOutcome {
         case .found(let price):
             String(localized: "Now \(ItemRecord.money(price, currency: currency)).")
         case .unavailable:
-            String(localized: "The shop's page didn't show Laterwise a price (it may need a sign-in). The price you saved stays: update it from the page in Safari, or from a screenshot.")
+            String(localized: "The shop's page didn't show Laterwise a price; the price you saved stays. Open the shop's page in Laterwise (the shop may want to check you're a person), or read it from a screenshot.")
         }
     }
 }
@@ -45,6 +45,7 @@ struct ProductPriceSection: View {
     @State private var isReadingPicture = false
     @State private var pictureMentions: [PriceText.Mention] = []
     @State private var showsMentions = false
+    @State private var showsShopPage = false
     #if os(iOS)
     @State private var picture: PhotosPickerItem?
     #else
@@ -112,6 +113,14 @@ struct ProductPriceSection: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            if link != nil {
+                Button {
+                    showsShopPage = true
+                } label: {
+                    Label("Open Shop Page in Laterwise…", systemImage: "globe")
+                }
+                .help(Text("See the page here: answer the shop's checks or pick a size, then use the price it shows"))
+            }
             if let link {
                 Link(destination: link) {
                     Label("Update from the Page in Safari", systemImage: "safari")
@@ -140,6 +149,11 @@ struct ProductPriceSection: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Prices read from the picture. Pick the one you'd pay now.")
+        }
+        .sheet(isPresented: $showsShopPage) {
+            if let link {
+                ShopPageSheet(item: item, url: link, services: services)
+            }
         }
         .onAppear { targetText = Self.text(for: item.targetPrice) }
         .onChange(of: item.targetPrice) { _, price in
@@ -287,13 +301,12 @@ struct ComparisonSection: View {
         let sorted = ranked
         let cheapest = sorted.first?.typedFields?.product?.price
         Section {
-            ForEach(sorted) { item in
+            ForEach(sorted, id: \.listID) { item in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         NavigationLink(value: ItemLink(id: item.id)) {
                             ComparisonRow(item: item, isCheapest: cheapest != nil && item.typedFields?.product?.price == cheapest
                                             && item.typedFields?.product?.currency == mainCurrency)
-                                .id(item.rowVersion)
                         }
                         checkButton(for: item)
                     }

@@ -34,6 +34,13 @@ extension ItemRecord {
     }
 }
 
+extension ItemRecord {
+    /// A list's identity for the row: the item and its version. The Mac's lists keep a
+    /// row's content and height until its identity changes, so a row whose page was
+    /// just read (a price, a summary) is replaced rather than left as it was.
+    var listID: String { "\(id)#\(rowVersion)" }
+}
+
 struct ItemRow: View {
     let item: ItemRecord
     @Environment(\.itemsDirectory) private var itemsDirectory

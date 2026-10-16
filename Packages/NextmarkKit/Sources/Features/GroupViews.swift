@@ -144,7 +144,7 @@ struct GroupDetailView: View {
 
             if !suggested.isEmpty && group.state == .accepted {
                 Section {
-                    ForEach(suggested) { member in
+                    ForEach(suggested, id: \.item.listID) { member in
                         HStack {
                             ItemLinkRow(item: member.item, services: services)
                             Button("Keep in Group", systemImage: "checkmark.circle") {
@@ -173,7 +173,7 @@ struct GroupDetailView: View {
 
             if !others.isEmpty || !compares {
                 Section {
-                    ForEach(others) { member in
+                    ForEach(others, id: \.item.listID) { member in
                         ItemLinkRow(item: member.item, services: services, removeFromGroup: {
                             run { try await services.groups.removeItem(member.item.id, from: groupID) }
                         })

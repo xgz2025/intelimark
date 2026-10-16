@@ -67,7 +67,11 @@ comparing before buying.
      links shared from apps. The script is copied verbatim into `PageCapture.js`
      and `content.js`; a package test keeps the three the same.
   3. The price in the text a shopping app shares.
-  4. A screenshot: **Read Price from Screenshot…** reads its prices on the device
+  4. **Open Shop Page in Laterwise…**: the page in a sheet, for when the shop wants
+     to check the person is a person (Shein), or the price needs a size or a sign-in.
+     The person deals with the page; Laterwise reads the price it shows and records
+     it as theirs with **Use $…**.
+  5. A screenshot: **Read Price from Screenshot…** reads its prices on the device
      and the person picks the real one.
 
   The first price seen is kept, so the card can say "↓ $50 since saved".
@@ -75,7 +79,9 @@ comparing before buying.
   reads the page again and records the price. Up to 60 checks are kept as its price
   history. First a plain request (the page's tags, schema.org data, or the price Target,
   Shein and Walmart keep in their page scripts); else the WebKit page, one at a time,
-  in an off-screen window so the shop's scripts run as for a person.
+  in an invisible window so the shop's scripts run as for a person. A shop link saved
+  with too few words for a summary (a shopping app's share) also takes the words the
+  WebKit page shows.
 - **Check Prices** on a group's title line checks all its products at once (Pro; free
   users check them one by one, or get the paywall from that button).
 - **Target price** (free): "tell me when it's at or under ¥299". Any check that
@@ -95,11 +101,13 @@ comparing before buying.
   numbers); else two brands that differ, or prices more than 3× apart, are different
   products; else the names need two telling words in common (three character pairs
   in Chinese or Japanese), shop and marketing words not counted.
-- Some prices are shown only to signed-in people (member prices) or only in a shop's
-  app; then Check Price says it couldn't read a newer one, and a Safari refresh or a
-  screenshot is the way to update it. Laterwise never signs in to a store (its WebKit
-  page keeps no cookies) or sends anything but the page request. No server or
-  scraping service is involved.
+- Some prices are shown only after a check, to signed-in people (member prices) or
+  only in a shop's app; then Check Price says it couldn't read a newer one, and the
+  shop page sheet, a Safari refresh or a screenshot is the way to update it. The
+  WebKit pages share the app's own web data (not Safari's), kept on the device, so a
+  check passed once in the sheet isn't asked again by Check Price. Laterwise never
+  signs in to a store for the person or sends anything but the page request. No
+  server or scraping service is involved.
 
 ## Correct?
 

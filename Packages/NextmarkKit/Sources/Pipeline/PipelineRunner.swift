@@ -25,6 +25,9 @@ public actor PipelineRunner {
     public static let understandVersion = 2
     /// Bump when the Brief prompt or schema changes. Heuristic briefs are stored as 0.
     public static let briefVersion = 1
+    /// Fewer characters of text than this from a shop's page: read it in a browser, so
+    /// the summary has words to work with.
+    static let fewWords = 400
 
     let queue: JobQueue
     let repository: ItemRepository
@@ -58,13 +61,13 @@ public actor PipelineRunner {
         priceObserver = observer
     }
 
-    /// Reads the price a shop's page shows in a browser, for a shop link saved without
-    /// one (shared from the Amazon or Shein app, whose pages state no price to a plain
-    /// request).
-    var priceRenderer: PriceChecker.Renderer?
+    /// Reads a shop's page as a browser shows it, for a shop link saved without a price
+    /// or words to sum up (shared from the Amazon or Shein app, whose pages state
+    /// neither to a plain request).
+    var pageRenderer: PriceChecker.Renderer?
 
-    public func setPriceRenderer(_ renderer: @escaping PriceChecker.Renderer) {
-        priceRenderer = renderer
+    public func setPageRenderer(_ renderer: @escaping PriceChecker.Renderer) {
+        pageRenderer = renderer
     }
 
     /// - Parameters:
@@ -308,11 +311,17 @@ public actor PipelineRunner {
             }
             var price = try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
             var isProduct = extraction.typedFields?.product != nil
-            if price == nil, let url = input.url, ProductPage.isShop(url), let priceRenderer,
-               let shown = await priceRenderer(url) {
-                try await repository.recordPrice(shown.price, currency: shown.currency, origin: shown.origin, forItem: job.itemID, now: now)
-                price = .found(shown.price)
-                isProduct = true
+            let fewWords = (extraction.contentText?.count ?? 0) < Self.fewWords
+            if price == nil || fewWords, let url = input.url, ProductPage.isShop(url), let pageRenderer,
+               let page = await pageRenderer(url) {
+                if price == nil, let shown = page.price {
+                    try await repository.recordPrice(shown.price, currency: shown.currency, origin: shown.origin, forItem: job.itemID, now: now)
+                    price = .found(shown.price)
+                    isProduct = true
+                }
+                if fewWords, let text = page.text {
+                    try await repository.fillContentText(text, forItem: job.itemID, now: now)
+                }
             }
             if let price, let priceObserver { await priceObserver(job.itemID, price) }
             // A product joins the similar ones already saved, to compare.

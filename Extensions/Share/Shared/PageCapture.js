@@ -106,12 +106,14 @@ function laterwisePrice() {
   }
   // The shop's own data in the page's scripts: Target, Shein and Walmart put the price
   // there before (or without) showing it. Kept the same as ProductPage.embeddedPatterns.
+  // Quotes may be escaped: Target's data is JSON inside a JSON string.
   var embedded = [
-    { host: /(^|\.)target\.com$/, pattern: /"formatted_current_price"\s*:\s*"([^"]{1,40})"/, code: "USD" },
-    { host: /(^|\.)target\.com$/, pattern: /"current_retail"\s*:\s*([\d.]{1,12})/, code: "USD" },
-    { host: /(^|\.)shein\./, pattern: /"salePrice"\s*:\s*\{[^{}]{0,400}?"amountWithSymbol"\s*:\s*"([^"]{1,40})"/, code: null },
-    { host: /(^|\.)walmart\./, pattern: /"currentPrice"\s*:\s*\{[^{}]{0,400}?"priceString"\s*:\s*"([^"]{1,40})"/, code: null }
+    { host: /(^|\.)target\.com$/, pattern: /\\?"formatted_current_price\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/, code: "USD" },
+    { host: /(^|\.)target\.com$/, pattern: /\\?"current_retail\\?"\s*:\s*([\d.]{1,12})/, code: "USD" },
+    { host: /(^|\.)shein\./, pattern: /\\?"salePrice\\?"\s*:\s*\{[^{}]{0,400}?\\?"amountWithSymbol\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/, code: null },
+    { host: /(^|\.)walmart\./, pattern: /\\?"currentPrice\\?"\s*:\s*\{[^{}]{0,400}?\\?"priceString\\?"\s*:\s*\\?"((?:[^"\\]|\\u[0-9a-fA-F]{4}){1,40})/, code: null }
   ];
+
   var scripts = document.querySelectorAll("script:not([src])");
   for (var k = 0; k < embedded.length; k++) {
     if (!embedded[k].host.test(location.hostname)) continue;
