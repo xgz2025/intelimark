@@ -48,6 +48,24 @@ Connect, then test with a Sandbox account on a device (Settings â€º App Store â€
 Sandbox Account). The `.storekit` file is for development only; release builds
 use the App Store.
 
+## Save types by hand (Docs/save_types.md)
+
+Save one of each and check its card, Details and, for shows and trips, Upcoming and
+the reminders on its screen:
+
+- **Article**: a news page from Safari; a Word document and a PDF from Files.
+- **Receipt**: a photo or screenshot of a receipt (English and Chinese).
+- **Show**: a Wallet event ticket, a ticket seller's `.ics`, an event page.
+- **Travel**: a boarding pass screenshot (its barcode), a Wallet boarding pass, an
+  airline's itinerary PDF, a 12306 train ticket screenshot, an airline's booking page.
+- **Product**: the same coat from two shops (Safari share and a shopping app's Share);
+  they should land in one comparison group (as a suggestion without Pro). Check Price
+  on each; on a page that needs scripts, Check Price says it saw no price.
+
+Reminders: set a show to start in under an hour and pick "30 minutes before" on its
+screen (or use the Settings defaults); the notification arrives even in quiet hours.
+Change the device date to the day after a show to see it move to Done with Undo.
+
 ## Things CI can't test
 
 Sync between two devices, Screenshot Rescue with a real photo library, Apple

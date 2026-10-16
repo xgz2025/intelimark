@@ -23,6 +23,17 @@
         }
       }
     },
+    "%lld days before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 天"
+          }
+        }
+      }
+    },
     "%lld file(s)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -34,6 +45,28 @@
         }
       }
     },
+    "%lld got cheaper." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件降价了。"
+          }
+        }
+      }
+    },
+    "%lld hours before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 小时"
+          }
+        }
+      }
+    },
     "%lld min" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -41,6 +74,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 分钟"
+          }
+        }
+      }
+    },
+    "%lld minutes before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 %lld 分钟"
           }
         }
       }
@@ -89,6 +133,28 @@
         }
       }
     },
+    "%lld shops didn't show a price; their saved prices stay." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 家商店未显示价格，保留其已保存的价格。"
+          }
+        }
+      }
+    },
+    "%lld shows and trips that are over moved to Done." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 项已结束的演出和行程已移到“已完成”。"
+          }
+        }
+      }
+    },
     "%lld to do · %lld kept · %lld tossed" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -96,6 +162,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$lld 项去做 · %2$lld 项保留 · %3$lld 项丢弃"
+          }
+        }
+      }
+    },
+    "1 day before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 1 天"
+          }
+        }
+      }
+    },
+    "1 hour before" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 1 小时"
           }
         }
       }
@@ -140,6 +228,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "快速摘要。Apple 智能可用时会重新生成。"
+          }
+        }
+      }
+    },
+    "A show or trip that's over moved to Done." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一项已结束的演出或行程已移到“已完成”。"
           }
         }
       }
@@ -474,6 +573,17 @@
         }
       }
     },
+    "Arrives" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "到达"
+          }
+        }
+      }
+    },
     "Article" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -562,6 +672,28 @@
         }
       }
     },
+    "Boat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "船"
+          }
+        }
+      }
+    },
+    "Booking Code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订单号"
+          }
+        }
+      }
+    },
     "Brand" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -602,6 +734,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "简报会为你总结每个分组。"
+          }
+        }
+      }
+    },
+    "Bus" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "巴士"
           }
         }
       }
@@ -661,6 +804,17 @@
         }
       }
     },
+    "Cheapest first. Prices are as each shop's page last showed them." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最便宜的在前。价格为各商店网页上次显示的价格。"
+          }
+        }
+      }
+    },
     "Check Again" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -672,6 +826,28 @@
         }
       }
     },
+    "Check Price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看价格"
+          }
+        }
+      }
+    },
+    "Check Prices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看价格"
+          }
+        }
+      }
+    },
     "Check your connection and that you're signed in to the App Store, then try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -679,6 +855,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请检查网络连接并确认已登录 App Store，然后重试。"
+          }
+        }
+      }
+    },
+    "Checked %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@查过价格。"
           }
         }
       }
@@ -760,6 +947,17 @@
         }
       }
     },
+    "Compare" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比较"
+          }
+        }
+      }
+    },
     "Compare and decide" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -767,6 +965,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "比较并做决定"
+          }
+        }
+      }
+    },
+    "Compare: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "比较：%@"
           }
         }
       }
@@ -1090,6 +1299,17 @@
         }
       }
     },
+    "Departs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发"
+          }
+        }
+      }
+    },
     "Deselect All" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1185,6 +1405,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已完成的分组会连同结果移到列表末尾。"
+          }
+        }
+      }
+    },
+    "Doors Open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "入场时间"
+          }
+        }
+      }
+    },
+    "Down to %@ from %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从 %2$@ 降至 %1$@。"
           }
         }
       }
@@ -1431,6 +1673,28 @@
         }
       }
     },
+    "Flight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班"
+          }
+        }
+      }
+    },
+    "Flights" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航班"
+          }
+        }
+      }
+    },
     "Follow up: %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1497,6 +1761,17 @@
         }
       }
     },
+    "Free for every ticket and trip you save. You can change them on each one. They keep their time, even in quiet hours." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你保存的每张门票和每个行程均可免费提醒，也可以单独更改。即使在免打扰时段，提醒也会按时送达。"
+          }
+        }
+      }
+    },
     "Free keeps %lld smart groups. Pro keeps as many as you like." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1519,6 +1794,17 @@
         }
       }
     },
+    "From" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出发地"
+          }
+        }
+      }
+    },
     "From Safari" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1537,6 +1823,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从保存到完成。"
+          }
+        }
+      }
+    },
+    "From the boarding pass barcode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自登机牌条形码"
+          }
+        }
+      }
+    },
+    "From the calendar file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自日历文件"
           }
         }
       }
@@ -1618,6 +1926,17 @@
         }
       }
     },
+    "From the Wallet pass" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自“钱包”卡券"
+          }
+        }
+      }
+    },
     "From your screenshots" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1625,6 +1944,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "来自你的截屏"
+          }
+        }
+      }
+    },
+    "Gate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登机口"
           }
         }
       }
@@ -2190,6 +2520,17 @@
         }
       }
     },
+    "leaves %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@出发"
+          }
+        }
+      }
+    },
     "Let's sort your screenshots." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2252,6 +2593,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "看起来像：%@"
+          }
+        }
+      }
+    },
+    "Lowest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最低"
+          }
+        }
+      }
+    },
+    "Lowest Price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最低价"
           }
         }
       }
@@ -2718,6 +3081,17 @@
         }
       }
     },
+    "No price drops." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有降价。"
+          }
+        }
+      }
+    },
     "No Purchases Found" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2736,6 +3110,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无建议"
+          }
+        }
+      }
+    },
+    "None" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
           }
         }
       }
@@ -2824,6 +3209,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "备注"
+          }
+        }
+      }
+    },
+    "Nothing Coming Up" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近期没有安排"
           }
         }
       }
@@ -2923,6 +3319,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Laterwise 的通知已关闭，提醒无法送达。"
+          }
+        }
+      }
+    },
+    "Now %@, was %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现价 %1$@，原价 %2$@。"
+          }
+        }
+      }
+    },
+    "Now %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现价 %@。"
           }
         }
       }
@@ -3279,6 +3697,28 @@
         }
       }
     },
+    "Platform" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "站台"
+          }
+        }
+      }
+    },
+    "Platform %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 站台"
+          }
+        }
+      }
+    },
     "Pre-order" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3319,6 +3759,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "价格"
+          }
+        }
+      }
+    },
+    "Price Checked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查价时间"
+          }
+        }
+      }
+    },
+    "Price drop: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "降价：%@"
+          }
+        }
+      }
+    },
+    "Price history" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "价格历史"
+          }
+        }
+      }
+    },
+    "Price When Saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存时价格"
           }
         }
       }
@@ -3510,6 +3994,17 @@
         }
       }
     },
+    "Read each shop's page again for its current price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新读取每个商店的网页以获取当前价格"
+          }
+        }
+      }
+    },
     "Read from the receipt" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3521,6 +4016,17 @@
         }
       }
     },
+    "Read from the text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取自文本"
+          }
+        }
+      }
+    },
     "Read from the words in this item. Check them before you rely on them." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3528,6 +4034,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这些信息读取自此项目的文字，使用前请核对。"
+          }
+        }
+      }
+    },
+    "Read the shop's page again for its current price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新读取商店网页以获取当前价格"
           }
         }
       }
@@ -3587,6 +4104,17 @@
         }
       }
     },
+    "Remind Me" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒我"
+          }
+        }
+      }
+    },
     "Remind Me About Dates in My Saves" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3594,6 +4122,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "提醒我保存内容中的日期"
+          }
+        }
+      }
+    },
+    "Remind Me Before Shows and Trips" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出和行程开始前提醒我"
           }
         }
       }
@@ -3616,6 +4155,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "明天提醒我"
+          }
+        }
+      }
+    },
+    "Reminders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒"
+          }
+        }
+      }
+    },
+    "Reminders for shows and trips are off in Settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出和行程提醒已在“设置”中关闭。"
           }
         }
       }
@@ -3884,6 +4445,17 @@
         }
       }
     },
+    "Saved %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存于 %@"
+          }
+        }
+      }
+    },
     "Saved items" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3957,6 +4529,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "搜索你保存的内容"
+          }
+        }
+      }
+    },
+    "Seat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座位"
+          }
+        }
+      }
+    },
+    "Seat %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "座位 %@"
           }
         }
       }
@@ -4137,6 +4731,28 @@
         }
       }
     },
+    "Shows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出"
+          }
+        }
+      }
+    },
+    "Shows and Trips" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演出和行程"
+          }
+        }
+      }
+    },
     "Sign in to iCloud to sync your library." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4214,6 +4830,28 @@
         }
       }
     },
+    "Starts %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@开始"
+          }
+        }
+      }
+    },
+    "Still %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仍为 %@。"
+          }
+        }
+      }
+    },
     "Still Sorting" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4221,6 +4859,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "仍在整理"
+          }
+        }
+      }
+    },
+    "Store" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "商店"
           }
         }
       }
@@ -4379,6 +5028,28 @@
         }
       }
     },
+    "Terminal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "航站楼"
+          }
+        }
+      }
+    },
+    "Terminal %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 航站楼"
+          }
+        }
+      }
+    },
     "Terms of Use" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4445,6 +5116,17 @@
         }
       }
     },
+    "The day before, %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前一天 %@"
+          }
+        }
+      }
+    },
     "The evening before the concert, the day before a sale ends, five days before your trip, and in a weekly review." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4456,6 +5138,17 @@
         }
       }
     },
+    "The evening before, %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前一天晚上 %@"
+          }
+        }
+      }
+    },
     "The screenshot couldn't be saved." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4463,6 +5156,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法保存截屏。"
+          }
+        }
+      }
+    },
+    "The shop's page didn't show a price to Laterwise (it may need a browser or a sign-in). The price you saved stays." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该商店的网页未向 Laterwise 显示价格（可能需要浏览器或登录）。你保存时的价格会保留。"
           }
         }
       }
@@ -4588,6 +5292,17 @@
         }
       }
     },
+    "Tickets, boarding passes and itineraries you save appear here by date, with reminders before they start." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你保存的门票、登机牌和行程会按日期显示在这里，并在开始前提醒你。"
+          }
+        }
+      }
+    },
     "Time" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4621,6 +5336,17 @@
         }
       }
     },
+    "To" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目的地"
+          }
+        }
+      }
+    },
     "Today" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4628,6 +5354,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "今天"
+          }
+        }
+      }
+    },
+    "Tomorrow" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明天"
           }
         }
       }
@@ -4676,6 +5413,28 @@
         }
       }
     },
+    "Train" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火车"
+          }
+        }
+      }
+    },
+    "Trains, Buses and Boats" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "火车、巴士和船"
+          }
+        }
+      }
+    },
     "Trash" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4694,6 +5453,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "废纸篓为空"
+          }
+        }
+      }
+    },
+    "Travel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "出行"
+          }
+        }
+      }
+    },
+    "Trip" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程"
           }
         }
       }
@@ -4830,6 +5611,17 @@
         }
       }
     },
+    "Up to %@ from %@." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已从 %2$@ 涨至 %1$@。"
+          }
+        }
+      }
+    },
     "Upcoming" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4848,6 +5640,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "升级到 Pro"
+          }
+        }
+      }
+    },
+    "Use My Usual Reminders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用我的默认提醒"
           }
         }
       }
@@ -5090,6 +5893,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "昨天"
+          }
+        }
+      }
+    },
+    "yesterday at %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨天 %@"
           }
         }
       }
