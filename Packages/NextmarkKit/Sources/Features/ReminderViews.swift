@@ -27,7 +27,8 @@ extension ReminderTime {
             }
             return String(localized: "\(minutes) minutes before")
         case .dayBefore(let hour):
-            let time = SettingsView.label(forHour: hour)
+            let time = (Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: Date()) ?? Date())
+                .formatted(date: .omitted, time: .shortened)
             return hour >= 17 ? String(localized: "The evening before, \(time)") : String(localized: "The day before, \(time)")
         }
     }

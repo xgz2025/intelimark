@@ -172,7 +172,9 @@ struct MuteRuleTests {
         let entries = [entry(.dismissed, daysAgo: 31), entry(.dismissed, daysAgo: 32), entry(.dismissed, daysAgo: 33)]
         #expect(MuteRule.mutedReasons(entries, now: clock.now).isEmpty)
     }
+}
 
+extension MomentGeneratorTests {
     // MARK: Shows and trips
 
     func show(startingAt start: Date) -> ItemRecord {
@@ -219,4 +221,3 @@ struct MuteRuleTests {
         #expect(plan.filter { $0.reason == .deadline }.count == 3)
     }
 }
-
