@@ -29,7 +29,8 @@ function laterwisePrice() {
     // Target
     "[data-test='product-price']",
     // Shein
-    ".productPrice .from", ".product-intro__head-mainprice .original", ".product-intro__head-mainprice",
+    ".productPrice .from", "#productMainPriceId", "[class*='productPrice__main']", ".product-intro__head-mainprice .original",
+    ".product-intro__head-mainprice",
     "[class*='productPrice'] [class*='sale']", "[class*='product-intro__head-price']",
     // eBay, Walmart, Best Buy, AliExpress, Taobao and Tmall, JD, Zara, Uniqlo
     ".x-price-primary", "[data-testid='price-wrap'] [itemprop='price']", ".priceView-customer-price > span",
@@ -53,6 +54,26 @@ function laterwisePrice() {
   for (var i = 0; i < selectors.length; i++) {
     var found = priced(document.querySelector(selectors[i]));
     if (found) return { price: found, currency: currency(), source: "selector" };
+  }
+  // The shop's own data in the page's scripts: Target, Shein and Walmart put the price
+  // there before (or without) showing it. Kept the same as ProductPage.embeddedPatterns.
+  var embedded = [
+    { host: /(^|\.)target\.com$/, pattern: /"formatted_current_price"\s*:\s*"([^"]{1,40})"/, code: "USD" },
+    { host: /(^|\.)target\.com$/, pattern: /"current_retail"\s*:\s*([\d.]{1,12})/, code: "USD" },
+    { host: /(^|\.)shein\./, pattern: /"salePrice"\s*:\s*\{[^{}]{0,400}?"amountWithSymbol"\s*:\s*"([^"]{1,40})"/, code: null },
+    { host: /(^|\.)walmart\./, pattern: /"currentPrice"\s*:\s*\{[^{}]{0,400}?"priceString"\s*:\s*"([^"]{1,40})"/, code: null }
+  ];
+  var scripts = document.querySelectorAll("script:not([src])");
+  for (var k = 0; k < embedded.length; k++) {
+    if (!embedded[k].host.test(location.hostname)) continue;
+    for (var m = 0; m < scripts.length && m < 400; m++) {
+      var match = embedded[k].pattern.exec(scripts[m].textContent || "");
+      if (!match) continue;
+      var value = clean(match[1].replace(/\\u([0-9a-fA-F]{4})/g, function (all, hex) {
+        return String.fromCharCode(parseInt(hex, 16));
+      }));
+      if (/\d/.test(value)) return { price: value, currency: embedded[k].code || currency(), source: "selector" };
+    }
   }
   // Otherwise the price a person would see: a currency amount near the top of the
   // page in the largest type, not struck through (that's the old price).

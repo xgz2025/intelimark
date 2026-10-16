@@ -86,6 +86,34 @@ struct ProductTests {
         #expect(ProductMatching.similarity("女士羊毛大衣 驼色", "驼色羊毛大衣") >= ProductMatching.threshold)
     }
 
+    func record(_ name: String, price: Double? = nil, brand: String? = nil, url: String = "https://shop.example.com/p") -> ItemRecord {
+        var item = ItemRecord(
+            envelope: CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet, url: URL(string: url), title: name), now: now
+        )
+        item.typedFields = TypedFields(product: ProductFields(name: name, brand: brand, price: price, currency: "USD"))
+        return item
+    }
+
+    @Test func theSameProductMatchesAndOthersDont() {
+        // Model numbers decide.
+        #expect(ProductMatching.matches(record("Sony WH-1000XM5 Wireless Headphones"), record("WH-1000XM5 Noise Cancelling Headphones, Black")))
+        #expect(!ProductMatching.matches(record("Sony WH-1000XM5 Wireless Headphones"), record("Sony WH-1000XM4 Wireless Headphones")))
+        // Sizes aren't model numbers.
+        #expect(ProductMatching.matches(record("MacBook Air 13-inch M4 16GB"), record("Apple MacBook Air 13 M4 16GB 512GB")))
+        // Prices far apart.
+        #expect(!ProductMatching.matches(record("Long Wool Coat Camel", price: 30), record("Camel Long Wool Coat", price: 400)))
+        // Other brands.
+        #expect(!ProductMatching.matches(
+            record("Running Shoes Pegasus 41", brand: "Nike"), record("Running Shoes Ultraboost", brand: "Adidas")
+        ))
+        // One word in common isn't enough; shop words don't count.
+        #expect(!ProductMatching.matches(record("Amazon Essentials Wool Sweater"), record("SHEIN Wool Socks")))
+        // The same link, whatever the names.
+        #expect(ProductMatching.matches(
+            record("Coat", url: "https://www.amazon.com/dp/B0ABC12345?tag=x"), record("Something else", url: "https://amazon.com/x/dp/B0ABC12345")
+        ))
+    }
+
     @Test func productLinksMatchWhateverTheirTracking() {
         let amazon = ProductURL.key(URL(string: "https://www.amazon.com/Wool-Coat/dp/B0ABC12345/ref=sr_1_3?tag=x"))
         #expect(amazon == ProductURL.key(URL(string: "https://amazon.com/dp/B0ABC12345?psc=1")))

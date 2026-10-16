@@ -13,6 +13,27 @@ import Model
 import Library
 import DesignSystem
 
+extension ItemRecord {
+    /// Changes whenever what a row shows changes: its identity in lists, so a row is
+    /// redrawn when the page is read, a price found or the title written.
+    var rowVersion: Int {
+        var hasher = Hasher()
+        hasher.combine(id)
+        hasher.combine(updatedAt)
+        hasher.combine(typedFields)
+        hasher.combine(siteName)
+        hasher.combine(userTitle)
+        hasher.combine(sourceTitle)
+        hasher.combine(aiTitle)
+        hasher.combine(summary)
+        hasher.combine(heroImageURL)
+        hasher.combine(intent)
+        hasher.combine(suggestedIntent)
+        hasher.combine(targetPrice)
+        return hasher.finalize()
+    }
+}
+
 struct ItemRow: View {
     let item: ItemRecord
     @Environment(\.itemsDirectory) private var itemsDirectory

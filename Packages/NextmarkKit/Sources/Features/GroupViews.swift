@@ -27,6 +27,7 @@ struct GroupDetailView: View {
     @State private var showsDonePrompt = false
     @State private var outcome = ""
     @State private var showsPaywall = false
+    @State private var priceSummary: String?
     @Environment(\.dismiss) private var dismiss
     @Environment(ProAccess.self) private var pro: ProAccess?
 
@@ -57,9 +58,28 @@ struct GroupDetailView: View {
         // Next steps come from the Brief, a Pro feature.
         let suggestions = (isPro ? group.brief?.suggestedActions ?? [] : [])
             .filter { !detail.knownActionTitles.contains($0.title.lowercased()) }
+        let shown = group.state == .suggested ? suggested : confirmed
+        let products = shown.map(\.item).filter { $0.saveType == .product }
+        let compares = products.count >= 2
+        // Products are listed once, in Compare; Items has the rest.
+        let others = compares ? shown.filter { $0.item.saveType != .product } : shown
         return List {
             Section {
-                GroupHeader(group: group, memberCount: confirmed.count)
+                HStack(alignment: .top) {
+                    GroupHeader(group: group, memberCount: confirmed.count)
+                    if compares {
+                        Spacer(minLength: 8)
+                        GroupPriceCheckButton(
+                            itemIDs: products.map(\.id), services: services, isPro: isPro, summary: $priceSummary
+                        )
+                        .padding(.top, 6)
+                    }
+                }
+                if compares, let priceSummary {
+                    Text(priceSummary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if group.state == .suggested {
@@ -78,9 +98,10 @@ struct GroupDetailView: View {
                 }
             }
 
-            let products = (group.state == .suggested ? suggested : confirmed).map(\.item).filter { $0.saveType == .product }
-            if products.count >= 2 {
-                ComparisonSection(members: products, services: services)
+            if compares {
+                ComparisonSection(members: products, services: services) { id in
+                    run { try await services.groups.removeItem(id, from: groupID) }
+                }
             }
 
             BriefSection(group: group, hasMembers: !confirmed.isEmpty, isPro: isPro) {
@@ -150,22 +171,24 @@ struct GroupDetailView: View {
                 }
             }
 
-            Section {
-                ForEach(group.state == .suggested ? suggested : confirmed) { member in
-                    ItemLinkRow(item: member.item, services: services, removeFromGroup: {
-                        run { try await services.groups.removeItem(member.item.id, from: groupID) }
-                    })
-                    .swipeActions {
-                        Button("Remove", systemImage: "minus.circle", role: .destructive) {
+            if !others.isEmpty || !compares {
+                Section {
+                    ForEach(others) { member in
+                        ItemLinkRow(item: member.item, services: services, removeFromGroup: {
                             run { try await services.groups.removeItem(member.item.id, from: groupID) }
+                        })
+                        .swipeActions {
+                            Button("Remove", systemImage: "minus.circle", role: .destructive) {
+                                run { try await services.groups.removeItem(member.item.id, from: groupID) }
+                            }
                         }
                     }
-                }
-            } header: {
-                if group.state == .suggested {
-                    Text("Items")
-                } else {
-                    Text("Items (\(confirmed.count))")
+                } header: {
+                    if group.state == .suggested || compares {
+                        Text("Items")
+                    } else {
+                        Text("Items (\(confirmed.count))")
+                    }
                 }
             }
         }

@@ -151,7 +151,7 @@ struct ItemSelectionList<Header: View>: View {
             Section(section.title) {
                 ForEach(section.items) { item in
                     if selectable {
-                        ItemRow(item: item).tag(item.id)
+                        ItemRow(item: item).id(item.rowVersion).tag(item.id)
                     } else {
                         ItemLinkRow(item: item, services: services)
                             .swipeActions(edge: .leading) {

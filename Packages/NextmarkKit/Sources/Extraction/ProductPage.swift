@@ -57,6 +57,36 @@ public enum ProductPage {
         )
     }
 
+    /// The price a shop keeps in its page's scripts (Target, Shein, Walmart): there in the
+    /// HTML even before the page shows it. The same patterns as ProductPrice.js.
+    static func embeddedPrice(inHTML html: String, host: String?) -> (price: Double, currency: String?)? {
+        guard let host = host?.lowercased() else { return nil }
+        var patterns: [(Regex<(Substring, Substring)>, String?)] = []
+        if host == "target.com" || host.hasSuffix(".target.com") {
+            patterns = [
+                (#/"formatted_current_price"\s*:\s*"([^"]{1,40})"/#, "USD"),
+                (#/"current_retail"\s*:\s*([\d.]{1,12})/#, "USD"),
+            ]
+        } else if host.contains("shein.") {
+            patterns = [(#/"salePrice"\s*:\s*\{[^{}]{0,400}?"amountWithSymbol"\s*:\s*"([^"]{1,40})"/#, nil)]
+        } else if host.contains("walmart.") {
+            patterns = [(#/"currentPrice"\s*:\s*\{[^{}]{0,400}?"priceString"\s*:\s*"([^"]{1,40})"/#, nil)]
+        }
+        for (pattern, code) in patterns {
+            guard let match = html.firstMatch(of: pattern) else { continue }
+            let text = unescaped(String(match.output.1))
+            if let read = shownPrice(text, currency: code) { return read }
+        }
+        return nil
+    }
+
+    /// "\u002412.49" → "$12.49".
+    static func unescaped(_ text: String) -> String {
+        text.replacing(#/\\u([0-9a-fA-F]{4})/#) { match in
+            UInt32(match.output.1, radix: 16).flatMap(Unicode.Scalar.init).map { String(Character($0)) } ?? ""
+        }
+    }
+
     /// "$1,299.00", "US$25", "29.99": a shown price and its currency.
     static func shownPrice(_ text: String, currency: String?) -> (price: Double, currency: String?)? {
         let code = currency.flatMap { $0.count == 3 ? $0.uppercased() : nil }

@@ -914,6 +914,17 @@
         }
       }
     },
+    "Check All with Pro" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Pro 全部查看"
+          }
+        }
+      }
+    },
     "Check Price" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4258,6 +4269,17 @@
         }
       }
     },
+    "Pro checks a whole group's prices at once, and every day on its own." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro 可以一次查看整个分组的价格，并且每天自动查看。"
+          }
+        }
+      }
+    },
     "Product" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4507,6 +4529,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新读取商店网页以获取当前价格"
+          }
+        }
+      }
+    },
+    "Read this shop's page again for its current price" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新读取这家商店的网页以获取当前价格"
           }
         }
       }

@@ -30,7 +30,10 @@ struct ItemLinkRow: View {
 
     var body: some View {
         NavigationLink(value: ItemLink(id: item.id)) {
+            // On the Mac a link's label isn't redrawn when its item changes (a page read,
+            // a price found): a new identity for each version makes it so.
             ItemRow(item: item)
+                .id(item.rowVersion)
         }
         .draggable(item.id)
         .contextMenu {

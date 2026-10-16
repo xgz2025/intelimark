@@ -255,12 +255,15 @@ struct ProductPriceSection: View {
     }
 }
 
-/// A group's products side by side, cheapest first: what comparing is for.
+/// A group's products side by side, cheapest first: what comparing is for. Each has
+/// its own Check Price; Pro checks the whole group from the group's title line.
 struct ComparisonSection: View {
     let members: [ItemRecord]
     let services: LibraryServices
-    @State private var isChecking = false
-    @State private var summary: String?
+    /// Takes a product out of the group (it stays in the library).
+    let removeFromGroup: (String) -> Void
+    @State private var checking: Set<String> = []
+    @State private var results: [String: String] = [:]
 
     /// Cheapest first; those without a price (or in another currency) after.
     private var ranked: [ItemRecord] {
@@ -285,24 +288,29 @@ struct ComparisonSection: View {
         let cheapest = sorted.first?.typedFields?.product?.price
         Section {
             ForEach(sorted) { item in
-                NavigationLink(value: ItemLink(id: item.id)) {
-                    ComparisonRow(item: item, isCheapest: cheapest != nil && item.typedFields?.product?.price == cheapest
-                                    && item.typedFields?.product?.currency == mainCurrency)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        NavigationLink(value: ItemLink(id: item.id)) {
+                            ComparisonRow(item: item, isCheapest: cheapest != nil && item.typedFields?.product?.price == cheapest
+                                            && item.typedFields?.product?.currency == mainCurrency)
+                                .id(item.rowVersion)
+                        }
+                        checkButton(for: item)
+                    }
+                    if let result = results[item.id] {
+                        Text(result)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
-            Button {
-                check()
-            } label: {
-                HStack {
-                    Label("Check Prices", systemImage: "arrow.clockwise")
-                    Spacer()
-                    if isChecking { ProgressView().controlSize(.small) }
+                .contextMenu {
+                    Button("Check Price", systemImage: "arrow.clockwise") { check(item) }
+                        .disabled(item.canonicalURL == nil || checking.contains(item.id))
+                    Button("Remove from Group", systemImage: "minus.circle") { removeFromGroup(item.id) }
                 }
-            }
-            .disabled(isChecking)
-            .help(Text("Read each shop's page again for its current price"))
-            if let summary {
-                Text(summary).font(.callout).foregroundStyle(.secondary)
+                .swipeActions {
+                    Button("Remove", systemImage: "minus.circle", role: .destructive) { removeFromGroup(item.id) }
+                }
             }
         } header: {
             Text("Compare")
@@ -311,10 +319,69 @@ struct ComparisonSection: View {
         }
     }
 
+    @ViewBuilder
+    private func checkButton(for item: ItemRecord) -> some View {
+        if checking.contains(item.id) {
+            ProgressView().controlSize(.small)
+        } else {
+            Button {
+                check(item)
+            } label: {
+                Label("Check Price", systemImage: "arrow.clockwise")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .disabled(item.canonicalURL == nil)
+            .help(Text("Read this shop's page again for its current price"))
+        }
+    }
+
+    private func check(_ item: ItemRecord) {
+        let (checkPrices, id, currency) = (services.checkPrices, item.id, item.typedFields?.product?.currency)
+        checking.insert(id)
+        results[id] = nil
+        Task {
+            let outcome = await checkPrices([id])[id] ?? .unavailable
+            results[id] = outcome.message(currency: currency)
+            checking.remove(id)
+        }
+    }
+}
+
+/// Checks every product in a group at once, from the group's title line: Pro. Free
+/// checks them one by one in the Compare list.
+struct GroupPriceCheckButton: View {
+    let itemIDs: [String]
+    let services: LibraryServices
+    let isPro: Bool
+    @Binding var summary: String?
+    @State private var isChecking = false
+    @State private var showsPaywall = false
+
+    var body: some View {
+        Group {
+            if isChecking {
+                ProgressView().controlSize(.small)
+            } else {
+                Button {
+                    if isPro { check() } else { showsPaywall = true }
+                } label: {
+                    Label(isPro ? LocalizedStringKey("Check Prices") : "Check All with Pro", systemImage: isPro ? "arrow.clockwise" : "lock")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(Text("Read each shop's page again for its current price"))
+            }
+        }
+        .sheet(isPresented: $showsPaywall) {
+            ProPaywallView(reason: "Pro checks a whole group's prices at once, and every day on its own.")
+        }
+    }
+
     private func check() {
         isChecking = true
         summary = nil
-        let (checkPrices, ids) = (services.checkPrices, members.map(\.id))
+        let (checkPrices, ids) = (services.checkPrices, itemIDs)
         Task {
             let outcomes = await checkPrices(ids)
             let dropped = outcomes.values.filter { if case .dropped = $0 { true } else { false } }.count

@@ -58,6 +58,26 @@ struct ProductPriceTests {
         #expect(tagged.price == 25)
     }
 
+    @Test func readsThePriceAShopKeepsInItsScripts() throws {
+        let target = """
+            <html><head><title>Wool Coat : Target</title></head><body><div id="root"></div>
+            <script>window.__TGT_DATA__ = {"product":{"price":{"current_retail":49.99,"formatted_current_price":"$49.99"}}}</script>
+            </body></html>
+            """
+        let product = try #require(
+            ItemExtractor.extraction(fromHTML: target, baseURL: URL(string: "https://www.target.com/p/coat/-/A-123")!).typedFields?.product
+        )
+        #expect(product.price == 49.99)
+        #expect(product.currency == "USD")
+        #expect(product.origin == .page)
+
+        let shein = #"<script>var productIntroData = {"retailPrice":{"amountWithSymbol":"$20.00"},"salePrice":{"amount":"12.49","amountWithSymbol":"\u002412.49"}}</script>"#
+        let read = try #require(ProductPage.embeddedPrice(inHTML: shein, host: "us.shein.com"))
+        #expect(read.price == 12.49)
+        // Another shop's page isn't read for these keys.
+        #expect(ProductPage.embeddedPrice(inHTML: shein, host: "example.com") == nil)
+    }
+
     @Test func readsWhatThePriceScriptReturns() throws {
         let price = try #require(ShownPrice(script: ["price": "US$15.49", "currency": NSNull(), "source": "visible"] as [String: Any]))
         #expect(price == ShownPrice(price: 15.49, currency: "USD", origin: .shown))

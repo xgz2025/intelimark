@@ -71,9 +71,13 @@ comparing before buying.
      and the person picks the real one.
 
   The first price seen is kept, so the card can say "↓ $50 since saved".
-- **Check Price** on a product (or **Check Prices** on a group) reads the page again
-  (a plain request first; the WebKit page, one at a time, when that shows no price)
-  and records the price. Up to 60 checks are kept as its price history.
+- **Check Price** on a product (its screen, or its row in a group's Compare list)
+  reads the page again and records the price. Up to 60 checks are kept as its price
+  history. First a plain request (the page's tags, schema.org data, or the price Target,
+  Shein and Walmart keep in their page scripts); else the WebKit page, one at a time,
+  in an off-screen window so the shop's scripts run as for a person.
+- **Check Prices** on a group's title line checks all its products at once (Pro; free
+  users check them one by one, or get the paywall from that button).
 - **Target price** (free): "tell me when it's at or under ¥299". Any check that
   crosses it (Check Price, a Safari refresh, Pro's daily check) sends a notification,
   once per crossing; lists mark the product "Under target".
@@ -83,9 +87,14 @@ comparing before buying.
   `ProductURL.key` decides it's the same product (Amazon by its ASIN; shops by their
   product parameters, without tracking ones). A highlight or a note is a new save.
 - **Pro**: prices are checked once a day while Laterwise runs, a notification says
-  when one drops, and similar products are put in a **comparison group** on their
-  own (free users get it as a suggestion). A group of products shows them side by
-  side, cheapest first.
+  when one drops, and the same product saved from several shops is put in a
+  **comparison group** on its own (free users get it as a suggestion). A group's
+  products are listed once, in Compare, cheapest first; its other saves under Items.
+- **Same product?** (`ProductMatching.matches`): the same product link; else model
+  numbers decide ("WH-1000XM5" isn't "WH-1000XM4"; sizes like "16GB" aren't model
+  numbers); else two brands that differ, or prices more than 3× apart, are different
+  products; else the names need two telling words in common (three character pairs
+  in Chinese or Japanese), shop and marketing words not counted.
 - Some prices are shown only to signed-in people (member prices) or only in a shop's
   app; then Check Price says it couldn't read a newer one, and a Safari refresh or a
   screenshot is the way to update it. Laterwise never signs in to a store (its WebKit

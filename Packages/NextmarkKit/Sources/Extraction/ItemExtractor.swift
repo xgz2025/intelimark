@@ -156,8 +156,15 @@ public struct ItemExtractor: Sendable {
 
     public static func extraction(fromHTML html: String, baseURL: URL) -> Extraction {
         let metadata = HTMLParser.metadata(from: html, baseURL: baseURL)
+        var tags = metadata.productTags
+        // No tag states it: the price the shop keeps in the page's scripts.
+        if ProductPage.isShop(baseURL), let embedded = ProductPage.embeddedPrice(inHTML: html, host: baseURL.host()) {
+            tags["laterwise:price"] = String(embedded.price)
+            tags["laterwise:pricesource"] = "selector"
+            if let currency = embedded.currency { tags["laterwise:currency"] = currency }
+        }
         let tagged = ProductPage.product(
-            tags: metadata.productTags, title: metadata.title, description: metadata.description,
+            tags: tags, title: metadata.title, description: metadata.description,
             imageURL: metadata.imageURL?.absoluteString, siteName: metadata.siteName
         )
         return Extraction(

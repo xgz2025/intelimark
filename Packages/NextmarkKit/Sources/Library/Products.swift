@@ -89,8 +89,7 @@ extension GroupRepository {
                 .filter(Column("id") != itemID)
                 .filter(Column("typedFields").like("%\"product\"%"))
                 .fetchAll(db)
-                .filter { $0.saveType == .product }
-                .filter { ProductMatching.similarity(name, $0.typedFields?.product?.name ?? $0.displayTitle) >= ProductMatching.threshold }
+                .filter { $0.saveType == .product && ProductMatching.matches(item, $0) }
                 .map(\.id)
             guard !others.isEmpty else { return nil }
             // A group of the similar products that's still in play, and that the
@@ -146,7 +145,55 @@ public enum ProductMatching {
     static let ignored: Set<String> = [
         "the", "and", "for", "with", "new", "men", "women", "mens", "womens", "unisex", "size", "color", "colour",
         "free", "shipping", "sale", "pack", "set", "inch", "in", "of", "a", "an", "-", "|", "&",
+        // Shop and marketing words say nothing about which product it is.
+        "amazon", "basics", "essentials", "shein", "temu", "official", "store", "shop", "brand", "style", "fashion",
+        "casual", "trendy", "best", "seller", "bestseller", "gift", "gifts", "deal", "deals", "hot", "2024", "2025", "2026",
     ]
+
+    /// Whether two saved products are the same thing, or near enough to compare: the same
+    /// product link; else names alike in their telling words, with nothing that says
+    /// otherwise (other model numbers, another brand, prices far apart).
+    public static func matches(_ lhs: ItemRecord, _ rhs: ItemRecord) -> Bool {
+        let leftURL = lhs.canonicalURL.flatMap { URL(string: $0) }
+        let rightURL = rhs.canonicalURL.flatMap { URL(string: $0) }
+        if let key = ProductURL.key(leftURL), key == ProductURL.key(rightURL) { return true }
+        let left = lhs.typedFields?.product
+        let right = rhs.typedFields?.product
+        let leftName = left?.name ?? lhs.displayTitle
+        let rightName = right?.name ?? rhs.displayTitle
+        let score = similarity(leftName, rightName)
+        // Model numbers decide: "WH-1000XM5" is not "WH-1000XM4".
+        let leftCodes = modelCodes(leftName)
+        let rightCodes = modelCodes(rightName)
+        if !leftCodes.isEmpty, !rightCodes.isEmpty {
+            return !leftCodes.isDisjoint(with: rightCodes) && score >= 0.25
+        }
+        // Two brands that differ: two products.
+        if let leftBrand = left?.brand?.lowercased(), let rightBrand = right?.brand?.lowercased(),
+           !leftBrand.isEmpty, !rightBrand.isEmpty, leftBrand != rightBrand,
+           !rightName.lowercased().contains(leftBrand), !leftName.lowercased().contains(rightBrand) {
+            return false
+        }
+        // A $20 coat and a $300 one aren't the same coat.
+        if let leftPrice = left?.price, let rightPrice = right?.price, leftPrice > 0, rightPrice > 0,
+           left?.currency == right?.currency, max(leftPrice, rightPrice) / min(leftPrice, rightPrice) > 3 {
+            return false
+        }
+        // At least two telling words (three character pairs in Chinese or Japanese) in common.
+        let shared = tokens(leftName).intersection(tokens(rightName))
+        let needed = shared.contains { $0.contains(where: isCJK) } ? 3 : 2
+        return shared.count >= needed && score >= threshold
+    }
+
+    /// Model numbers in a name: letters and digits together ("1000xm5", "a2337"), not
+    /// sizes or amounts ("16gb", "500ml", "1080p").
+    static func modelCodes(_ name: String) -> Set<String> {
+        Set(name.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).filter { token in
+            token.count >= 4 && token.contains(where: \.isNumber) && token.contains(where: \.isLetter)
+                && !token.contains(where: isCJK)
+                && token.wholeMatch(of: #/\d+(gb|tb|mb|mm|cm|ml|oz|lbs?|kg|g|inch|in|ft|w|mah|v|hz|k|p|pcs|pc|pack|x|ct)/#) == nil
+        })
+    }
 
     public static func similarity(_ lhs: String, _ rhs: String) -> Double {
         let a = tokens(lhs)
