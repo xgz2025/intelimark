@@ -86,6 +86,12 @@ struct ItemDetailView: View {
                 }
             }
 
+            if let trip = item.typedFields?.trip {
+                ForEach(Array(trip.legs.enumerated()), id: \.offset) { index, leg in
+                    TripLegSection(leg: leg, mode: trip.mode, index: index, count: trip.legs.count, origin: trip.origin)
+                }
+            }
+
             Section("Details") {
                 ForEach(item.facts) { fact in
                     FactRow(fact: fact, mapsURL: fact.label == .location ? item.photoMapsURL : nil)
@@ -296,7 +302,8 @@ struct ItemDetailView: View {
     /// receipt's own lines (its facts say it better).
     static func snippet(for item: ItemRecord, card: ItemCard) -> String? {
         let candidate: String? = switch card.style {
-        case .receipt: nil
+        case .receipt, .travel: nil
+        case .product: item.typedFields?.product?.description ?? item.summary
         case .photo: item.imageDescription ?? item.summary
         default: item.summary
         }
@@ -509,6 +516,13 @@ private struct FactRow: View {
         case .cookTime: "Total Time"
         case .servings: "Servings"
         case .saved: "Saved"
+        case .priceWhenSaved: "Price When Saved"
+        case .lowestPrice: "Lowest Price"
+        case .priceChecked: "Price Checked"
+        case .store: "Store"
+        case .doors: "Doors Open"
+        case .seat: "Seat"
+        case .bookingCode: "Booking Code"
         }
     }
 
@@ -519,7 +533,66 @@ private struct FactRow: View {
         case .photoLocation: "From the photo's location, named by Apple Maps"
         case .documentInfo: "From the document's properties"
         case .page: "From the page's own data"
+        case .walletPass: "From the Wallet pass"
+        case .calendarFile: "From the calendar file"
+        case .barcode: "From the boarding pass barcode"
+        case .textRules: "Read from the text"
+        case .model: "Found by Apple Intelligence"
         case .capture(let surface): surface.savedFrom
+        }
+    }
+}
+
+/// One leg of a trip: where from and to, when, and the details that get you aboard.
+private struct TripLegSection: View {
+    let leg: TripLeg
+    let mode: TripFields.Mode
+    let index: Int
+    let count: Int
+    let origin: FieldOrigin?
+
+    var body: some View {
+        Section {
+            row("From", leg.fromLabel)
+            row("To", leg.toLabel)
+            if let departure = leg.departure {
+                row("Departs", departure.formatted(date: .abbreviated, time: leg.departureHasTime ? .shortened : .omitted))
+            }
+            if let arrival = leg.arrival {
+                row("Arrives", arrival.formatted(date: .abbreviated, time: .shortened))
+            }
+            row("Terminal", leg.terminal)
+            row("Gate", leg.gate)
+            row("Platform", leg.platform)
+            row("Seat", leg.seat)
+        } header: {
+            Text(title)
+        } footer: {
+            Text(FactRow.source(for: ItemRecord.source(origin)))
+        }
+    }
+
+    private var title: String {
+        let number = [leg.carrier, leg.number].compactMap { $0 }.joined(separator: " ")
+        let kind: String = switch mode {
+        case .flight: String(localized: "Flight")
+        case .train: String(localized: "Train")
+        case .bus: String(localized: "Bus")
+        case .boat: String(localized: "Boat")
+        case .other: String(localized: "Trip")
+        }
+        let part = count > 1 ? String(localized: "\(index + 1) of \(count)") : nil
+        return [kind, number.isEmpty ? nil : number, part].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    @ViewBuilder
+    private func row(_ label: LocalizedStringKey, _ value: String?) -> some View {
+        if let value, !value.isEmpty {
+            LabeledContent(label) {
+                Text(value)
+                    .multilineTextAlignment(.trailing)
+                    .textSelection(.enabled)
+            }
         }
     }
 }
@@ -576,6 +649,7 @@ extension ItemDate.Role {
         case .expiry: "Expires"
         case .reservation: "Reservation"
         case .mentioned: "Date"
+        case .departure: "Departs"
         }
     }
 }

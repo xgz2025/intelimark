@@ -158,7 +158,8 @@ public struct MomentGenerator: Sendable {
             body = String(localized: "Reservation \(when)")
             reason = .reservation
             priority = 3
-        case .mentioned, .eventEnd:
+        // Departures have their own reminders (`reminderMoments`).
+        case .mentioned, .eventEnd, .departure:
             return nil
         }
         guard let fire else { return nil }

@@ -112,4 +112,46 @@ struct ItemCardTests {
         ]
         #expect(photo.inferredPlaces.map(\.name) == ["Ginza"])
     }
+
+    @Test func aTripReadsAsItsRouteAndDeparture() {
+        var trip = item(.image)
+        let departure = Date(timeIntervalSince1970: 1_792_500_000)
+        trip.typedFields = TypedFields(trip: TripFields(mode: .flight, legs: [
+            TripLeg(carrier: "MU", number: "MU 523", from: "Shanghai", fromCode: "PVG", to: "Tokyo", toCode: "NRT",
+                    departure: departure, terminal: "1", seat: "32A"),
+        ]))
+        #expect(trip.saveType == .travel)
+        let card = trip.card
+        #expect(card.style == .travel)
+        #expect(card.title == "Shanghai (PVG) → Tokyo (NRT)")
+        #expect(card.byline?.hasPrefix("MU 523 · ") == true)
+        #expect(trip.departures.first?.date == departure)
+    }
+
+    @Test func aShowReadsAsItsNameDateAndVenue() {
+        var show = item(.link, url: "https://tickets.example.com/order/1")
+        let start = Date(timeIntervalSince1970: 1_792_500_000)
+        show.typedFields = TypedFields(ticket: TicketFields(name: "Swan Lake", startDate: start, venue: "Royal Opera House"))
+        #expect(show.saveType == .show)
+        let card = show.card
+        #expect(card.title == "Swan Lake")
+        #expect(card.byline?.hasSuffix("Royal Opera House") == true)
+        #expect(show.showStart?.date == start)
+    }
+
+    @Test func aProductShowsItsPriceAndChangeSinceSaved() {
+        var coat = item(.link, url: "https://shop.example.com/products/wool-coat")
+        var product = ProductFields(name: "Wool Coat", price: 120, currency: "USD", store: "Example Shop")
+        product.record(price: 120, currency: "USD", at: Date(timeIntervalSince1970: 1_790_000_000))
+        product.record(price: 95, currency: "USD", at: Date(timeIntervalSince1970: 1_790_200_000))
+        coat.typedFields = TypedFields(product: product)
+        let card = coat.card
+        #expect(card.style == .product)
+        #expect(card.figure == 95.0.formatted(.currency(code: "USD")))
+        #expect(card.isDrop)
+        #expect(card.change == "↓ " + 25.0.formatted(.currency(code: "USD")))
+        #expect(product.priceHistory?.map(\.price) == [120, 95])
+        #expect(product.lowestPrice == 95)
+    }
 }
+

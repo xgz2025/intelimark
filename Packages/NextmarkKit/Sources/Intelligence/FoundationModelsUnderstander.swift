@@ -138,9 +138,12 @@ struct GeneratedDate {
 @Generable
 enum GeneratedDateRole {
     case eventStart, eventEnd, deadline, expiry, reservation, mentioned
+    /// When a flight, train or bus leaves.
+    case departure
 
     var role: ItemDate.Role {
         switch self {
+        case .departure: .departure
         case .eventStart: .eventStart
         case .eventEnd: .eventEnd
         case .deadline: .deadline
@@ -163,6 +166,8 @@ struct GeneratedPlace {
 @Generable
 enum GeneratedKind {
     case article, product, place, event, recipe, video, person, receipt, ticket, quote, document, other
+    /// A flight, train or bus ticket, boarding pass or travel itinerary.
+    case travel
 
     var semanticKind: SemanticKind {
         switch self {
@@ -178,6 +183,7 @@ enum GeneratedKind {
         case .quote: .quote
         case .document: .document
         case .other: .other
+        case .travel: .travel
         }
     }
 }

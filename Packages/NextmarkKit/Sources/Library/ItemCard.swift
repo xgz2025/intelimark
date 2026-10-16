@@ -16,7 +16,7 @@ import Model
 /// like a search result. Built from facts only, so it's the same on every device.
 public struct ItemCard: Sendable, Equatable {
     public enum Style: Sendable, Equatable {
-        case web, article, document, receipt, photo, product, event, recipe, place, note
+        case web, article, document, receipt, photo, product, event, recipe, place, note, travel
     }
 
     public var style: Style
@@ -27,6 +27,10 @@ public struct ItemCard: Sendable, Equatable {
     public var byline: String?
     /// The figure that matters at a glance: a receipt's total, a product's price.
     public var figure: String?
+    /// A product's price change since it was saved ("↓ $50.00").
+    public var change: String?
+    /// True when `change` is a drop.
+    public var isDrop = false
     /// What it is, in a line or two.
     public var snippet: String?
 }
@@ -34,10 +38,32 @@ public struct ItemCard: Sendable, Equatable {
 extension ItemRecord {
     public var card: ItemCard {
         let fields = typedFields
-        let kind = semanticKind ?? structuredKind
         var card = ItemCard(style: .note, title: displayTitle)
 
-        if kind == .receipt || fields?.receipt != nil {
+        switch saveType {
+        case .travel:
+            card.style = .travel
+            let leg = fields?.trip?.currentLeg()
+            if userTitle == nil, let leg, let from = leg.fromLabel ?? leg.fromCode, let to = leg.toLabel ?? leg.toCode {
+                card.title = "\(from) → \(to)"
+            }
+            let departure = leg?.departure.map { ItemDate(date: $0, hasTime: leg?.departureHasTime ?? true, role: .departure, source: .structured) }
+                ?? departures.first
+            card.byline = Self.join([leg.flatMap(Self.legNumber), departure.map(Self.when)])
+            card.snippet = Self.join([
+                leg?.terminal.map { String(localized: "Terminal \($0)") },
+                leg?.platform.map { String(localized: "Platform \($0)") },
+                leg?.seat.map { String(localized: "Seat \($0)") },
+            ])
+            return card
+        case .show:
+            card.style = .event
+            if userTitle == nil, let name = fields?.ticket?.name ?? fields?.event?.name { card.title = name }
+            let venue = fields?.ticket?.venue ?? fields?.event?.venue ?? places.first?.name
+            card.byline = Self.join([showStart.map(Self.when), venue])
+            card.snippet = fields?.ticket?.seat.map { String(localized: "Seat \($0)") }
+            return card
+        case .receipt:
             card.style = .receipt
             if userTitle == nil, let merchant = fields?.receipt?.merchant { card.title = merchant }
             card.figure = fields?.receipt?.total.map { Self.money($0, currency: fields?.receipt?.currency) }
@@ -45,6 +71,21 @@ extension ItemRecord {
             let date = fields?.receipt?.purchasedAt ?? fields?.photo?.takenAt
             card.byline = Self.join([fields?.photo?.placeName, date.map(Self.day)])
             return card
+        case .product:
+            card.style = .product
+            let product = fields?.product
+            if userTitle == nil, let name = product?.name { card.title = name }
+            card.source = Self.breadcrumb(canonicalURL, siteName: siteName)
+            card.figure = product?.price.map { Self.money($0, currency: product?.currency) }
+            if let change = product?.changeSinceSaved {
+                card.change = (change < 0 ? "↓ " : "↑ ") + Self.money(abs(change), currency: product?.currency)
+                card.isDrop = change < 0
+            }
+            card.byline = Self.join([product?.store ?? siteName, product?.brand])
+            card.snippet = Self.distinct(product?.description ?? summary, from: card.title)
+            return card
+        default:
+            break
         }
 
         switch self.kind {
@@ -62,14 +103,7 @@ extension ItemRecord {
             card.style = .web
             card.source = Self.breadcrumb(canonicalURL, siteName: siteName)
             card.snippet = Self.distinct(summary, from: card.title)
-            if let product = fields?.product {
-                card.style = .product
-                card.figure = product.price.map { Self.money($0, currency: product.currency) }
-                card.byline = product.brand
-            } else if let event = fields?.event {
-                card.style = .event
-                card.byline = Self.join([event.startDate.map(Self.day), event.venue])
-            } else if let recipe = fields?.recipe {
+            if let recipe = fields?.recipe {
                 card.style = .recipe
                 card.byline = Self.join([
                     recipe.totalMinutes.map { String(localized: "\($0) min") },
@@ -86,6 +120,23 @@ extension ItemRecord {
             card.snippet = Self.distinct(summary, from: card.title)
         }
         return card
+    }
+
+    /// "MU 523" or "China Eastern MU 523".
+    static func legNumber(_ leg: TripLeg) -> String? {
+        switch (leg.carrier, leg.number) {
+        case let (carrier?, number?) where !number.hasPrefix(carrier): "\(carrier) \(number)"
+        case let (_, number?): number
+        case let (carrier?, nil): carrier
+        default: nil
+        }
+    }
+
+    /// "Tue, Oct 20, 14:05", or the day alone when no time is known.
+    static func when(_ date: ItemDate) -> String {
+        date.hasTime
+            ? date.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
+            : date.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     /// "example.com › recipes › ramen-guide": the host without "www.", and the first

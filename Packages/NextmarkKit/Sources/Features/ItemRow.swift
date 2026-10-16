@@ -36,9 +36,16 @@ struct ItemRow: View {
                         .lineLimit(2)
                     Spacer(minLength: 0)
                     if let figure = card.figure {
-                        Text(figure)
-                            .font(.body.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.primary)
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text(figure)
+                                .font(.body.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(.primary)
+                            if let change = card.change {
+                                Text(change)
+                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(card.isDrop ? .green : .red)
+                            }
+                        }
                     }
                 }
                 if let byline = card.byline {
@@ -60,6 +67,9 @@ struct ItemRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
+                Text("Saved \(Self.savedTime(item.createdAt))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
             if let intent = item.intent ?? item.suggestedIntent {
                 Image(systemName: intent.symbolName)
@@ -73,9 +83,23 @@ struct ItemRow: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// "14:03" today, "Yesterday 14:03", "Oct 3" earlier.
+    static func savedTime(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
+            return String(localized: "yesterday at \(date.formatted(date: .omitted, time: .shortened))")
+        }
+        return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
     @ViewBuilder
     private func leading(_ card: ItemCard) -> some View {
-        if let thumbnail = item.thumbnailURL(in: itemsDirectory) {
+        if card.style == .product, let image = item.typedFields?.product?.imageURL.flatMap(URL.init(string:)) ?? item.heroImageURL.flatMap(URL.init(string:)) {
+            ItemThumbnail(url: image, symbolName: "bag")
+                .frame(width: 48, height: 48)
+        } else if let thumbnail = item.thumbnailURL(in: itemsDirectory) {
             ItemThumbnail(url: thumbnail, symbolName: item.kind.symbolName)
                 .frame(width: 48, height: 48)
                 // The Extract stage writes the file later; a new `updatedAt` loads it again.
@@ -101,7 +125,7 @@ struct CardBadge: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(card.style.tint)
             } else {
-                Image(systemName: card.style.symbolName(for: item.kind))
+                Image(systemName: card.style == .travel ? item.travelSymbol : card.style.symbolName(for: item.kind))
                     .font(.headline)
                     .foregroundStyle(card.style.tint)
             }
@@ -133,6 +157,7 @@ extension ItemCard.Style {
         case .recipe: .pink
         case .place: .teal
         case .note: .gray
+        case .travel: .purple
         }
     }
 
@@ -148,6 +173,19 @@ extension ItemCard.Style {
         case .recipe: "fork.knife"
         case .place: "mappin.and.ellipse"
         case .note: kind.symbolName
+        case .travel: "airplane"
+        }
+    }
+}
+
+extension ItemRecord {
+    /// A plane, train, bus or boat, by how the trip goes.
+    var travelSymbol: String {
+        switch typedFields?.trip?.mode {
+        case .train: "tram.fill"
+        case .bus: "bus.fill"
+        case .boat: "ferry.fill"
+        default: "airplane"
         }
     }
 }

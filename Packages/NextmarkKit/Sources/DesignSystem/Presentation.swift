@@ -79,6 +79,7 @@ extension SemanticKind {
         case .quote: "Quote"
         case .document: "Document"
         case .other: "Other"
+        case .travel: "Trip"
         }
     }
 
@@ -97,6 +98,7 @@ extension SemanticKind {
         case .quote: "Quotes"
         case .document: "Documents"
         case .other: "Other"
+        case .travel: "Travel"
         }
     }
 
@@ -114,6 +116,7 @@ extension SemanticKind {
         case .quote: "quote.opening"
         case .document: "doc"
         case .other: "square.dashed"
+        case .travel: "airplane"
         }
     }
 }

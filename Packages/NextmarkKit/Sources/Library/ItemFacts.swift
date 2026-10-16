@@ -17,8 +17,8 @@ public struct ItemFact: Sendable, Equatable, Identifiable {
     public enum Label: String, Sendable, Equatable {
         case merchant, total, purchased, taken, location
         case author, publisher, published, created
-        case price, brand, availability
-        case starts, ends, venue, address, phone
+        case price, priceWhenSaved, lowestPrice, priceChecked, store, brand, availability
+        case starts, doors, ends, venue, address, phone, seat, bookingCode
         case cookTime, servings
         case saved
     }
@@ -35,6 +35,13 @@ public struct ItemFact: Sendable, Equatable, Identifiable {
         case documentInfo
         /// The page's own data (schema.org and meta tags).
         case page
+        case walletPass
+        case calendarFile
+        /// The barcode on a boarding pass.
+        case barcode
+        /// Laterwise's text rules.
+        case textRules
+        case model
         /// Laterwise, when it was saved.
         case capture(CaptureSurface)
     }
@@ -89,10 +96,33 @@ extension ItemRecord {
             // A PDF's date is when the file was made, not when it was published.
             add(kind == .link ? .published : .created, article.publishedAt, hasTime: false, source)
         }
+        if let ticket = fields?.ticket {
+            let source = Self.source(ticket.origin)
+            add(.starts, ticket.startDate, hasTime: ticket.startHasTime, source)
+            add(.doors, ticket.doorsAt, hasTime: true, source)
+            add(.ends, ticket.endDate, hasTime: true, source)
+            add(.venue, ticket.venue, source)
+            add(.address, ticket.address, source)
+            add(.seat, ticket.seat, source)
+            add(.bookingCode, ticket.bookingCode, source)
+        }
+        if let trip = fields?.trip {
+            // Each leg has its own section; the booking is the trip's.
+            add(.bookingCode, trip.bookingCode, Self.source(trip.origin))
+        }
         if let product = fields?.product {
-            add(.price, product.price.map { Self.money($0, currency: product.currency) }, .page)
-            add(.brand, product.brand, .page)
-            add(.availability, product.availability.map(Self.availability), .page)
+            let source = Self.source(product.origin)
+            add(.price, product.price.map { Self.money($0, currency: product.currency) }, source)
+            if product.changeSinceSaved != nil {
+                add(.priceWhenSaved, product.originalPrice.map { Self.money($0, currency: product.currency) }, source)
+            }
+            if let lowest = product.lowestPrice, lowest != product.price {
+                add(.lowestPrice, Self.money(lowest, currency: product.currency), source)
+            }
+            add(.priceChecked, product.checkedAt, hasTime: true, source)
+            add(.store, product.store ?? siteName, source)
+            add(.brand, product.brand, source)
+            add(.availability, product.availability.map(Self.availability), source)
         }
         if let event = fields?.event {
             add(.starts, event.startDate, hasTime: event.startDate.map { FactMerge.hasTimeOfDay($0) } ?? false, .page)
@@ -127,6 +157,18 @@ extension ItemRecord {
             return nil
         })
         return places.filter { $0.source != .structured && !known.contains($0.name.lowercased()) }
+    }
+
+    public static func source(_ origin: FieldOrigin?) -> ItemFact.Source {
+        switch origin {
+        case .walletPass: .walletPass
+        case .calendarFile: .calendarFile
+        case .barcode: .barcode
+        case .text: .textRules
+        case .document: .documentInfo
+        case .model: .model
+        case .page, nil: .page
+        }
     }
 
     /// "https://schema.org/InStock" → "In stock".
