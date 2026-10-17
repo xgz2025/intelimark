@@ -35,6 +35,11 @@ public struct MomentSettings: Sendable, Equatable {
     /// Date, plan and action reminders are Pro; the Weekly Review stays free (PRD P4).
     /// Set from the purchase, not from Settings.
     public var includesTimeMoments = true
+    /// Reminders before shows and departures: free, on by default (Docs/save_types.md).
+    public var remindsOfShowsAndTrips = true
+    public var reminderDefaults: [ReminderKind: [ReminderTime]] = Dictionary(
+        uniqueKeysWithValues: ReminderKind.allCases.map { ($0, $0.standard) }
+    )
 
     public init() {}
 
@@ -47,6 +52,10 @@ public struct MomentSettings: Sendable, Equatable {
         isReviewEnabled = value(Key.reviewEnabled, true)
         reviewWeekday = value(Key.reviewWeekday, reviewWeekday)
         reviewHour = value(Key.reviewHour, reviewHour)
+        remindsOfShowsAndTrips = ReminderDefaults.isEnabled(defaults: defaults)
+        reminderDefaults = Dictionary(uniqueKeysWithValues: ReminderKind.allCases.map {
+            ($0, ReminderDefaults.times(for: $0, defaults: defaults))
+        })
     }
 }
 
@@ -89,8 +98,14 @@ public struct MomentGenerator: Sendable {
         now: Date
     ) -> [MomentCandidate] {
         var moments: [MomentCandidate] = []
+        // Shows and trips: the reminders the person chose, free.
+        if settings.remindsOfShowsAndTrips {
+            for item in items where (item.status == .inbox || item.status == .active) && Self.hasReminders(item) {
+                moments += reminderMoments(item, settings: settings, now: now)
+            }
+        }
         if settings.isEnabled && settings.includesTimeMoments {
-            for item in items where item.status == .inbox || item.status == .active {
+            for item in items where (item.status == .inbox || item.status == .active) && !Self.hasReminders(item) {
                 moments += itemMoments(item, now: now)
             }
             for plan in plans {
@@ -112,7 +127,8 @@ public struct MomentGenerator: Sendable {
         var announcedItems = Set<String>()
         return relevant.filter { moment in
             guard moment.fireDate > now else { return false }
-            guard moment.targetKind == .item else { return true }
+            // Set reminders all go: each was chosen.
+            guard moment.targetKind == .item, !moment.isRequested else { return true }
             return announcedItems.insert(moment.targetID).inserted
         }
     }
@@ -126,6 +142,65 @@ public struct MomentGenerator: Sendable {
             .filter { latest(for: $0) > now && $0.date < now.addingTimeInterval(Self.horizon) && $0.role != .mentioned && $0.role != .eventEnd }
             .sorted { $0.date < $1.date }
             .compactMap { itemMoment(item, date: $0, now: now) }
+    }
+
+    /// Shows and trips get the reminders set for them, not the general date rules.
+    static func hasReminders(_ item: ItemRecord) -> Bool {
+        item.saveType == .show || item.saveType == .travel
+    }
+
+    static func reminderKind(_ item: ItemRecord) -> ReminderKind {
+        guard item.saveType == .travel else { return .show }
+        switch item.typedFields?.trip?.mode {
+        case .train, .bus, .boat: return .train
+        default: return .flight
+        }
+    }
+
+    /// A Moment for each reminder time before the show starts, or before each leg
+    /// leaves. A date without a time gets one reminder, the morning before.
+    func reminderMoments(_ item: ItemRecord, settings: MomentSettings, now: Date) -> [MomentCandidate] {
+        let kind = Self.reminderKind(item)
+        let times = item.reminders ?? settings.reminderDefaults[kind] ?? kind.standard
+        guard !times.isEmpty else { return [] }
+        let anchors: [ItemDate] = item.saveType == .show ? item.showStart.map { [$0] } ?? [] : item.departures
+        let title = String(item.displayTitle.prefix(80))
+        var moments: [MomentCandidate] = []
+        for (index, anchor) in anchors.enumerated() where latest(for: anchor) > now {
+            let fires: [(String, Date?)] = anchor.hasTime
+                ? times.map { time -> (String, Date?) in
+                    switch time {
+                    case .before(let minutes): (time.id, anchor.date.addingTimeInterval(-Double(minutes) * 60))
+                    case .dayBefore(let hour): (time.id, dayBefore(anchor.date, hour: hour))
+                    }
+                }
+                : [("day", dayBefore(anchor.date, hour: 9))]
+            for (slot, fire) in fires {
+                guard let fire, fire > now else { continue }
+                moments.append(MomentCandidate(
+                    targetID: item.id, targetKind: .item, fireDate: fire,
+                    reason: item.saveType == .show ? .eventStart : .departure, priority: 5,
+                    title: title, body: reminderBody(item, anchor: anchor, leg: index),
+                    latest: latest(for: anchor), slot: "\(slot).\(index)"
+                ))
+            }
+        }
+        return moments
+    }
+
+    /// "Starts Saturday, Nov 21, 19:30 · Royal Opera House" or
+    /// "MU 523 PVG → NRT · leaves Tuesday, Oct 20, 14:05".
+    func reminderBody(_ item: ItemRecord, anchor: ItemDate, leg index: Int) -> String {
+        let when = describe(anchor)
+        if item.saveType == .show {
+            let venue = item.typedFields?.ticket?.venue ?? item.typedFields?.event?.venue ?? item.places.first?.name
+            return [String(localized: "Starts \(when)"), venue].compactMap { $0 }.joined(separator: " · ")
+        }
+        let legs = item.typedFields?.trip?.legs ?? []
+        let leg = index < legs.count ? legs[index] : nil
+        let route = [leg?.fromCode ?? leg?.from, leg?.toCode ?? leg?.to].compactMap { $0 }.joined(separator: " → ")
+        let what = [leg?.number, route.isEmpty ? nil : route].compactMap { $0 }.joined(separator: " ")
+        return [what.isEmpty ? nil : what, String(localized: "leaves \(when)")].compactMap { $0 }.joined(separator: " · ")
     }
 
     func itemMoment(_ item: ItemRecord, date: ItemDate, now: Date) -> MomentCandidate? {
@@ -158,7 +233,8 @@ public struct MomentGenerator: Sendable {
             body = String(localized: "Reservation \(when)")
             reason = .reservation
             priority = 3
-        case .mentioned, .eventEnd:
+        // Departures have their own reminders (`reminderMoments`).
+        case .mentioned, .eventEnd, .departure:
             return nil
         }
         guard let fire else { return nil }

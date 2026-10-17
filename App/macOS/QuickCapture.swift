@@ -113,7 +113,7 @@ final class QuickCaptureController {
             content.sourceApp = sourceApp
             do {
                 try CaptureWriter.commit(content, id: id, surface: .quickCapture, store: store)
-                SavedHUD.show(String(localized: "Saved to Nextmark"))
+                SavedHUD.show(String(localized: "Saved to Laterwise"))
             } catch {
                 try? store.discard(id)
                 SavedHUD.show(error.localizedDescription, systemImage: "exclamationmark.triangle.fill")
@@ -125,7 +125,7 @@ final class QuickCaptureController {
         panel?.orderOut(nil)
         panel?.contentView = nil
         session = nil
-        if saved { SavedHUD.show(String(localized: "Saved to Nextmark")) }
+        if saved { SavedHUD.show(String(localized: "Saved to Laterwise")) }
     }
 }
 
@@ -268,7 +268,7 @@ final class QuickCaptureSession {
     }
 }
 
-/// A floating panel that takes keyboard focus without bringing Nextmark's other
+/// A floating panel that takes keyboard focus without bringing Laterwise's other
 /// windows forward, like Spotlight. Esc cancels.
 final class QuickCapturePanel: NSPanel {
     var onCancel: (() -> Void)?

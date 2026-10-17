@@ -20,6 +20,8 @@ public enum FactSource: String, Codable, Sendable, Hashable {
 public struct ItemDate: Codable, Sendable, Hashable {
     public enum Role: String, Codable, Sendable, Hashable, CaseIterable {
         case eventStart, eventEnd, deadline, expiry, reservation, mentioned
+        /// When a flight, train, bus or boat leaves.
+        case departure
     }
 
     public var date: Date
@@ -56,26 +58,44 @@ public struct ItemPlace: Codable, Sendable, Hashable {
 }
 
 extension TypedFields {
-    /// Dates declared by the page's own schema.org data.
+    /// Dates the item states about itself: a ticket's or event's start and end, each
+    /// leg's departure.
     public var structuredDates: [ItemDate] {
-        guard let event else { return [] }
         var dates: [ItemDate] = []
-        if let start = event.startDate {
-            dates.append(ItemDate(date: start, hasTime: FactMerge.hasTimeOfDay(start), role: .eventStart, source: .structured))
+        if let ticket, let start = ticket.startDate {
+            dates.append(ItemDate(date: start, hasTime: ticket.startHasTime, role: .eventStart, source: .structured))
+            if let end = ticket.endDate {
+                dates.append(ItemDate(date: end, hasTime: FactMerge.hasTimeOfDay(end), role: .eventEnd, source: .structured))
+            }
+        } else if let event {
+            if let start = event.startDate {
+                dates.append(ItemDate(date: start, hasTime: FactMerge.hasTimeOfDay(start), role: .eventStart, source: .structured))
+            }
+            if let end = event.endDate {
+                dates.append(ItemDate(date: end, hasTime: FactMerge.hasTimeOfDay(end), role: .eventEnd, source: .structured))
+            }
         }
-        if let end = event.endDate {
-            dates.append(ItemDate(date: end, hasTime: FactMerge.hasTimeOfDay(end), role: .eventEnd, source: .structured))
+        for leg in trip?.legs ?? [] {
+            if let departure = leg.departure {
+                dates.append(ItemDate(date: departure, hasTime: leg.departureHasTime, role: .departure, source: .structured))
+            }
         }
         return dates
     }
 
-    /// Places declared by the page's own schema.org data.
+    /// Places the item states about itself.
     public var structuredPlaces: [ItemPlace] {
+        if let ticket, let venue = ticket.venue {
+            return [ItemPlace(name: venue, address: ticket.address, source: .structured)]
+        }
         if let place, let name = place.name ?? place.address {
             return [ItemPlace(name: name, address: place.address, latitude: place.latitude, longitude: place.longitude, source: .structured)]
         }
         if let event, let venue = event.venue {
             return [ItemPlace(name: venue, address: event.address, source: .structured)]
+        }
+        if let photo, let name = photo.placeName {
+            return [ItemPlace(name: name, latitude: photo.latitude, longitude: photo.longitude, source: .structured)]
         }
         return []
     }
@@ -108,7 +128,7 @@ public enum FactMerge {
     }
 
     /// schema.org dates without a time parse to local midnight (`SchemaDate`).
-    static func hasTimeOfDay(_ date: Date, calendar: Calendar = .current) -> Bool {
+    public static func hasTimeOfDay(_ date: Date, calendar: Calendar = .current) -> Bool {
         let parts = calendar.dateComponents([.hour, .minute, .second], from: date)
         return parts.hour != 0 || parts.minute != 0 || parts.second != 0
     }

@@ -11,8 +11,9 @@
 import SwiftUI
 import StoreKit
 import Store
+import Intelligence
 
-/// Nextmark Pro (PRD P4): what it adds, the three ways to get it, and Restore.
+/// Laterwise Pro (PRD P4): what it adds, the three ways to get it, and Restore.
 /// Capture, search and the library are never behind it.
 public struct ProPaywallView: View {
     /// What the person was trying to do, shown first.
@@ -31,7 +32,7 @@ public struct ProPaywallView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Nextmark Pro")
+                        Text("Laterwise Pro")
                             .font(.largeTitle.bold())
                         Text(reason ?? "From saved to done.")
                             .font(.title3)
@@ -55,6 +56,15 @@ public struct ProPaywallView: View {
                                 .padding(12)
                                 .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
                         }
+                    }
+                    if !IntelligenceStatus.current.isAvailable {
+                        // Said before buying, where Apple Intelligence is off or not offered.
+                        Label(
+                            "Apple Intelligence isn't on for this device, so Laterwise's built-in rules write Briefs. They're improved automatically if it's turned on later.",
+                            systemImage: "info.circle"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     }
                     Text("Free always keeps unlimited saving, search, sync and the Weekly Review. Subscriptions renew until cancelled in your Apple Account settings.")
                         .font(.footnote)
@@ -94,7 +104,7 @@ public struct ProPaywallView: View {
             .alert("Waiting for Approval", isPresented: $isAwaitingApproval) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Nextmark Pro unlocks as soon as the purchase is approved.")
+                Text("Laterwise Pro unlocks as soon as the purchase is approved.")
             }
             .alert(
                 "Couldn't Complete the Purchase",

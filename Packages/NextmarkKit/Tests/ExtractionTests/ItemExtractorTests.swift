@@ -77,10 +77,10 @@ struct ItemExtractorTests {
     @Test func extractsPDFText() async throws {
         let directory = try Fixtures.temporaryDirectory()
         let file = directory.appending(path: "itinerary.pdf")
-        try Fixtures.makePDF(text: "Nextmark itinerary Kyoto", at: file)
+        try Fixtures.makePDF(text: "Laterwise itinerary Kyoto", at: file)
         let extraction = try await ItemExtractor(fetcher: FakeFetcher.html(""), imageAnalyzer: nil)
             .extract(ExtractionInput(kind: .pdf, files: [LocalFile(url: file, contentType: "com.adobe.pdf")]))
-        #expect(extraction.contentText?.contains("Nextmark itinerary Kyoto") == true)
+        #expect(extraction.contentText?.contains("Laterwise itinerary Kyoto") == true)
     }
     #endif
 

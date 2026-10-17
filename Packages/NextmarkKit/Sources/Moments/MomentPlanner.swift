@@ -14,6 +14,10 @@ import Foundation
 public struct MomentCandidate: Sendable, Hashable {
     public enum Reason: String, Sendable, Hashable, CaseIterable {
         case eventStart, deadline, expiry, reservation, planDate, actionDue, weeklyReview, recap
+        /// A flight, train, bus or boat leaving.
+        case departure
+        /// A saved product got cheaper (Pro).
+        case priceDrop
     }
 
     public enum TargetKind: String, Sendable, Hashable {
@@ -31,6 +35,10 @@ public struct MomentCandidate: Sendable, Hashable {
     /// When the Moment's subject passes (the event starts, the day of the deadline
     /// ends). A Moment that would fire after it isn't worth sending.
     public var latest: Date?
+    /// One of several reminders the person set for the same show or trip (which
+    /// time, for which leg). Set reminders keep their time through quiet hours and
+    /// don't count against the daily limit: they were asked for.
+    public var slot: String?
 
     public init(
         targetID: String,
@@ -40,8 +48,10 @@ public struct MomentCandidate: Sendable, Hashable {
         priority: Int = 0,
         title: String = "",
         body: String = "",
-        latest: Date? = nil
+        latest: Date? = nil,
+        slot: String? = nil
     ) {
+        self.slot = slot
         self.targetID = targetID
         self.targetKind = targetKind
         self.fireDate = fireDate
@@ -53,7 +63,12 @@ public struct MomentCandidate: Sendable, Hashable {
     }
 
     /// Stable per target and reason, so rescheduling replaces rather than duplicates.
-    public var identifier: String { "moment.\(reason.rawValue).\(targetID)" }
+    public var identifier: String {
+        "moment.\(reason.rawValue).\(targetID)" + (slot.map { ".\($0)" } ?? "")
+    }
+
+    /// A reminder the person set, rather than one Laterwise chose.
+    public var isRequested: Bool { slot != nil }
 }
 
 public struct MomentPolicy: Sendable, Equatable {
@@ -89,6 +104,7 @@ public struct MomentPlanner: Sendable {
         let upcoming = candidates
             .filter { $0.fireDate > now }
             .compactMap { candidate -> MomentCandidate? in
+                guard !candidate.isRequested else { return candidate }
                 var moved = candidate
                 moved.fireDate = outsideQuietHours(candidate.fireDate)
                 // Quiet hours never push a Moment past what it's about.
@@ -96,8 +112,9 @@ public struct MomentPlanner: Sendable {
                 return moved
             }
         let used = Dictionary(grouping: committed) { calendar.startOfDay(for: $0) }.mapValues(\.count)
-        let byDay = Dictionary(grouping: upcoming) { calendar.startOfDay(for: $0.fireDate) }
-        let withinBudget = byDay.flatMap { day, moments in
+        let requested = upcoming.filter(\.isRequested)
+        let byDay = Dictionary(grouping: upcoming.filter { !$0.isRequested }) { calendar.startOfDay(for: $0.fireDate) }
+        let withinBudget = requested + byDay.flatMap { day, moments in
             moments.sorted { lhs, rhs in
                 lhs.priority != rhs.priority ? lhs.priority > rhs.priority : lhs.fireDate < rhs.fireDate
             }

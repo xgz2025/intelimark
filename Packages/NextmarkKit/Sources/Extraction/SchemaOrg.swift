@@ -22,6 +22,13 @@ public enum SchemaOrg {
             else { return [] }
             return collectNodes(json)
         }
+        // Bookings say exactly what was bought: they win over anything else on the page.
+        if let trip = trip(from: nodes) {
+            return StructuredData(kind: .travel, fields: TypedFields(trip: trip))
+        }
+        if let ticket = ticket(from: nodes) {
+            return StructuredData(kind: .ticket, fields: TypedFields(ticket: ticket))
+        }
         let ranked = nodes.compactMap { node -> (rank: Int, kind: SemanticKind, node: [String: Any])? in
             guard let match = classify(types(of: node)) else { return nil }
             return (match.0, match.1, node)
@@ -43,6 +50,96 @@ public enum SchemaOrg {
         if let graph = object["@graph"] { nodes += collectNodes(graph, depth: depth + 1) }
         if let main = object["mainEntity"] { nodes += collectNodes(main, depth: depth + 1) }
         return nodes
+    }
+
+    // MARK: Bookings
+
+    static let tripTypes: [String: TripFields.Mode] = [
+        "FlightReservation": .flight, "Flight": .flight,
+        "TrainReservation": .train, "TrainTrip": .train,
+        "BusReservation": .bus, "BusTrip": .bus,
+        "BoatReservation": .boat, "BoatTrip": .boat,
+    ]
+
+    /// Every flight, train, bus or boat booked on the page (an itinerary lists several).
+    static func trip(from nodes: [[String: Any]]) -> TripFields? {
+        var mode: TripFields.Mode?
+        var legs: [TripLeg] = []
+        var bookingCode: String?
+        var seen = Set<String>()
+        for node in nodes {
+            guard let nodeMode = types(of: node).compactMap({ tripTypes[$0] }).first else { continue }
+            let isReservation = types(of: node).contains { $0.hasSuffix("Reservation") }
+            let journey = isReservation ? first(node["reservationFor"]) ?? [:] : node
+            var leg = tripLeg(journey, mode: nodeMode)
+            if isReservation {
+                bookingCode = bookingCode ?? string(node["reservationNumber"])
+                leg.seat = leg.seat ?? string(first(node["airplaneSeat"])?["seatNumber"]) ?? string(node["airplaneSeat"])
+                    ?? first(node["reservedTicket"]).flatMap { string(first($0["ticketedSeat"])?["seatNumber"]) }
+            }
+            // A page can list the same leg twice (a reservation and its flight).
+            let key = [leg.number, leg.fromCode ?? leg.from, leg.departure.map { "\($0.timeIntervalSince1970)" }]
+                .compactMap { $0 }.joined(separator: "|")
+            guard leg.from != nil || leg.fromCode != nil || leg.departure != nil, seen.insert(key).inserted else { continue }
+            mode = mode ?? nodeMode
+            legs.append(leg)
+        }
+        guard let mode, !legs.isEmpty else { return nil }
+        legs.sort { ($0.departure ?? .distantFuture) < ($1.departure ?? .distantFuture) }
+        return TripFields(mode: mode, legs: legs, bookingCode: bookingCode, origin: .page)
+    }
+
+    static func tripLeg(_ journey: [String: Any], mode: TripFields.Mode) -> TripLeg {
+        func stop(_ keys: [String]) -> [String: Any]? {
+            keys.lazy.compactMap { first(journey[$0]) }.first
+        }
+        let from = stop(["departureAirport", "departureStation", "departureBusStop", "departureBoatTerminal"])
+        let to = stop(["arrivalAirport", "arrivalStation", "arrivalBusStop", "arrivalBoatTerminal"])
+        let carrier = name(of: journey["airline"]) ?? name(of: journey["provider"]) ?? string(first(journey["airline"])?["iataCode"])
+        let airlineCode = string(first(journey["airline"])?["iataCode"])
+        let number = string(journey["flightNumber"]).map { number in
+            guard let airlineCode, !number.hasPrefix(airlineCode) else { return number }
+            return "\(airlineCode) \(number)"
+        } ?? string(journey["trainNumber"]) ?? string(journey["busNumber"]) ?? string(journey["trainName"])
+        let departureText = string(journey["departureTime"])
+        return TripLeg(
+            carrier: carrier,
+            number: number,
+            from: from.flatMap { string($0["name"]) } ?? string(journey["departureAirport"]),
+            fromCode: from.flatMap { string($0["iataCode"]) },
+            to: to.flatMap { string($0["name"]) } ?? string(journey["arrivalAirport"]),
+            toCode: to.flatMap { string($0["iataCode"]) },
+            departure: SchemaDate.parse(departureText),
+            departureHasTime: departureText.map { $0.contains("T") } ?? true,
+            arrival: SchemaDate.parse(string(journey["arrivalTime"])),
+            terminal: string(journey["departureTerminal"]),
+            gate: string(journey["departureGate"]),
+            platform: string(journey["departurePlatform"])
+        )
+    }
+
+    /// A ticket bought for a show, concert, game or film.
+    static func ticket(from nodes: [[String: Any]]) -> TicketFields? {
+        guard let reservation = nodes.first(where: { types(of: $0).contains("EventReservation") }),
+              let event = first(reservation["reservationFor"])
+        else { return nil }
+        let location = first(event["location"])
+        let startText = string(event["startDate"])
+        let seat = first(reservation["reservedTicket"]).flatMap { first($0["ticketedSeat"]) }.map { seat in
+            [string(seat["seatSection"]), string(seat["seatRow"]), string(seat["seatNumber"])].compactMap { $0 }.joined(separator: " · ")
+        }
+        return TicketFields(
+            name: string(event["name"]),
+            startDate: SchemaDate.parse(startText),
+            startHasTime: startText.map { $0.contains("T") } ?? true,
+            doorsAt: SchemaDate.parse(string(event["doorTime"])),
+            endDate: SchemaDate.parse(string(event["endDate"])),
+            venue: location.flatMap { string($0["name"]) } ?? string(event["location"]),
+            address: location.flatMap { address($0["address"]) },
+            seat: seat.flatMap { $0.isEmpty ? nil : $0 },
+            bookingCode: string(reservation["reservationNumber"]),
+            origin: .page
+        )
     }
 
     static func types(of node: [String: Any]) -> [String] {
@@ -103,12 +200,17 @@ public enum SchemaOrg {
             return offers
         }
         let price = number(offer?["price"]) ?? number(offer?["lowPrice"])
+            ?? number(first(offer?["priceSpecification"])?["price"])
         return ProductFields(
             name: string(node["name"]),
             brand: name(of: node["brand"]),
             price: price,
-            currency: string(offer?["priceCurrency"]),
-            availability: string(offer?["availability"]).map { $0.components(separatedBy: "/").last ?? $0 }
+            currency: string(offer?["priceCurrency"]) ?? string(first(offer?["priceSpecification"])?["priceCurrency"]),
+            availability: string(offer?["availability"]).map { $0.components(separatedBy: "/").last ?? $0 },
+            description: string(node["description"]).map { String($0.prefix(500)) },
+            imageURL: imageURL(node["image"]),
+            store: name(of: offer?["seller"]),
+            origin: .page
         )
     }
 
@@ -160,6 +262,14 @@ public enum SchemaOrg {
     }
 
     // MARK: Value helpers
+
+    /// `"https://…"`, `["https://…"]` or `{"url": "https://…"}`.
+    static func imageURL(_ value: Any?) -> String? {
+        if let text = string(value), text.hasPrefix("http") { return text }
+        if let array = value as? [Any] { return array.lazy.compactMap { imageURL($0) }.first }
+        if let object = value as? [String: Any] { return imageURL(object["url"] ?? object["contentUrl"]) }
+        return nil
+    }
 
     /// The first object of a value that may be an object or an array of objects.
     static func first(_ value: Any?) -> [String: Any]? {
@@ -224,6 +334,13 @@ enum SchemaDate {
         ] {
             iso.formatOptions = options
             if let date = iso.date(from: text) { return date }
+        }
+        // With an offset but no seconds ("2026-10-20T14:05+08:00"), as Wallet passes write it.
+        let offset = DateFormatter()
+        offset.locale = Locale(identifier: "en_US_POSIX")
+        for format in ["yyyy-MM-dd'T'HH:mmXXXXX", "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"] {
+            offset.dateFormat = format
+            if let date = offset.date(from: text) { return date }
         }
         // Local date-times without an offset are common for events. A date alone
         // ("2026-11-21") is that day where the user is: local midnight, which

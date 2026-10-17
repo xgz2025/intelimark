@@ -53,6 +53,10 @@ public struct FoundationModelsUnderstander: ItemUnderstander {
         let generated = response.content
         let source = input.groundingText
         let description = generated.imageDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dates = Grounding.dates(
+            from: generated.dates.map { DateCandidate(evidence: $0.evidence, isoDate: $0.isoDate, role: $0.role.role) },
+            in: source
+        )
         return Understanding(
             title: generated.title,
             summary: generated.summary,
@@ -60,16 +64,16 @@ public struct FoundationModelsUnderstander: ItemUnderstander {
             likelyIntent: generated.likelyIntent.intent,
             keywords: generated.keywords,
             imageDescription: input.isImage && !description.isEmpty ? description : nil,
-            dates: Grounding.dates(
-                from: generated.dates.map { DateCandidate(evidence: $0.evidence, isoDate: $0.isoDate, role: $0.role.role) },
-                in: source
-            ),
+            dates: dates,
             places: Grounding.places(
                 from: generated.places.map { PlaceCandidate(name: $0.name, address: $0.address) },
                 in: source
             ),
             producer: "foundation-models",
-            isProvisional: false
+            isProvisional: false,
+            trip: generated.kind == .travel
+                ? Grounding.trip(from: generated.travelFrom, to: generated.travelTo, number: generated.travelNumber, departures: dates, in: source)
+                : nil
         )
     }
 }
@@ -122,6 +126,15 @@ struct GeneratedUnderstanding {
 
     @Guide(description: "Specific named places in the content: venues, restaurants, shops, hotels, addresses. Leave empty if none.", .maximumCount(5))
     var places: [GeneratedPlace]
+
+    @Guide(description: "Only for a flight, train, bus or boat ticket, boarding pass or itinerary: the city, airport or station it leaves from, copied from the content. Empty otherwise.")
+    var travelFrom: String
+
+    @Guide(description: "Only for a travel ticket or itinerary: the city, airport or station it goes to, copied from the content. Empty otherwise.")
+    var travelTo: String
+
+    @Guide(description: "Only for a travel ticket or itinerary: the flight or train number as written, such as MU523 or G1234. Empty otherwise.")
+    var travelNumber: String
 }
 
 @Generable
@@ -138,9 +151,12 @@ struct GeneratedDate {
 @Generable
 enum GeneratedDateRole {
     case eventStart, eventEnd, deadline, expiry, reservation, mentioned
+    /// When a flight, train or bus leaves.
+    case departure
 
     var role: ItemDate.Role {
         switch self {
+        case .departure: .departure
         case .eventStart: .eventStart
         case .eventEnd: .eventEnd
         case .deadline: .deadline
@@ -163,6 +179,8 @@ struct GeneratedPlace {
 @Generable
 enum GeneratedKind {
     case article, product, place, event, recipe, video, person, receipt, ticket, quote, document, other
+    /// A flight, train or bus ticket, boarding pass or travel itinerary.
+    case travel
 
     var semanticKind: SemanticKind {
         switch self {
@@ -178,6 +196,7 @@ enum GeneratedKind {
         case .quote: .quote
         case .document: .document
         case .other: .other
+        case .travel: .travel
         }
     }
 }

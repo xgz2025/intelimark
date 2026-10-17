@@ -10,6 +10,7 @@
 
 import Foundation
 import Testing
+import GRDB
 import Model
 import Capture
 @testable import Library
@@ -24,6 +25,40 @@ struct LibraryTests {
         database = try LibraryDatabase.inMemory()
         store = EnvelopeStore(inboxURL: root.appending(path: "Inbox"))
         ingestor = Ingestor(store: store, database: database, itemsDirectory: root.appending(path: "Items"))
+    }
+
+    @Test func savingAProductPageAgainRefreshesTheSavedProduct() async throws {
+        let first = CaptureEnvelope(
+            id: ULID(), device: "d", surface: .shareSheet,
+            url: URL(string: "https://www.amazon.com/Wool-Coat/dp/B0ABC12345/ref=sr_1_3?tag=x"), title: "Wool Coat"
+        )
+        try store.commit(first)
+        try await ingestor.ingestPending()
+        let repository = ItemRepository(database: database)
+        // The product as the extract stage would leave it.
+        let recorded = try await repository.recordPrice(120, currency: "USD", forItem: first.id.rawValue)
+        #expect(recorded == nil)
+        try await database.writer.write { db in try db.execute(sql: "DELETE FROM job") }
+
+        let again = CaptureEnvelope(
+            id: ULID(), device: "d", surface: .safariExtension,
+            url: URL(string: "https://amazon.com/dp/B0ABC12345?psc=1"), title: "Wool Coat"
+        )
+        try store.commit(again)
+        let ingested = try await ingestor.ingestPending()
+        #expect(ingested == [first.id.rawValue])
+        #expect(try await repository.item(id: again.id.rawValue) == nil)
+        #expect(try store.committedCaptures().isEmpty)
+        let jobs = try await database.writer.read { db in try JobRecord.filter(Column("itemID") == first.id.rawValue).fetchCount(db) }
+        #expect(jobs == 1)
+
+        // A highlight on the same page is a new save.
+        let highlight = CaptureEnvelope(
+            id: ULID(), device: "d", surface: .safariExtension,
+            url: URL(string: "https://amazon.com/dp/B0ABC12345"), title: "Wool Coat", selection: TextQuote(exact: "100% wool")
+        )
+        try store.commit(highlight)
+        #expect(try await ingestor.ingestPending() == [highlight.id.rawValue])
     }
 
     @Test func ingestsALinkWithAHighlight() async throws {

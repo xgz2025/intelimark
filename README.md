@@ -1,4 +1,4 @@
-# Nextmark
+# Laterwise
 
 **Save with purpose.** Save anything from any app on iPhone, iPad and Mac,
 remember *why* you saved it, get it back at the right moment, and turn piles
@@ -39,10 +39,13 @@ The `.xcodeproj` is generated from `project.yml` and git-ignored; change
 targets and settings there. Before running on a device:
 
 1. Set your team in `project.yml` (`DEVELOPMENT_TEAM`) if it isn't `DMY7T44MNF`.
-2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.nextmark.app`
+2. Register `group.com.veloworkspaces.nextmark` (App Group) and `iCloud.com.veloworkspaces.nextmark`
    (CloudKit container) for the team; automatic signing does the rest.
-3. Run the **Nextmark-iOS** or **Nextmark-macOS** scheme. To try capture, share a
-   Safari page to Nextmark; it appears in the Inbox.
+3. Run the **Nextmark-iOS** scheme on an iPhone, iPad or simulator, or the
+   **Nextmark-macOS** scheme on **My Mac**. To try capture, share a Safari page or a
+   file to Laterwise; it appears in the Inbox. On the Mac, if Laterwise is missing
+   from a Share menu, choose **Edit Extensions…** at the bottom of the menu (or
+   System Settings › General › Login Items & Extensions › Sharing) and turn it on.
 
 | Target | iOS | macOS |
 |---|---|---|
@@ -60,3 +63,13 @@ Shared code lives in `Packages/NextmarkKit` (`Model`, `Capture`, `CaptureUI`,
 iOS / iPadOS / macOS 26+ (OS 27 features behind `#available`), Swift 6,
 SwiftUI, GRDB + CloudKit (`CKSyncEngine`), Foundation Models, Vision,
 NaturalLanguage, App Intents, WidgetKit.
+
+## Languages
+
+English and Simplified Chinese. Every user-facing string, including those in
+`NextmarkKit` (looked up in the app's main bundle), is in
+`App/Shared/Localizable.xcstrings`, which the extensions share. Its entries are
+marked manual so Xcode never treats package strings as stale. Info.plist strings
+live in `App/iOS/zh-Hans.lproj` and `App/macOS/zh-Hans.lproj`. A new string needs
+its key (the English text, with `%@`/`%lld` for interpolations) and a translation
+added to the catalog, in Xcode's editor.

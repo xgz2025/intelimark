@@ -35,7 +35,9 @@ final class AppModel {
     @ObservationIgnored private(set) var services: LibraryServices!
     /// Where notification taps lead; RootView follows it.
     let navigator = AppNavigator()
-    /// Nextmark Pro (PRD P4): Moments, Briefs and unlimited smart groups.
+    /// Opens the library window and brings the app forward (set by the window on the Mac).
+    @ObservationIgnored var showLibrary: (@MainActor () -> Void)?
+    /// Laterwise Pro (PRD P4): Moments, Briefs and unlimited smart groups.
     let pro = ProAccess()
     private(set) var lastError: String?
     /// The library couldn't be opened. Captures then stay in the Inbox untouched (an
@@ -46,6 +48,7 @@ final class AppModel {
 
     private let ingestor: Ingestor
     private let pipeline: PipelineRunner
+    private let priceChecker: PriceChecker
     private let moments: MomentsEngine
     @ObservationIgnored private var cloudSync: CloudSync?
     /// Screenshot Rescue (PRD C9), on iPhone and iPad.
@@ -57,6 +60,8 @@ final class AppModel {
     @ObservationIgnored private var watcher: InboxWatcher?
     @ObservationIgnored private var isProcessing = false
     @ObservationIgnored private var needsAnotherPass = false
+    @ObservationIgnored private var isIngesting = false
+    @ObservationIgnored private var needsAnotherIngest = false
     /// Wakes the pipeline when a postponed job (a fetch that failed offline) is due.
     @ObservationIgnored private var wake: Task<Void, Never>?
     @ObservationIgnored private var pathMonitor: NWPathMonitor?
@@ -81,16 +86,26 @@ final class AppModel {
             briefWriter: IntelligenceRouter.makeBriefWriter()
         )
         moments = MomentsEngine(database: database, scheduler: UserNotificationScheduler())
+        let priceChecker = PriceChecker(database: database) { url in await WebPagePriceReader.read(url) }
+        self.priceChecker = priceChecker
         services = LibraryServices(
             database: database,
             search: search,
             itemsDirectory: AppGroup.itemsURL,
+            captureStore: store,
             refresh: { [weak self] in
                 await self?.updateSync()
                 await self?.processInbox()
             },
             syncNow: { [weak self] in
                 await self?.syncNow()
+            },
+            checkPrices: { [weak self] ids in
+                let outcomes = await priceChecker.check(ids)
+                for (id, outcome) in outcomes {
+                    await self?.announcePrice(of: id, outcome)
+                }
+                return outcomes
             }
         )
         cloudSync = CloudSync(store: SyncStore(database: database, itemsDirectory: AppGroup.itemsURL)) { [weak self] result in
@@ -122,6 +137,7 @@ final class AppModel {
     func handle(_ response: MomentResponse) async {
         if let destination = try? await moments.handle(response) {
             navigator.open(destination)
+            showLibrary?()
         }
         await rescheduleMoments()
     }
@@ -151,6 +167,11 @@ final class AppModel {
         var settings = MomentSettings(defaults: .standard)
         settings.includesTimeMoments = pro.isPro
         _ = try? await moments.reschedule(settings: settings)
+    }
+
+    /// The app is running only to host unit tests (StoreKit Testing).
+    static var isHostingTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     static func live() -> AppModel {
@@ -229,12 +250,57 @@ final class AppModel {
 
     /// Back in the foreground: new screenshots (once a rescue has run), new captures.
     func becameActive() async {
+        ReviewPrompt.noteActiveDay()
         // A subscription can lapse while the app runs; StoreKit sends no update for that.
         await pro.refresh()
         guard startupError == nil else { return }
         await requeueForModelIfReady()
         await rescue?.importNew()
+        await finishPastShowsAndTrips()
         await processInbox()
+        await checkProductPrices()
+    }
+
+    /// Pro: saved products' prices are checked once a day while Laterwise runs, a few
+    /// at a time, and a drop is announced.
+    private func checkProductPrices() async {
+        guard pro.isPro, startupError == nil,
+              let ids = try? await repository.productIDsToCheck(checkedBefore: Date().addingTimeInterval(-20 * 3600), limit: 10),
+              !ids.isEmpty
+        else { return }
+        for (id, outcome) in await priceChecker.check(ids) {
+            await announcePrice(of: id, outcome)
+        }
+    }
+
+    /// A price that reached its target is announced to everyone; a drop, to Pro.
+    func announcePrice(of id: String, _ outcome: PriceCheckOutcome) async {
+        guard let item = try? await repository.item(id: id),
+              let alert = PriceAlert.notice(for: outcome, target: item.targetPrice, includesDrops: pro.isPro)
+        else { return }
+        let currency = item.typedFields?.product?.currency
+        let title = item.card.title
+        switch alert {
+        case .reachedTarget(let price, let target):
+            await UserNotificationScheduler.notifyPriceDrop(
+                itemID: id,
+                title: String(localized: "Under your target: \(title)"),
+                body: String(localized: "Now \(ItemRecord.money(price, currency: currency)), your target is \(ItemRecord.money(target, currency: currency)).")
+            )
+        case .dropped(let from, let to):
+            await UserNotificationScheduler.notifyPriceDrop(
+                itemID: id,
+                title: String(localized: "Price drop: \(title)"),
+                body: String(localized: "Now \(ItemRecord.money(to, currency: currency)), was \(ItemRecord.money(from, currency: currency)).")
+            )
+        }
+    }
+
+    /// Shows and trips that ended move to Done the morning after (Docs/save_types.md),
+    /// with Undo.
+    private func finishPastShowsAndTrips() async {
+        guard let finished = try? await repository.finishPastShowsAndTrips(), !finished.isEmpty else { return }
+        announceFinishedShowsAndTrips(finished)
     }
 
     /// Items understood without the model (or with an older prompt), and Briefs written
@@ -254,6 +320,14 @@ final class AppModel {
     /// Ingests new captures, then runs enrichment. Coalesces overlapping calls.
     func processInbox() async {
         guard startupError == nil else { return }
+        await pipeline.setComparesProductsAutomatically(pro.isPro)
+        await pipeline.setPriceObserver { [weak self] id, outcome in
+            await self?.announcePrice(of: id, outcome)
+        }
+        await pipeline.setPageRenderer { url in await WebPagePriceReader.read(url) }
+        // New saves appear in the Inbox at once, even while enrichment is busy with
+        // earlier ones (a slow page, image analysis, a model download).
+        await ingestNow()
         guard !isProcessing else {
             needsAnotherPass = true
             return
@@ -275,16 +349,7 @@ final class AppModel {
         repeat {
             needsAnotherPass = false
             // Each stage runs even if the one before it failed.
-            do {
-                let report = try await ingestor.ingestPendingReportingFailures()
-                lastError = report.lastFailure?.localizedDescription
-            } catch {
-                lastError = error.localizedDescription
-            }
-            // What's still waiting couldn't be added; the Inbox says so, and why.
-            let waiting = ingestor.waitingCount()
-            CaptureStatus.shared.stuckCount = waiting
-            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+            await ingestNow()
             // A full batch means more is waiting (e.g. a screenshot rescue): go round again,
             // unless the device is hot or in Low Power Mode, when a few jobs at a time will do.
             let budget = PowerBudget.current
@@ -298,6 +363,30 @@ final class AppModel {
             }
             await rescheduleMoments()
         } while needsAnotherPass
+    }
+
+    /// Moves committed captures into the library. Quick, and kept apart from enrichment
+    /// so a save never waits behind it. Coalesces overlapping calls.
+    private func ingestNow() async {
+        guard !isIngesting else {
+            needsAnotherIngest = true
+            return
+        }
+        isIngesting = true
+        defer { isIngesting = false }
+        repeat {
+            needsAnotherIngest = false
+            do {
+                let report = try await ingestor.ingestPendingReportingFailures()
+                lastError = report.lastFailure?.localizedDescription
+            } catch {
+                lastError = error.localizedDescription
+            }
+            // What's still waiting couldn't be added; the Inbox says so, and why.
+            let waiting = ingestor.waitingCount()
+            CaptureStatus.shared.stuckCount = waiting
+            CaptureStatus.shared.reason = waiting > 0 ? lastError : nil
+        } while needsAnotherIngest
     }
 
     /// Runs the pipeline again when the next postponed job is due, while the app runs

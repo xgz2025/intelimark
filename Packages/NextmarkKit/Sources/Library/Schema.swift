@@ -228,6 +228,23 @@ extension LibraryDatabase {
             // iCloud sync bookkeeping and change tracking (Docs/architecture.md §4.3).
             try SyncCatalog.createSchema(db)
         }
+
+        // Reminders chosen for one show or trip (Docs/save_types.md); NULL uses the defaults.
+        migrator.registerMigration("v2-reminders") { db in
+            try db.alter(table: "item") { t in
+                t.add(column: "reminders", .text)
+            }
+            // The change-tracking triggers list the item's columns: make them again.
+            try SyncCatalog.recreateTriggers(forTable: "item", in: db)
+        }
+
+        // The price a product is wanted at ("tell me when it's under ¥299").
+        migrator.registerMigration("v3-target-price") { db in
+            try db.alter(table: "item") { t in
+                t.add(column: "targetPrice", .double)
+            }
+            try SyncCatalog.recreateTriggers(forTable: "item", in: db)
+        }
         return migrator
     }
 }

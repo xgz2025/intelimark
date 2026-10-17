@@ -24,7 +24,7 @@ public struct ScreenshotRef: Sendable, Hashable {
 
 public enum PhotosAccess: Sendable, Equatable {
     case notDetermined
-    /// Full or limited: Nextmark sees what the user chose to share.
+    /// Full or limited: Laterwise sees what the user chose to share.
     case granted
     case denied
 }

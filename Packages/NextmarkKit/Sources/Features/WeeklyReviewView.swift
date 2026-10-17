@@ -16,16 +16,26 @@ import Intelligence
 import Moments
 import DesignSystem
 
-/// Where the app should go next, e.g. after a notification tap. RootView follows it.
+/// Where the app should go next, e.g. after a notification tap, and menu commands
+/// (New Note, Find). RootView follows it.
 @MainActor
 @Observable
 public final class AppNavigator {
+    public enum Command: Sendable, Equatable {
+        case newNote, newGroup, search
+    }
+
     public var destination: MomentDestination?
+    public var command: Command?
 
     public init() {}
 
     public func open(_ destination: MomentDestination) {
         self.destination = destination
+    }
+
+    public func perform(_ command: Command) {
+        self.command = command
     }
 }
 
@@ -39,6 +49,8 @@ struct WeeklyReviewView: View {
     @State private var tally = Tally()
     @State private var lastTossed: ReviewCard?
     @State private var drag: CGSize = .zero
+    /// The arrow keys decide only while the stack has focus, never while typing elsewhere.
+    @FocusState private var isStackFocused: Bool
 
     struct Tally {
         var done = 0
@@ -60,6 +72,18 @@ struct WeeklyReviewView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 stack
+                    .focusable()
+                    .focused($isStackFocused)
+                    .focusEffectDisabled()
+                    .onKeyPress(.leftArrow) { decide(.toss); return .handled }
+                    .onKeyPress(.rightArrow) { decide(.keep); return .handled }
+                    .onKeyPress(.upArrow) { decide(.doIt); return .handled }
+                    .onAppear { isStackFocused = true }
+                NavigationLink(value: ItemLink(id: cards[index].id)) {
+                    Label("Open", systemImage: "arrow.up.right.square")
+                }
+                .buttonStyle(.borderless)
+                .help(Text("Open this save before you decide"))
                 controls
             } else {
                 finished
@@ -112,16 +136,16 @@ struct WeeklyReviewView: View {
                 Button(role: .destructive) { decide(.toss) } label: {
                     Label("Toss", systemImage: "trash")
                 }
-                .keyboardShortcut(.leftArrow, modifiers: [])
+                .help(Text("Move it to the Trash (←)"))
                 Button { decide(.keep) } label: {
                     Label("Keep", systemImage: "tray.full")
                 }
-                .keyboardShortcut(.rightArrow, modifiers: [])
+                .help(Text("Keep it in the Inbox (→)"))
                 Button { decide(.doIt) } label: {
                     Label("Do", systemImage: "checklist")
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.upArrow, modifiers: [])
+                .help(Text("Add a next action for it (↑)"))
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
@@ -130,10 +154,18 @@ struct WeeklyReviewView: View {
                     .font(.callout)
                     .buttonStyle(.borderless)
             }
-            Text("Swipe up to do, right to keep, left to toss.")
+            Text(Self.hint)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    static var hint: LocalizedStringKey {
+        #if os(macOS)
+        "Press ↑ to do, → to keep, ← to toss. Tossed saves go to the Trash."
+        #else
+        "Swipe up to do, right to keep, left to toss. Tossed saves go to the Trash."
+        #endif
     }
 
     private var finished: some View {
@@ -147,13 +179,20 @@ struct WeeklyReviewView: View {
             if cards.isEmpty {
                 Text("New, upcoming and forgotten saves will show up here each week.")
             } else {
-                Text("\(tally.done) to do · \(tally.kept) kept · \(tally.tossed) tossed")
+                VStack(spacing: 6) {
+                    Text("\(tally.done) to do · \(tally.kept) kept · \(tally.tossed) tossed")
+                    if tally.tossed > 0 {
+                        Text("Tossed saves wait in the Trash for 30 days.")
+                    }
+                }
             }
         } actions: {
             Button("Check Again") {
                 Task { await load() }
             }
         }
+        // A review worked through to the end is a good moment to ask for a rating.
+        .requestsReview(after: !cards.isEmpty && index >= cards.count)
     }
 
     private func decide(_ decision: Decision) {

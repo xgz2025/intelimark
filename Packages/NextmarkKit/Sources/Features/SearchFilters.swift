@@ -15,7 +15,7 @@ import DesignSystem
 /// The kinds offered as filters: how people think of their saves, which mixes what
 /// was captured (photos, PDFs) with what it is about (products, places…).
 enum KindFilter: String, CaseIterable, Identifiable, Hashable {
-    case photos, pdfs, articles, products, places, events, recipes, videos, receipts, tickets
+    case photos, pdfs, articles, products, places, events, recipes, videos, receipts, tickets, travel
 
     var id: Self { self }
 
@@ -38,6 +38,7 @@ enum KindFilter: String, CaseIterable, Identifiable, Hashable {
         case .videos: .video
         case .receipts: .receipt
         case .tickets: .ticket
+        case .travel: .travel
         }
     }
 
@@ -53,6 +54,7 @@ enum KindFilter: String, CaseIterable, Identifiable, Hashable {
         case .videos: "Videos"
         case .receipts: "Receipts"
         case .tickets: "Tickets"
+        case .travel: "Travel"
         }
     }
 

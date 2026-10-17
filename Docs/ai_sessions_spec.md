@@ -1,4 +1,4 @@
-# Nextmark — AI Sessions & Work Recap
+# Laterwise — AI Sessions & Work Recap
 
 Requirement IDs continue
 `prd.md` (S = sessions, R = recap). Architecture references point to

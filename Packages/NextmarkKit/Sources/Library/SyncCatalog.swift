@@ -84,7 +84,7 @@ public enum SyncCatalog {
     public static let tables: [SyncTable] = [
         SyncTable(
             recordType: "Item", table: "item", keyColumns: ["id"], parents: [],
-            userColumns: ["userTitle", "note", "intent", "status", "pinned"],
+            userColumns: ["userTitle", "note", "intent", "status", "pinned", "reminders", "targetPrice"],
             derivedLayers: [
                 .init(stampKey: "extractVersion", versionColumn: "extractVersion", columns: [
                     "ocrText", "contentText", "siteName", "heroImageURL", "imageLabels", "barcodes",
@@ -219,6 +219,21 @@ extension SyncCatalog {
         for table in tables {
             try createTriggers(for: table, columns: db.columns(in: table.table).map(\.name), in: db)
         }
+    }
+
+    /// After a migration adds a column to a synced table: its triggers are made again
+    /// with the new column list.
+    static func recreateTriggers(forTable name: String, in db: Database) throws {
+        guard let table = tables.first(where: { $0.table == name }) else { return }
+        // GLOB, not LIKE: in LIKE "_" matches any character, so "sync_item_%" would
+        // also match the itemGroup table's triggers.
+        let triggers = try String.fetchAll(
+            db, sql: "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name GLOB ?", arguments: ["sync_\(name)_*"]
+        )
+        for trigger in triggers {
+            try db.execute(sql: "DROP TRIGGER \(trigger)")
+        }
+        try createTriggers(for: table, columns: db.columns(in: name).map(\.name), in: db)
     }
 
     static let notApplying = "(SELECT applying FROM syncControl) = 0"

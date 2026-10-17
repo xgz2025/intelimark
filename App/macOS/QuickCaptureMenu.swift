@@ -16,22 +16,25 @@ import SwiftUI
 struct QuickCaptureMenu: View {
     @AppStorage(QuickCaptureController.hotKeyEnabledKey) private var hotKeyEnabled = true
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         quickCaptureButton
         Button("Save Clipboard") { QuickCaptureController.shared.saveClipboard() }
         Button("Capture Screenshot…") { QuickCaptureController.shared.show(source: .screenshot) }
         Divider()
-        Button("Open Nextmark") {
+        Button("Open Laterwise") {
             openWindow(id: NextmarkApp.mainWindowID)
             NSApp.activate()
         }
-        SettingsLink {
-            Text("Settings…")
+        // Brought forward: from the menu bar, Settings would open behind other apps.
+        Button("Settings…") {
+            NSApp.activate()
+            openSettings()
         }
         .keyboardShortcut(",")
         Divider()
-        Button("Quit Nextmark") { NSApplication.shared.terminate(nil) }
+        Button("Quit Laterwise") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 

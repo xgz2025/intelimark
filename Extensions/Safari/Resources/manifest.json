@@ -1,8 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "Nextmark",
-  "description": "Save pages and highlights to Nextmark.",
+  "name": "Laterwise",
+  "description": "Save pages, links and highlights to Laterwise.",
   "version": "0.1.0",
+  "icons": {
+    "48": "toolbar-48.png",
+    "96": "toolbar-96.png",
+    "128": "toolbar-128.png"
+  },
+  "action": {
+    "default_title": "Save to Laterwise",
+    "default_icon": {
+      "16": "toolbar-16.png",
+      "19": "toolbar-19.png",
+      "32": "toolbar-32.png",
+      "38": "toolbar-38.png",
+      "48": "toolbar-48.png",
+      "64": "toolbar-64.png"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },

@@ -1,4 +1,4 @@
-# Nextmark — Market & Technical Feasibility (Oct 2026)
+# Laterwise — Market & Technical Feasibility (Oct 2026)
 
 ## Verdict
 

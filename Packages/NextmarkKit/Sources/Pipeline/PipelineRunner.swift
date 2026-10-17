@@ -25,6 +25,9 @@ public actor PipelineRunner {
     public static let understandVersion = 2
     /// Bump when the Brief prompt or schema changes. Heuristic briefs are stored as 0.
     public static let briefVersion = 1
+    /// Fewer characters of text than this from a shop's page: read it in a browser, so
+    /// the summary has words to work with.
+    static let fewWords = 400
 
     let queue: JobQueue
     let repository: ItemRepository
@@ -43,6 +46,29 @@ public actor PipelineRunner {
     /// Groups whose Brief the model was too busy to write: when to try again, and how
     /// many times it has been busy, for a growing backoff.
     var briefRetries: [String: (after: Date, failures: Int)] = [:]
+    /// Pro puts similar products in a comparison group itself; Free gets a suggestion.
+    var comparesProductsAutomatically = false
+
+    public func setComparesProductsAutomatically(_ value: Bool) {
+        comparesProductsAutomatically = value
+    }
+
+    /// Told what a product's price did when its page was read (a Safari refresh, say),
+    /// so the app can say it reached its target.
+    var priceObserver: (@Sendable (String, PriceCheckOutcome) async -> Void)?
+
+    public func setPriceObserver(_ observer: @escaping @Sendable (String, PriceCheckOutcome) async -> Void) {
+        priceObserver = observer
+    }
+
+    /// Reads a shop's page as a browser shows it, for a shop link saved without a price
+    /// or words to sum up (shared from the Amazon or Shein app, whose pages state
+    /// neither to a plain request).
+    var pageRenderer: PriceChecker.Renderer?
+
+    public func setPageRenderer(_ renderer: @escaping PriceChecker.Renderer) {
+        pageRenderer = renderer
+    }
 
     /// - Parameters:
     ///   - itemsDirectory: where the ingestor keeps each item's files (`<itemsDirectory>/<itemID>/…`).
@@ -271,7 +297,9 @@ public actor PipelineRunner {
                 kind: item.kind,
                 url: item.canonicalURL.flatMap { URL(string: $0) },
                 pageContext: item.pageContext,
-                files: files
+                files: files,
+                text: item.text,
+                capturedAt: item.createdAt
             )
             let extraction = try await extractor.extract(input)
             // The preview first: saving the extraction updates the item, which redraws it.
@@ -281,7 +309,25 @@ public actor PipelineRunner {
                     try await repository.saveThumbnail(forItem: job.itemID, fileName: Thumbnailer.fileName, byteSize: byteSize)
                 }
             }
-            try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            var price = try await repository.applyExtraction(extraction, toItem: job.itemID, version: Self.extractVersion, now: now)
+            var isProduct = extraction.typedFields?.product != nil
+            let fewWords = (extraction.contentText?.count ?? 0) < Self.fewWords
+            if price == nil || fewWords, let url = input.url, ProductPage.isShop(url), let pageRenderer,
+               let page = await pageRenderer(url) {
+                if price == nil, let shown = page.price {
+                    try await repository.recordPrice(shown.price, currency: shown.currency, origin: shown.origin, forItem: job.itemID, now: now)
+                    price = .found(shown.price)
+                    isProduct = true
+                }
+                if fewWords, let text = page.text {
+                    try await repository.fillContentText(text, forItem: job.itemID, now: now)
+                }
+            }
+            if let price, let priceObserver { await priceObserver(job.itemID, price) }
+            // A product joins the similar ones already saved, to compare.
+            if isProduct {
+                _ = try? await groups.groupSimilarProducts(itemID: job.itemID, autoAccept: comparesProductsAutomatically, now: now)
+            }
             try await queue.enqueue(.understand, itemID: job.itemID, notBefore: now)
 
         case .understand:

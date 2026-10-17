@@ -18,7 +18,7 @@ import Library
 /// engine schedules sends and fetches, listens for pushes and retries; this actor
 /// hands it records from `SyncStore` and writes what it fetches back.
 public actor CloudSync: CKSyncEngineDelegate {
-    public static let containerIdentifier = "iCloud.com.nextmark.app"
+    public static let containerIdentifier = "iCloud.com.veloworkspaces.nextmark"
     static let batchSize = 200
 
     private let store: SyncStore
@@ -136,7 +136,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         stop()
         if hasRefetched {
             let reason = applyError?.localizedDescription ?? ""
-            setStatus(String(localized: "Couldn't save changes from iCloud on this device. Nextmark will try again the next time it opens. \(reason)"))
+            setStatus(String(localized: "Couldn't save changes from iCloud on this device. Laterwise will try again the next time it opens. \(reason)"))
             return
         }
         failedApply = false
@@ -166,8 +166,20 @@ public actor CloudSync: CKSyncEngineDelegate {
             markSynced()
         } catch {
             logger.error("Sync failed: \(error.localizedDescription, privacy: .public)")
+            logDetails(of: error)
             setStatus(Self.message(for: error))
         }
+    }
+
+    /// The whole error, with what the server said (its underlying errors and messages):
+    /// "Server Rejected Request" alone doesn't say why. In full in Debug builds only.
+    private func logDetails(of error: any Error) {
+        let details = Self.details(of: error as NSError)
+        #if DEBUG
+        logger.error("Sync error details: \(details, privacy: .public)")
+        #else
+        logger.error("Sync error details: \(details, privacy: .private)")
+        #endif
     }
 
     /// Records held back after a refusal are offered again.
@@ -321,6 +333,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         case .sentDatabaseChanges(let sent):
             for failure in sent.failedZoneSaves {
                 logger.error("Couldn't create the zone: \(failure.error.localizedDescription, privacy: .public)")
+                logDetails(of: failure.error)
                 if failure.error.code == .quotaExceeded {
                     isQuotaFull = true
                     startHolding()
@@ -480,7 +493,7 @@ public actor CloudSync: CKSyncEngineDelegate {
         try? await store.resetServerState()
         switch reason {
         case .purged:
-            // The user deleted Nextmark's iCloud data in Settings: stop until they turn sync back on.
+            // The user deleted Laterwise's iCloud data in Settings: stop until they turn sync back on.
             UserDefaults.standard.set(false, forKey: SyncSettings.Key.enabled)
             setStatus(String(localized: "Your iCloud data was deleted. Turn sync on to upload your library again."))
             stop()
@@ -503,12 +516,32 @@ public actor CloudSync: CKSyncEngineDelegate {
         }
     }
 
+    /// An error with everything it carries: its domain and code, then each entry of its
+    /// user info (the server's message, the HTTP status, a retry time…), underlying
+    /// errors in turn.
+    static func details(of error: NSError, depth: Int = 0) -> String {
+        var lines = ["\(error.domain) \(error.code): \(error.localizedDescription)"]
+        for (key, value) in error.userInfo.sorted(by: { $0.key < $1.key }) {
+            if let underlying = value as? NSError, depth < 3 {
+                lines.append("\(key) → " + details(of: underlying, depth: depth + 1))
+            } else if let partial = value as? [AnyHashable: Any] {
+                for (id, item) in partial.prefix(3) {
+                    let text = (item as? NSError).map { details(of: $0, depth: depth + 1) } ?? String(describing: item)
+                    lines.append("\(key)[\(id)] → \(text)")
+                }
+            } else {
+                lines.append("\(key): \(String(describing: value).prefix(500))")
+            }
+        }
+        return lines.joined(separator: "\n" + String(repeating: "  ", count: depth + 1))
+    }
+
     /// What Settings says when syncing fails.
     static func message(for error: any Error) -> String {
         guard let error = error as? CKError else { return error.localizedDescription }
         switch error.code {
         case .networkUnavailable, .networkFailure:
-            return String(localized: "You're offline. Nextmark syncs when you're back online.")
+            return String(localized: "You're offline. Laterwise syncs when you're back online.")
         case .quotaExceeded:
             return String(localized: "iCloud storage is full. Your changes are kept on this device and will sync when there's space.")
         case .notAuthenticated:
@@ -516,7 +549,9 @@ public actor CloudSync: CKSyncEngineDelegate {
         case .accountTemporarilyUnavailable:
             return String(localized: "Your iCloud account needs attention. Check Settings › Apple Account.")
         case .serviceUnavailable, .requestRateLimited, .zoneBusy:
-            return String(localized: "iCloud is busy. Nextmark will try again shortly.")
+            return String(localized: "iCloud is busy. Laterwise will try again shortly.")
+        case .serverRejectedRequest, .badContainer, .missingEntitlement, .permissionFailure:
+            return String(localized: "iCloud didn't accept this copy of Laterwise, so your library stays on this device. Updating Laterwise usually fixes this.")
         default:
             return error.localizedDescription
         }

@@ -14,7 +14,7 @@ import Model
 import Capture
 import CaptureUI
 
-/// macOS share extension (PRD C3): right-click → Share → Nextmark in Safari,
+/// macOS share extension (PRD C3): right-click → Share → Laterwise in Safari,
 /// Finder, Photos, Preview and Notes. Same flow as iOS.
 final class ShareViewController: NSViewController {
     private let store = EnvelopeStore()
@@ -47,7 +47,7 @@ final class ShareViewController: NSViewController {
             draft.content = await ShareItemLoader.load(inputItems: inputItems, payloadDirectory: payloadDirectory)
         } catch {
             // Without the shared folder nothing can reach the app; say so rather than pretend.
-            draft.error = String(localized: "Nextmark can't save right now: \(error.localizedDescription)")
+            draft.error = String(localized: "Laterwise can't save right now: \(error.localizedDescription)")
         }
         draft.isLoading = false
     }

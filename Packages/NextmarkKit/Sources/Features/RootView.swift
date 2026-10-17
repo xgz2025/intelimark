@@ -9,12 +9,13 @@
 //
 
 import SwiftUI
+import Model
 import Library
 import Moments
 import Integrations
 
 enum SidebarSelection: Hashable {
-    case inbox, nextActions, review, search, suggestions, screenshots, trash, settings
+    case inbox, upcoming, nextActions, review, search, suggestions, screenshots, done, trash, settings
     case group(String)
 }
 
@@ -32,6 +33,9 @@ public struct RootView: View {
     @State private var openActionCount = 0
     @State private var trashCount = 0
     @State private var showsNewGroup = false
+    @State private var showsNewNote = false
+    @State private var renamingGroup: GroupRecord?
+    @State private var deletingGroup: GroupRecord?
 
     /// - Parameter rescue: Screenshot Rescue, where the device has a photo library to rescue from.
     public init(services: LibraryServices, navigator: AppNavigator = AppNavigator(), rescue: RescueController? = nil) {
@@ -65,6 +69,34 @@ public struct RootView: View {
             }
             .interactiveDismissDisabled()
         }
+        .onChange(of: navigator.command, initial: true) {
+            guard let command = navigator.command else { return }
+            navigator.command = nil
+            switch command {
+            case .newNote: showsNewNote = true
+            case .newGroup: showsNewGroup = true
+            case .search: selection = .search
+            }
+        }
+        .sheet(isPresented: $showsNewNote) {
+            NewNoteSheet(services: services)
+        }
+        .sheet(item: $renamingGroup) { group in
+            RenameGroupSheet(group: group, services: services)
+        }
+        .confirmationDialog(
+            "Delete “\(deletingGroup?.displayTitle ?? "")”?",
+            isPresented: Binding(get: { deletingGroup != nil }, set: { if !$0 { deletingGroup = nil } }),
+            titleVisibility: .visible,
+            presenting: deletingGroup
+        ) { group in
+            Button("Delete Group", role: .destructive) {
+                let (groups, id) = (services.groups, group.id)
+                performEdit { try await groups.delete(id) }
+            }
+        } message: { _ in
+            Text("Its items stay in your library. The group's own actions are deleted with it.")
+        }
         .onChange(of: navigator.destination, initial: true) {
             // `initial`: a notification tap that launched the app arrives before this view.
             guard let destination = navigator.destination else { return }
@@ -91,6 +123,7 @@ public struct RootView: View {
                 trashCount = count
             }
         }
+        .recentChangeBanner(items: services.items)
         .editFailureAlert()
         .sheet(isPresented: $showsNewGroup) {
             NewGroupSheet(services: services) { id in
@@ -104,6 +137,8 @@ public struct RootView: View {
             Section {
                 Label("Inbox", systemImage: "tray")
                     .tag(SidebarSelection.inbox)
+                Label("Upcoming", systemImage: "calendar")
+                    .tag(SidebarSelection.upcoming)
                 Label("Next Actions", systemImage: "checklist")
                     .badge(openActionCount)
                     .tag(SidebarSelection.nextActions)
@@ -111,6 +146,8 @@ public struct RootView: View {
                     .tag(SidebarSelection.review)
                 Label("Search", systemImage: "magnifyingglass")
                     .tag(SidebarSelection.search)
+                Label("Settings", systemImage: "gearshape")
+                    .tag(SidebarSelection.settings)
                 if rescue != nil {
                     Label("Screenshots", systemImage: "camera.viewfinder")
                         .tag(SidebarSelection.screenshots)
@@ -125,7 +162,10 @@ public struct RootView: View {
                 ForEach(groups) { summary in
                     GroupSidebarRow(summary: summary)
                         .tag(SidebarSelection.group(summary.id))
-                        .dropDestination(for: String.self) { ids, _ in
+                        .dropDestination(for: String.self) { dropped, _ in
+                            // Items drag as their IDs; other text dropped here isn't an item.
+                            let ids = dropped.filter { ULID($0) != nil }
+                            guard !ids.isEmpty else { return false }
                             let (repository, groupID) = (services.groups, summary.id)
                             Task { @MainActor in
                                 do {
@@ -136,6 +176,11 @@ public struct RootView: View {
                             }
                             return true
                         }
+                        .contextMenu {
+                            Button("Rename…", systemImage: "pencil") { renamingGroup = summary.group }
+                            Divider()
+                            Button("Delete Group…", systemImage: "trash", role: .destructive) { deletingGroup = summary.group }
+                        }
                 }
                 Button {
                     showsNewGroup = true
@@ -145,16 +190,14 @@ public struct RootView: View {
                 .buttonStyle(.borderless)
             }
             Section {
+                Label("Done", systemImage: "checkmark.circle")
+                    .tag(SidebarSelection.done)
                 Label("Trash", systemImage: "trash")
                     .badge(trashCount)
                     .tag(SidebarSelection.trash)
-                #if os(iOS)
-                Label("Settings", systemImage: "gearshape")
-                    .tag(SidebarSelection.settings)
-                #endif
             }
         }
-        .navigationTitle("Nextmark")
+        .navigationTitle("Laterwise")
     }
 
     @ViewBuilder
@@ -162,6 +205,8 @@ public struct RootView: View {
         switch selection {
         case .inbox:
             InboxView(services: services)
+        case .upcoming:
+            UpcomingView(services: services)
         case .nextActions:
             NextActionsView(services: services)
         case .review:
@@ -174,6 +219,8 @@ public struct RootView: View {
             if let rescue {
                 ScreenshotRescueView(services: services, controller: rescue)
             }
+        case .done:
+            DoneView(services: services)
         case .trash:
             TrashView(services: services)
         case .settings:

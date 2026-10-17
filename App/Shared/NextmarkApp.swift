@@ -26,19 +26,26 @@ struct NextmarkApp: App {
         let model = AppModel.live()
         _model = State(initialValue: model)
         // From launch, not from a window: on the Mac, captures from the menu bar, hotkey
-        // and Services arrive with no window open.
-        Task { await model.start() }
+        // and Services arrive with no window open. Not while hosting tests: an unsigned
+        // test build has no iCloud entitlement, and the tests need none of it.
+        if !AppModel.isHostingTests {
+            Task { await model.start() }
+        }
     }
 
     var body: some Scene {
         #if os(macOS)
-        // One main window: "Open Nextmark" brings it back instead of adding another.
-        Window("Nextmark", id: Self.mainWindowID) { main }
+        // One main window: "Open Laterwise" brings it back instead of adding another.
+        Window("Laterwise", id: Self.mainWindowID) {
+            main.opensLibraryWindow(for: model)
+        }
+        .commands { MacLibraryCommands(navigator: model.navigator) }
         #else
         WindowGroup(id: Self.mainWindowID) { main }
+            .commands { LibraryCommands(navigator: model.navigator) }
         #endif
         #if os(macOS)
-        MenuBarExtra("Nextmark", systemImage: "bookmark.fill") {
+        MenuBarExtra("Laterwise", systemImage: "bookmark.fill") {
             QuickCaptureMenu()
         }
         Settings {
@@ -57,12 +64,12 @@ struct NextmarkApp: App {
                 }
             }
             .alert(
-                "Nextmark Couldn't Open Your Library",
+                "Laterwise Couldn't Open Your Library",
                 isPresented: Binding(get: { model.startupError != nil && !startupErrorSeen }, set: { _ in startupErrorSeen = true })
             ) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Nothing has been lost: new saves wait in the Inbox until the library opens. Quit and reopen Nextmark, and if this keeps happening, contact support. (\(model.startupError ?? ""))")
+                Text("Nothing has been lost: new saves wait in the Inbox until the library opens. Quit and reopen Laterwise, and if this keeps happening, contact support. (\(model.startupError ?? ""))")
             }
     }
 }

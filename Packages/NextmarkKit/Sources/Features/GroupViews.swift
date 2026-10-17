@@ -27,6 +27,7 @@ struct GroupDetailView: View {
     @State private var showsDonePrompt = false
     @State private var outcome = ""
     @State private var showsPaywall = false
+    @State private var priceSummary: String?
     @Environment(\.dismiss) private var dismiss
     @Environment(ProAccess.self) private var pro: ProAccess?
 
@@ -57,14 +58,33 @@ struct GroupDetailView: View {
         // Next steps come from the Brief, a Pro feature.
         let suggestions = (isPro ? group.brief?.suggestedActions ?? [] : [])
             .filter { !detail.knownActionTitles.contains($0.title.lowercased()) }
+        let shown = group.state == .suggested ? suggested : confirmed
+        let products = shown.map(\.item).filter { $0.saveType == .product }
+        let compares = products.count >= 2
+        // Products are listed once, in Compare; Items has the rest.
+        let others = compares ? shown.filter { $0.item.saveType != .product } : shown
         return List {
             Section {
-                GroupHeader(group: group, memberCount: confirmed.count)
+                HStack(alignment: .top) {
+                    GroupHeader(group: group, memberCount: confirmed.count)
+                    if compares {
+                        Spacer(minLength: 8)
+                        GroupPriceCheckButton(
+                            itemIDs: products.map(\.id), services: services, isPro: isPro, summary: $priceSummary
+                        )
+                        .padding(.top, 6)
+                    }
+                }
+                if compares, let priceSummary {
+                    Text(priceSummary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if group.state == .suggested {
                 Section {
-                    Text("Nextmark found \(suggested.count) saves that seem to belong together.")
+                    Text("Laterwise found \(suggested.count) saves that seem to belong together.")
                         .foregroundStyle(.secondary)
                     HStack {
                         Button("Keep Group", systemImage: "checkmark") { keep() }
@@ -75,6 +95,12 @@ struct GroupDetailView: View {
                         }
                         .buttonStyle(.bordered)
                     }
+                }
+            }
+
+            if compares {
+                ComparisonSection(members: products, services: services) { id in
+                    run { try await services.groups.removeItem(id, from: groupID) }
                 }
             }
 
@@ -105,6 +131,11 @@ struct GroupDetailView: View {
                                 run { try await services.actions.delete(action.id) }
                             }
                         }
+                        .contextMenu {
+                            Button("Delete Action", systemImage: "trash", role: .destructive) {
+                                run { try await services.actions.delete(action.id) }
+                            }
+                        }
                 }
                 TextField("Add an action", text: $newAction)
                     .onSubmit { addAction() }
@@ -113,20 +144,24 @@ struct GroupDetailView: View {
 
             if !suggested.isEmpty && group.state == .accepted {
                 Section {
-                    ForEach(suggested) { member in
+                    ForEach(suggested, id: \.item.listID) { member in
                         HStack {
                             ItemLinkRow(item: member.item, services: services)
-                            Button("Keep", systemImage: "checkmark.circle") {
+                            Button("Keep in Group", systemImage: "checkmark.circle") {
                                 run { try await services.groups.confirmItem(member.item.id, in: groupID) }
                             }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
-                            Button("Remove", systemImage: "xmark.circle") {
+                            .font(.title3)
+                            .help(Text("Keep in this group"))
+                            Button("Remove from Group", systemImage: "xmark.circle") {
                                 run { try await services.groups.removeItem(member.item.id, from: groupID) }
                             }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
+                            .font(.title3)
                             .foregroundStyle(.secondary)
+                            .help(Text("Remove from this group"))
                         }
                     }
                 } header: {
@@ -136,25 +171,36 @@ struct GroupDetailView: View {
                 }
             }
 
-            Section {
-                ForEach(group.state == .suggested ? suggested : confirmed) { member in
-                    ItemLinkRow(item: member.item, services: services)
+            if !others.isEmpty || !compares {
+                Section {
+                    ForEach(others, id: \.item.listID) { member in
+                        ItemLinkRow(item: member.item, services: services, removeFromGroup: {
+                            run { try await services.groups.removeItem(member.item.id, from: groupID) }
+                        })
                         .swipeActions {
                             Button("Remove", systemImage: "minus.circle", role: .destructive) {
                                 run { try await services.groups.removeItem(member.item.id, from: groupID) }
                             }
                         }
-                }
-            } header: {
-                if group.state == .suggested {
-                    Text("Items")
-                } else {
-                    Text("Items (\(confirmed.count))")
+                    }
+                } header: {
+                    if group.state == .suggested || compares {
+                        Text("Items")
+                    } else {
+                        Text("Items (\(confirmed.count))")
+                    }
                 }
             }
         }
+        #if os(macOS)
+        // The Mac's List keeps a row's first height: built again when a member changes
+        // (a page read, a price found), so its rows show all they have.
+        .id(Self.version(of: shown))
+        #endif
         .navigationTitle(group.displayTitle)
-        .dropDestination(for: String.self) { ids, _ in
+        .dropDestination(for: String.self) { dropped, _ in
+            let ids = dropped.filter { ULID($0) != nil }
+            guard !ids.isEmpty else { return false }
             run { _ = try await services.groups.addItems(ids, to: groupID) }
             return true
         }
@@ -207,7 +253,7 @@ struct GroupDetailView: View {
                 dismiss()
             }
         } message: {
-            Text("The items stay in your library.")
+            Text("Its items stay in your library. The group's own actions are deleted with it.")
         }
         .alert("Mark “\(group.displayTitle)” as done?", isPresented: $showsDonePrompt) {
             TextField("What came of it? (optional)", text: $outcome)
@@ -220,6 +266,12 @@ struct GroupDetailView: View {
         } message: {
             Text("Done groups move to the end of the list with their outcome.")
         }
+    }
+
+    static func version(of members: [GroupMember]) -> Int {
+        var hasher = Hasher()
+        for member in members { hasher.combine(member.item.listID) }
+        return hasher.finalize()
     }
 
     private func addAction() {
@@ -251,7 +303,9 @@ struct GroupDetailView: View {
                 try await groups.acceptSuggestion(groupID, smartGroupLimit: limit)
             } catch is GroupLimitReached {
                 showsPaywall = true
-            } catch {}
+            } catch {
+                EditFailure.shared.report(error)
+            }
         }
     }
 }
@@ -357,7 +411,7 @@ private struct BulletLabelStyle: LabelStyle {
     }
 }
 
-private struct RenameGroupSheet: View {
+struct RenameGroupSheet: View {
     let group: GroupRecord
     let services: LibraryServices
     @Environment(\.dismiss) private var dismiss
@@ -382,6 +436,7 @@ private struct RenameGroupSheet: View {
                         performEdit { try await groups.rename(id, to: title, emoji: emoji) }
                         dismiss()
                     }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .onAppear {
@@ -436,7 +491,7 @@ private struct PlanSheet: View {
     }
 }
 
-/// Groups Nextmark proposes (PRD G2): keep, open, or dismiss each.
+/// Groups Laterwise proposes (PRD G2): keep, open, or dismiss each.
 struct SuggestionsView: View {
     let services: LibraryServices
     @State private var suggestions: [GroupSummary] = []
@@ -450,22 +505,13 @@ struct SuggestionsView: View {
                     GroupLabel(group: summary.group, count: summary.suggestedCount)
                 }
                 .swipeActions {
-                    Button("Dismiss", systemImage: "xmark", role: .destructive) {
-                        let (groups, id) = (services.groups, summary.id)
-                        performEdit { try await groups.dismissSuggestion(id) }
-                    }
-                    Button("Keep", systemImage: "checkmark") {
-                        let (groups, id) = (services.groups, summary.id)
-                        let limit = ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false)
-                        Task {
-                            do {
-                                try await groups.acceptSuggestion(id, smartGroupLimit: limit)
-                            } catch is GroupLimitReached {
-                                showsPaywall = true
-                            } catch {}
-                        }
-                    }
-                    .tint(.green)
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { dismissSuggestion(summary.id) }
+                    Button("Keep", systemImage: "checkmark") { keep(summary.id) }
+                        .tint(.green)
+                }
+                .contextMenu {
+                    Button("Keep Group", systemImage: "checkmark") { keep(summary.id) }
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { dismissSuggestion(summary.id) }
                 }
             }
         }
@@ -473,7 +519,7 @@ struct SuggestionsView: View {
             if suggestions.isEmpty {
                 ContentUnavailableView(
                     "No Suggestions", systemImage: "sparkles",
-                    description: Text("As you save more, Nextmark proposes groups of related items here.")
+                    description: Text("As you save more, Laterwise proposes groups of related items here.")
                 )
             }
         }
@@ -486,6 +532,27 @@ struct SuggestionsView: View {
                 suggestions = summaries
             }
         }
+    }
+}
+
+extension SuggestionsView {
+    private func keep(_ id: String) {
+        let groups = services.groups
+        let limit = ProAccess.smartGroupLimit(isPro: pro?.isPro ?? false)
+        Task {
+            do {
+                try await groups.acceptSuggestion(id, smartGroupLimit: limit)
+            } catch is GroupLimitReached {
+                showsPaywall = true
+            } catch {
+                EditFailure.shared.report(error)
+            }
+        }
+    }
+
+    private func dismissSuggestion(_ id: String) {
+        let groups = services.groups
+        performEdit { try await groups.dismissSuggestion(id) }
     }
 }
 

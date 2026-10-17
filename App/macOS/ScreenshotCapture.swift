@@ -14,7 +14,7 @@ import ImageIO
 import ScreenCaptureKit
 import UniformTypeIdentifiers
 
-/// Screenshots for quick capture (PRD C5) with ScreenCaptureKit. Nextmark's own
+/// Screenshots for quick capture (PRD C5) with ScreenCaptureKit. Laterwise's own
 /// windows are left out, so the capture panel never appears in the picture.
 /// Screen Recording permission is requested the first time the user asks for one.
 enum ScreenshotCapture {
@@ -26,7 +26,7 @@ enum ScreenshotCapture {
         var errorDescription: String? {
             switch self {
             case .permissionNeeded:
-                String(localized: "Allow Nextmark under Screen & System Audio Recording in System Settings, then try again.")
+                String(localized: "Allow Laterwise under Screen & System Audio Recording in System Settings, then try again.")
             case .noDisplay:
                 String(localized: "No display to capture.")
             case .encodingFailed:

@@ -80,7 +80,7 @@ public struct HeuristicUnderstander: ItemUnderstander {
     }
 
     static func summary(for input: UnderstandingInput) -> String {
-        guard let text = (input.text ?? input.ocrText)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        guard let text = (input.text ?? input.ocrText).map(PageText.withoutFurniture)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else { return "" }
         guard text.count > 240 else { return text }
         let cut = text.prefix(240)

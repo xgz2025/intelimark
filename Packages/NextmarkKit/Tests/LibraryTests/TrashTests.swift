@@ -35,6 +35,41 @@ struct TrashTests {
         )
     }
 
+    @Test func severalItemsChangeAtOnce() async throws {
+        let ids = try await importScreenshots(["a", "b", "c"])
+        try await repository.setStatus(.done, forItems: [ids[0], ids[1]], now: now)
+        #expect(try await repository.item(id: ids[0])?.status == .done)
+        #expect(try await repository.item(id: ids[1])?.status == .done)
+        #expect(try await repository.item(id: ids[2])?.status != .done)
+    }
+
+    @Test func showsAndTripsMoveToDoneTheMorningAfter() async throws {
+        func show(_ title: String, startingAt start: Date) -> ItemRecord {
+            var item = ItemRecord(envelope: CaptureEnvelope(id: ULID(), device: "d", surface: .shareSheet, title: title), now: now)
+            item.typedFields = TypedFields(ticket: TicketFields(name: title, startDate: start))
+            item.dates = item.typedFields?.structuredDates ?? []
+            return item
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let today = calendar.startOfDay(for: now)
+        let last = show("Last night", startingAt: today.addingTimeInterval(-4 * 3600))
+        let tonight = show("Tonight", startingAt: today.addingTimeInterval(20 * 3600))
+        let ticket = show("Last week, still has an action", startingAt: today.addingTimeInterval(-7 * 86_400))
+        try await database.writer.write { db in
+            try last.insert(db)
+            try tonight.insert(db)
+            try ticket.insert(db)
+        }
+        _ = try await ActionRepository(database: database).add(title: "Claim the refund", itemID: ticket.id)
+
+        let finished = try await repository.finishPastShowsAndTrips(now: now, calendar: calendar)
+        #expect(Set(finished.keys) == [last.id])
+        #expect(try await repository.item(id: last.id)?.status == .done)
+        #expect(try await repository.item(id: tonight.id)?.status == .inbox)
+        #expect(try await repository.item(id: ticket.id)?.status == .inbox)
+    }
+
     @Test func restoreBringsAnItemBack() async throws {
         let ids = try await importScreenshots(["a"])
         try await repository.setStatus(.trashed, forItem: ids[0], now: now)

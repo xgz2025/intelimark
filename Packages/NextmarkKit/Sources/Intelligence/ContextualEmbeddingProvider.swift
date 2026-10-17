@@ -20,6 +20,10 @@ import Model
 public actor ContextualEmbeddingProvider: EmbeddingProvider {
     /// Loaded models by identifier. Loading takes a moment, so models stay loaded.
     private var models: [String: NLContextualEmbedding] = [:]
+    /// Models whose download just failed or timed out, and when to try again. Until
+    /// then embedding fails at once instead of waiting for the download every time.
+    private var unavailableUntil: [String: Date] = [:]
+    static let retryDownloadAfter: TimeInterval = 10 * 60
 
     static let assetsTimeLimit: TimeInterval = 120
 
@@ -63,6 +67,9 @@ public actor ContextualEmbeddingProvider: EmbeddingProvider {
         let candidate = language.map { NLContextualEmbedding(language: $0) } ?? NLContextualEmbedding(language: .english)
         guard let candidate else { throw EmbeddingError.unsupportedLanguage }
         if let loaded = models[candidate.modelIdentifier] { return loaded }
+        if let until = unavailableUntil[candidate.modelIdentifier], until > Date() {
+            throw EmbeddingError.assetsUnavailable
+        }
         if !candidate.hasAvailableAssets {
             // A download on a slow network shouldn't hold up the queue: give up after a
             // while (it carries on in the background) and let the job retry later.
@@ -75,7 +82,10 @@ public actor ContextualEmbeddingProvider: EmbeddingProvider {
                     }
                 }
             }) ?? false
-            guard available else { throw EmbeddingError.assetsUnavailable }
+            guard available else {
+                unavailableUntil[candidate.modelIdentifier] = Date().addingTimeInterval(Self.retryDownloadAfter)
+                throw EmbeddingError.assetsUnavailable
+            }
         }
         try candidate.load()
         models[candidate.modelIdentifier] = candidate

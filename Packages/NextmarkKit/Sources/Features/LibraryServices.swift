@@ -10,6 +10,7 @@
 
 import Foundation
 import SwiftUI
+import Capture
 import Library
 import Search
 
@@ -23,17 +24,25 @@ public struct LibraryServices: Sendable {
     public let refresh: @Sendable () async -> Void
     /// Fetches from and sends to iCloud now.
     public let syncNow: @Sendable () async -> Void
+    /// Check Price: reads products' pages again and records their prices.
+    public let checkPrices: @Sendable ([String]) async -> [String: PriceCheckOutcome]
     /// Where each item's files live (`<itemsDirectory>/<itemID>/…`).
     public let itemsDirectory: URL?
+    /// Where saves made in the app go, like those from the Share menu.
+    public let captureStore: EnvelopeStore
 
     public init(
         database: LibraryDatabase,
         search: HybridSearch,
         itemsDirectory: URL? = nil,
+        captureStore: EnvelopeStore = EnvelopeStore(),
         refresh: @escaping @Sendable () async -> Void,
-        syncNow: @escaping @Sendable () async -> Void = {}
+        syncNow: @escaping @Sendable () async -> Void = {},
+        checkPrices: @escaping @Sendable ([String]) async -> [String: PriceCheckOutcome] = { _ in [:] }
     ) {
+        self.checkPrices = checkPrices
         self.itemsDirectory = itemsDirectory
+        self.captureStore = captureStore
         items = ItemRepository(database: database)
         groups = GroupRepository(database: database)
         actions = ActionRepository(database: database)
@@ -44,10 +53,11 @@ public struct LibraryServices: Sendable {
 }
 
 extension ItemRecord {
-    /// The preview of an image or PDF item, drawn by the Extract stage.
+    /// The preview of an image or PDF item, drawn by the Extract stage; nil until it is.
     func thumbnailURL(in itemsDirectory: URL?) -> URL? {
         guard let itemsDirectory, [.image, .pdf].contains(kind) else { return nil }
-        return itemsDirectory.appending(path: id).appending(path: "thumbnail.jpg")
+        let url = itemsDirectory.appending(path: id).appending(path: "thumbnail.jpg")
+        return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
     }
 }
 

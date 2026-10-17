@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import Model
 import Intelligence
 import Library
 import Moments
@@ -21,6 +22,7 @@ public struct SettingsView: View {
     private let onSyncNow: @Sendable () async -> Void
 
     @AppStorage(MomentSettings.Key.enabled) private var momentsEnabled = true
+    @AppStorage(ReminderDefaults.enabledKey) private var showAndTripReminders = true
     @AppStorage(MomentSettings.Key.maxPerDay) private var maxPerDay = 3
     @AppStorage(MomentSettings.Key.quietStart) private var quietStart = 22
     @AppStorage(MomentSettings.Key.quietEnd) private var quietEnd = 8
@@ -47,7 +49,7 @@ public struct SettingsView: View {
         Form {
             Section {
                 if pro?.isPro == true {
-                    LabeledContent("Nextmark Pro") {
+                    LabeledContent("Laterwise Pro") {
                         if pro?.hasLifetime == true { Text("Lifetime") } else { Text("Active") }
                     }
                     if pro?.hasSubscription == true {
@@ -58,7 +60,7 @@ public struct SettingsView: View {
                     RestorePurchasesButton()
                 }
             } header: {
-                Text("Nextmark Pro")
+                Text("Laterwise Pro")
             } footer: {
                 if pro?.isPro != true {
                     Text("Pro adds Moments, Briefs and unlimited smart groups. Saving, search, sync and the Weekly Review are always free.")
@@ -66,11 +68,14 @@ public struct SettingsView: View {
                     Text("You own Pro for life, so you can cancel your subscription in Manage Subscription.")
                 }
             }
+            ReminderDefaultsSection(onChange: onChange)
             Section {
                 if pro?.isPro != true {
                     ProUpsellRow(text: "Date reminders come with Pro", reason: "Moments bring saves back when they matter.")
                 }
+                NotificationAccessRow(isNeeded: momentsEnabled || reviewEnabled || showAndTripReminders)
                 Toggle("Remind Me About Dates in My Saves", isOn: $momentsEnabled)
+                    .disabled(pro?.isPro != true)
                 if momentsEnabled {
                     Stepper("At most \(maxPerDay) a day", value: $maxPerDay, in: 1...6)
                     Picker("Quiet from", selection: $quietStart) { hourOptions }
@@ -117,16 +122,48 @@ public struct SettingsView: View {
             } header: {
                 Text("iCloud")
             } footer: {
-                Text("Your library syncs through your private iCloud database; Nextmark has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
+                Text("Your library syncs through your private iCloud database; Laterwise has no server. The text of each save is end-to-end encrypted, and files are too with Advanced Data Protection. Without original files, titles, notes, text and previews still sync, using little iCloud space.")
             }
-            Section("Apple Intelligence") {
-                LabeledContent("On-device model", value: IntelligenceStatus.current.description)
+            Section {
+                let status = IntelligenceStatus.current
+                LabeledContent("Apple Intelligence") {
+                    Label {
+                        Text(status.description)
+                    } icon: {
+                        Image(systemName: status.isAvailable ? "checkmark.circle.fill" : "circle.dashed")
+                            .foregroundStyle(status.isAvailable ? Color.green : Color.secondary)
+                    }
+                }
+            } header: {
+                Text("Apple Intelligence")
+            } footer: {
+                Text(IntelligenceStatus.current.explanation)
             }
+            #if os(macOS)
+            Section {
+                SettingsLink {
+                    Label("Quick Capture, Services and Safari…", systemImage: "square.and.arrow.down")
+                }
+            } footer: {
+                Text("Opens the Settings window, with the Mac's own capture settings.")
+            }
+            #endif
+            #if DEBUG
+            DebugSection()
+            #endif
             Section("About") {
-                LabeledContent(
-                    "Version",
-                    value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
-                )
+                LabeledContent("Version", value: NextmarkLinks.versionDescription)
+                if let review = NextmarkLinks.writeReview {
+                    Link(destination: review) {
+                        Label("Rate Laterwise on the App Store", systemImage: "star")
+                    }
+                }
+                Link(destination: NextmarkLinks.feedbackMail) {
+                    Label("Send Feedback", systemImage: "envelope")
+                }
+                ShareLink(item: NextmarkLinks.appStore ?? NextmarkLinks.website) {
+                    Label("Share Laterwise", systemImage: "square.and.arrow.up")
+                }
                 Link("Support", destination: NextmarkLinks.support)
                 Link("Privacy Policy", destination: NextmarkLinks.privacy)
                 Button("Acknowledgements") { showsAcknowledgements = true }
@@ -173,3 +210,43 @@ public struct SettingsView: View {
         return date.formatted(date: .omitted, time: .shortened)
     }
 }
+
+#if DEBUG
+/// Debug builds only, never in a release build: act as each plan without buying it.
+private struct DebugSection: View {
+    @AppStorage(DebugPlan.key) private var plan = DebugPlan.store
+    @Environment(ProAccess.self) private var pro: ProAccess?
+
+    var body: some View {
+        Section {
+            Picker(selection: $plan) {
+                ForEach(DebugPlan.allCases, id: \.self) { plan in
+                    Text(verbatim: Self.title(plan)).tag(plan)
+                }
+            } label: {
+                Text(verbatim: "Act As")
+            }
+            Text(verbatim: "Now: " + (pro?.isPro == true ? "Pro" : "Free")
+                + (pro?.hasLifetime == true ? ", lifetime" : "") + (pro?.hasSubscription == true ? ", subscription" : ""))
+                .foregroundStyle(.secondary)
+        } header: {
+            Text(verbatim: "Debug")
+        } footer: {
+            Text(verbatim: "Debug builds only. \"StoreKit\" uses the real purchases (or the StoreKit configuration's).")
+        }
+        .onChange(of: plan) {
+            Task { await pro?.refresh() }
+        }
+    }
+
+    static func title(_ plan: DebugPlan) -> String {
+        switch plan {
+        case .store: "StoreKit"
+        case .free: "Free"
+        case .monthly: "Pro Monthly"
+        case .yearly: "Pro Yearly"
+        case .lifetime: "Pro Lifetime"
+        }
+    }
+}
+#endif

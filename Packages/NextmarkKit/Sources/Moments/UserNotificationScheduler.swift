@@ -40,12 +40,9 @@ public struct UserNotificationScheduler: MomentScheduling {
 
     public func replaceMoments(with plan: [MomentCandidate]) async {
         let center = UNUserNotificationCenter.current()
-        if !plan.isEmpty, await center.notificationSettings().authorizationStatus == .notDetermined {
-            // Not awaited: an unanswered prompt (the user left the app) would otherwise
-            // hold up everything waiting on this, saves included. Requests added now
-            // are delivered once allowed.
-            Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) }
-        }
+        // Permission is asked where it's clear why (onboarding, Settings), never from
+        // here: a prompt out of nowhere after a save gets declined. Requests added
+        // before it's given are delivered once allowed.
         let scheduled = await center.pendingNotificationRequests()
             .map(\.identifier)
             .filter { $0.hasPrefix(Self.momentPrefix) }
@@ -77,6 +74,20 @@ public struct UserNotificationScheduler: MomentScheduling {
             .filter { $0.identifier.hasPrefix(Self.snoozePrefix) }
             .compactMap { ($0.trigger as? UNCalendarNotificationTrigger)?.nextTriggerDate() }
         return delivered + snoozed
+    }
+
+    /// Says at once that a saved product got cheaper; opening it shows the item.
+    public static func notifyPriceDrop(itemID: String, title: String, body: String) async {
+        let moment = MomentCandidate(targetID: itemID, targetKind: .item, fireDate: Date(), reason: .priceDrop, title: title, body: body)
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.categoryIdentifier = categoryID(.item)
+        content.threadIdentifier = MomentCandidate.Reason.priceDrop.rawValue
+        content.userInfo = MomentResponse.userInfo(for: moment)
+        let request = UNNotificationRequest(identifier: "pricedrop.\(itemID)", content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     static func categoryID(_ kind: MomentCandidate.TargetKind) -> String {

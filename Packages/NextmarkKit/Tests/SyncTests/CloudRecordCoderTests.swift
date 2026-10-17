@@ -45,5 +45,15 @@ struct CloudRecordCoderTests {
         #expect(CloudSync.message(for: CKError(.networkUnavailable)).contains("offline"))
         #expect(CloudSync.message(for: CKError(.quotaExceeded)).contains("iCloud storage is full"))
         #expect(CloudSync.message(for: CKError(.notAuthenticated)).contains("Sign in"))
+        #expect(CloudSync.message(for: CKError(.serverRejectedRequest)).contains("stays on this device"))
+    }
+
+    @Test func syncErrorDetailsIncludeWhatTheServerSaid() {
+        let underlying = NSError(domain: "CKInternalErrorDomain", code: 2000, userInfo: [NSLocalizedDescriptionKey: "Bad container"])
+        let error = CKError(.serverRejectedRequest, userInfo: [NSUnderlyingErrorKey: underlying, "ServerErrorDescription": "Invalid bundle"])
+        let details = CloudSync.details(of: error as NSError)
+        #expect(details.contains("CKInternalErrorDomain 2000"))
+        #expect(details.contains("Bad container"))
+        #expect(details.contains("Invalid bundle"))
     }
 }

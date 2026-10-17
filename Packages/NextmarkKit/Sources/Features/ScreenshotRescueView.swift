@@ -10,6 +10,9 @@
 
 import SwiftUI
 import Photos
+#if os(iOS)
+import UIKit
+#endif
 import Model
 import Library
 import Integrations
@@ -78,7 +81,7 @@ struct ScreenshotRescueView: View {
                 }
             }
         } message: {
-            Text("They stay in Nextmark, searchable by their text. Photos keeps deleted items in Recently Deleted for 30 days.")
+            Text("They stay in Laterwise, searchable by their text. Photos keeps deleted items in Recently Deleted for 30 days.")
         }
         .alert("Couldn't Delete from Photos", isPresented: Binding(
             get: { cleanUpError != nil },
@@ -111,8 +114,13 @@ struct ScreenshotRescueView: View {
             }
         case .denied:
             Section {
-                Label("Nextmark can't see your photos. Allow access in Settings › Privacy › Photos.", systemImage: "lock")
+                Label("Laterwise can't see your photos. Allow access in Settings › Privacy › Photos.", systemImage: "lock")
                     .foregroundStyle(.secondary)
+                #if os(iOS)
+                if let settings = URL(string: UIApplication.openSettingsURLString) {
+                    Link("Open Settings", destination: settings)
+                }
+                #endif
             }
         case .granted:
             switch controller.phase {
@@ -168,7 +176,7 @@ struct RescuePitch: View {
                 Text("Let's sort your screenshots.")
                     .font(.headline)
             }
-            Text("Nextmark reads the text in each one and sorts out the receipts, tickets, recipes and quotes. Everything stays on your devices.")
+            Text("Laterwise reads the text in each one and sorts out the receipts, tickets, recipes and quotes. Everything stays on your devices.")
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)

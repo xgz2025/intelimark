@@ -11,7 +11,7 @@
 import SwiftUI
 import Integrations
 
-/// First launch: what Nextmark does, then (on iPhone and iPad) Screenshot Rescue,
+/// First launch: what Laterwise does, then (on iPhone and iPad) Screenshot Rescue,
 /// so the library isn't empty on day one (Docs/product_strategy.md §4).
 public struct OnboardingView: View {
     public static let completedKey = "onboarding.completed"
@@ -52,12 +52,12 @@ public struct OnboardingView: View {
                 .font(.largeTitle.bold())
             Feature(symbol: "square.and.arrow.up", title: "Save from anywhere") {
                 #if os(macOS)
-                Text("Press ⌥⌘S in any app, choose Services › Save to Nextmark, or use Share. Say why: to read, buy, try or go.")
+                Text("Press ⌥⌘S in any app, choose Services › Save to Laterwise, or use Share. Say why: to read, buy, try or go.")
                 #else
-                Text("Tap Share in any app and choose Nextmark. Say why: to read, buy, try or go.")
+                Text("Tap Share in any app and choose Laterwise, or tap + in the Inbox. In Safari, turn on Laterwise in the extensions menu (the puzzle piece) to save highlights. Say why: to read, buy, try or go.")
                 #endif
             }
-            Feature(symbol: "sparkles", title: "Nextmark does the sorting") {
+            Feature(symbol: "sparkles", title: "Laterwise does the sorting") {
                 Text("It reads what you saved, finds dates and places, and groups related saves, on your device.")
             }
             Feature(symbol: "bell.badge", title: "Back when it matters") {
@@ -65,7 +65,11 @@ public struct OnboardingView: View {
             }
             Spacer(minLength: 0)
             Button {
-                if rescue == nil { onFinish(false) } else { showsRescue = true }
+                // Asked here, right under "Back when it matters", so the prompt makes sense.
+                Task {
+                    await NotificationAccess.request()
+                    if rescue == nil { onFinish(false) } else { showsRescue = true }
+                }
             } label: {
                 Text("Continue").frame(maxWidth: .infinity)
             }
