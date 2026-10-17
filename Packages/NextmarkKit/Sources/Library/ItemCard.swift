@@ -173,7 +173,9 @@ extension ItemRecord {
 
     /// `text`, unless it only repeats the title.
     static func distinct(_ text: String?, from title: String) -> String? {
-        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        // Summaries written from a page's first words may start with its skip links.
+        guard let text = text.map(PageText.withoutFurniture)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else { return nil }
         return text.caseInsensitiveCompare(title) == .orderedSame || title.hasPrefix(text) ? nil : text
     }
 }

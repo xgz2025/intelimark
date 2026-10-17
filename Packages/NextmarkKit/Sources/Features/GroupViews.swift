@@ -192,6 +192,11 @@ struct GroupDetailView: View {
                 }
             }
         }
+        #if os(macOS)
+        // The Mac's List keeps a row's first height: built again when a member changes
+        // (a page read, a price found), so its rows show all they have.
+        .id(Self.version(of: shown))
+        #endif
         .navigationTitle(group.displayTitle)
         .dropDestination(for: String.self) { dropped, _ in
             let ids = dropped.filter { ULID($0) != nil }
@@ -261,6 +266,12 @@ struct GroupDetailView: View {
         } message: {
             Text("Done groups move to the end of the list with their outcome.")
         }
+    }
+
+    static func version(of members: [GroupMember]) -> Int {
+        var hasher = Hasher()
+        for member in members { hasher.combine(member.item.listID) }
+        return hasher.finalize()
     }
 
     private func addAction() {

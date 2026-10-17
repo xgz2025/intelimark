@@ -85,6 +85,8 @@ function laterwisePrice() {
     ".x-price-primary", "[data-testid='price-wrap'] [itemprop='price']", ".priceView-customer-price > span",
     ".product-price-current", "[class*='price--current']", "[class*='Price--priceText']", ".tm-price",
     ".summary-price .p-price", ".p-price .price", ".money-amount__main", ".fr-ec-price-text",
+    // Apple Store
+    ".rc-prices-fullprice", "[data-autom='price']",
     // Microdata, anywhere
     "[itemprop='price']"
   ];
@@ -130,7 +132,7 @@ function laterwisePrice() {
   // page in the largest type, not struck through (that's the old price).
   var heading = document.querySelector("h1");
   var headingTop = heading ? heading.getBoundingClientRect().top + window.scrollY : 0;
-  var symbol = /(US\$|C\$|A\$|HK\$|S\$|\$|€|£|¥|￥|₩|₹)\s?\d|\d\s?(€|元|円)/;
+  var symbol = /(US\$|C\$|A\$|HK\$|S\$|\$|€|£|¥|￥|₩|₹|RMB)\s?\d|\d\s?(€|元|円)/;
   var candidates = document.querySelectorAll("span, div, p, strong, b, ins, bdi, em, h2, h3");
   var best = null;
   var bestScore = 0;

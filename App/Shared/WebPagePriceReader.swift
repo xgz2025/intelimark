@@ -12,6 +12,7 @@
 import Foundation
 import OSLog
 import WebKit
+import Model
 import Extraction
 import Features
 #if os(macOS)
@@ -90,10 +91,15 @@ enum WebPagePriceReader {
     /// The page's words as shown, for a summary when a plain request got none.
     @MainActor
     private static func pageText(of view: WKWebView) async -> String? {
-        let script = "return document.body ? document.body.innerText.slice(0, 8000) : null;"
+        // The page's main part when it marks one; menus and footers aren't what it's about.
+        let script = """
+            var main = document.querySelector("main, [role='main'], #dp-container, #ppd");
+            var node = main && main.innerText.length > 200 ? main : document.body;
+            return node ? node.innerText.slice(0, 8000) : null;
+            """
         let text = try? await view.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: .defaultClient) as? String
-        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.count >= 200 ? trimmed : nil
+        let cleaned = text.map(PageText.withoutFurniture)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return cleaned.count >= 200 ? cleaned : nil
     }
 
     #if DEBUG

@@ -333,7 +333,7 @@ struct ItemDetailView: View {
         case .photo: item.imageDescription ?? item.summary
         default: item.summary
         }
-        guard let text = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
+        guard let text = candidate.map(PageText.withoutFurniture)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty,
               text.caseInsensitiveCompare(card.title) != .orderedSame
         else { return nil }
         let echoed = [item.ocrText, item.text, item.contentText].contains { source in

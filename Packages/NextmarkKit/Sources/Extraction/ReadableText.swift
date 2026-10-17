@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import Model
 
 /// A small readability pass: drops chrome (navigation, scripts, footers), prefers
 /// the largest `<article>`, then `<main>`, then `<body>`, and keeps paragraph breaks.
@@ -49,7 +50,7 @@ public enum ReadableText {
         let lines = text
             .split(whereSeparator: \.isNewline)
             .map { HTMLText.collapseWhitespace(String($0)) }
-            .filter { $0.count > 1 }
+            .filter { $0.count > 1 && !PageText.isFurniture($0) }
         guard !lines.isEmpty else { return nil }
         return HTMLText.truncate(lines.joined(separator: "\n"), to: maxCharacters)
     }

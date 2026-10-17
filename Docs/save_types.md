@@ -40,7 +40,12 @@ The model's dates and places are kept only when the text supports them
 
 ## Lifecycle
 
-1. **Save** from Share, Safari, + in the Inbox, Services, Quick Capture.
+1. **Save** from Share, Safari, + in the Inbox, Services, Quick Capture. From apps
+   whose share panel has no system Share (Taobao, JD, Shein…): **Copy Link**, then
+   the Inbox's "Copied a link?" Paste button (iPhone and iPad), or the **Save Clipboard
+   to Laterwise** shortcut (Back Tap, the Action Button, Siri). Shortcuts also has
+   **Save to Laterwise** for a link or text. A screenshot of the product works too
+   (Screenshot Rescue reads its price).
 2. **Recognize** the type and **extract** its fields (above).
 3. **Remind** (shows and travel): defaults per kind in Settings, changeable on each
    item. Reminders ignore quiet hours and the daily limit: they were asked for.

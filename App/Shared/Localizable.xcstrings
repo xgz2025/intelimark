@@ -1134,6 +1134,17 @@
         }
       }
     },
+    "Copied a link?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制了链接？"
+          }
+        }
+      }
+    },
     "Correct" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2322,6 +2333,17 @@
         }
       }
     },
+    "In any app, Share › Copy Link (or Copy), then paste here to save it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在任意 App 中选择“分享 › 拷贝链接”（或“拷贝”），然后粘贴到这里即可保存。"
+          }
+        }
+      }
+    },
     "In Laterwise" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2890,6 +2912,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "库存有限"
+          }
+        }
+      }
+    },
+    "Link or Text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接或文字"
           }
         }
       }
@@ -4918,6 +4951,17 @@
         }
       }
     },
+    "Save Clipboard to Laterwise" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将剪贴板保存到 Laterwise"
+          }
+        }
+      }
+    },
     "Save from anywhere" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5013,6 +5057,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已保存到 Laterwise"
+          }
+        }
+      }
+    },
+    "Saved to Laterwise." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存到 Laterwise。"
+          }
+        }
+      }
+    },
+    "Saves a link or some text to your Laterwise Inbox, as if you had shared it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将链接或文字保存到 Laterwise 收件箱，就像分享过来一样。"
+          }
+        }
+      }
+    },
+    "Saves the link or text you copied to your Laterwise Inbox." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将你拷贝的链接或文字保存到 Laterwise 收件箱。"
           }
         }
       }
@@ -5761,6 +5838,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有可保存的内容。"
+          }
+        }
+      }
+    },
+    "There's nothing on the clipboard to save. Copy a link first." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板上没有可保存的内容。请先拷贝链接。"
           }
         }
       }

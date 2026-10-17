@@ -9,7 +9,11 @@
 //
 
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 import Model
+import Capture
 import Library
 
 struct InboxView: View {
@@ -21,6 +25,9 @@ struct InboxView: View {
 
     var body: some View {
         ItemSelectionList(items: items, services: services, date: \.createdAt) {
+            #if os(iOS)
+            CopiedLinkBanner(services: services)
+            #endif
             if captures.stuckCount > 0 {
                 Section {
                     Label(
@@ -129,10 +136,39 @@ struct ItemSelectionList<Header: View>: View {
                 .onDeleteCommand { apply(.trashed) }
                 #endif
             } else {
+                #if os(macOS)
+                // A stack rather than a List: the Mac's List keeps each row at the height it
+                // first had (one line, before the page was read) until the list is rebuilt.
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        header()
+                            .padding(.horizontal, 20)
+                        ForEach(DaySection.sections(of: items, date: date)) { section in
+                            Section {
+                                ForEach(section.items) { item in
+                                    StackRow {
+                                        ItemLinkRow(item: item, services: services)
+                                    }
+                                }
+                            } header: {
+                                Text(section.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 6)
+                                    .background(.background)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                #else
                 List {
                     header()
                     rows(selectable: false)
                 }
+                #endif
             }
         }
         .toolbar { toolbar }
@@ -249,6 +285,36 @@ struct ItemSelectionList<Header: View>: View {
 }
 
 /// Items by when they were saved: Today, Yesterday, This Week, Earlier.
+#if os(macOS)
+/// A row in the Mac's item stacks: highlighted under the pointer, a hairline under it.
+struct StackRow<Content: View>: View {
+    let content: Content
+    @State private var isHovered = false
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isHovered ? Color.primary.opacity(0.06) : .clear)
+                )
+                .contentShape(Rectangle())
+                .onHover { isHovered = $0 }
+            Divider()
+                .padding(.leading, 72)
+        }
+        .padding(.horizontal, 8)
+    }
+}
+#endif
+
 struct DaySection<Element: Identifiable>: Identifiable {
     let id: Int
     let title: LocalizedStringKey
@@ -272,3 +338,74 @@ struct DaySection<Element: Identifiable>: Identifiable {
             .map { DaySection(id: $0, title: titles[$0], items: buckets[$0]) }
     }
 }
+
+#if os(iOS)
+/// Something copied in another app, ready to save with one tap: shopping apps whose
+/// share panel has no system Share (Taobao, JD, Shein…) all have "Copy Link". The system
+/// Paste button reads the clipboard only when tapped, so iOS asks nothing beforehand.
+struct CopiedLinkBanner: View {
+    let services: LibraryServices
+    /// The clipboard's change count when its content was saved or dismissed.
+    @AppStorage("paste.handledChangeCount") private var handled = -1
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var hasSomething = false
+
+    var body: some View {
+        Group {
+            if hasSomething {
+                Section {
+                    HStack(spacing: 10) {
+                        Label("Copied a link?", systemImage: "doc.on.clipboard")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer(minLength: 8)
+                        PasteButton(payloadType: String.self) { strings in
+                            Task { @MainActor in save(strings) }
+                        }
+                        .buttonBorderShape(.capsule)
+                        .labelStyle(.titleAndIcon)
+                        Button {
+                            dismissBanner()
+                        } label: {
+                            Label("Not Now", systemImage: "xmark")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                    }
+                } footer: {
+                    Text("In any app, Share › Copy Link (or Copy), then paste here to save it.")
+                }
+            }
+        }
+        .onAppear(perform: check)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { check() }
+        }
+    }
+
+    /// Whether there's new text or a link on the clipboard: asking doesn't read it.
+    private func check() {
+        let board = UIPasteboard.general
+        hasSomething = board.changeCount != handled && (board.hasURLs || board.hasStrings)
+    }
+
+    private func dismissBanner() {
+        handled = UIPasteboard.general.changeCount
+        hasSomething = false
+    }
+
+    private func save(_ strings: [String]) {
+        let text = strings.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        dismissBanner()
+        guard !text.isEmpty else { return }
+        var content = SharedContent()
+        content.appendText(text)
+        content.promoteLinkText()
+        let (store, refresh) = (services.captureStore, services.refresh)
+        performEdit {
+            try CaptureWriter.commit(content, surface: .inApp, store: store)
+            await refresh()
+        }
+    }
+}
+#endif
